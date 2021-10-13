@@ -12,9 +12,6 @@
 # Unignore makefile
 !Makefile
 
-#ignore vscode thing
-.vscode/
-
 # Prerequisites
 *.d
 
