@@ -8,6 +8,12 @@ All of the shit needed and stuff idk.
 #include <stdint.h>
 #include <stdbool.h>
 
+// Border masks
+#define TOP_MASK    0xff00000000000000
+#define RIGHT_MASK  0x8080808080808080
+#define BOTTOM_MASK 0x00000000000000ff
+#define LEFT_MASK   0x0101010101010101
+
 // row. starts at 0
 #define ROW(sq) (floor(sq / 8))
 
@@ -60,5 +66,10 @@ typedef struct {
 	uint64_t w_bitboard;
 	uint64_t b_bitboard;
 } board_t;
+
+typedef struct {
+	uint8_t from;
+	uint8_t to; 
+} movevec_t;
 
 #endif

@@ -22,6 +22,7 @@ A bad chess program. \n\
 Version: idgaf \n\
 h - Print this help. \n\
 p - Print the board. \n\
+b - Print the bitboards. \n\
 i - Information about gamestate. \n\
 q - Exit the program. \n\
 "
@@ -30,39 +31,32 @@ void printhelp() {
 	printf("%s", HELPTXT);
 }
 
-int interprate_input(board_t* const board, const char* str, const int len) {
+int interprate_command(board_t* const board, const char ch) {
 	// all the commands will be 1 char only
-	if (len == 1) {
-		switch (str[0]) {
-			case 'h':
-				printf(HELPTXT);
-				return 0;
-			case 'p':
-				printboard(board);
-				return 0;
-			case 'i':
-				// TODO: gamestate info printing
-				printf("lol no\n");
-				return 0;
-			case 'q':
-				return -1;
-			default:
-				printf("No such command exists!\n");
-				return 1;
-		}
-	}
-	else if (len == 4) {
-		const char from[2] = {str[0], str[1]};
-		const char to[2] = {str[2], str[3]};
-		if (validalgcoord(from) && validalgcoord(to)) {
-			// input shoud be an algebraic move
-			movepiece(board, algtonum(from), algtonum(to));
+	switch (ch) {
+		case 'h':
+			printf(HELPTXT);
 			return 0;
-		}
-		return 1;
+		case 'p':
+			printboard(board);
+			return 0;
+		case 'b':
+			printf("White:\n");
+			printbitboard(board->w_bitboard);
+			printf("Black:\n");
+			printbitboard(board->b_bitboard);
+			return 0;
+		case 'i':
+			// TODO: gamestate info printing
+			printf("lol no\n");
+			return 0;
+		case 'q':
+			return -1;
+		default:
+			printf("No such command exists!\n");
+			return 1;
 	}
-	printf("What?\n");
-	return 1;
+	return 1; // shouldn't get here
 }
 
 int algtonum(const char* str) {

@@ -42,8 +42,8 @@ board_t getstartingboard() {
 	}
 
 	// bitboards
-	board.w_bitboard = 0xffff000000000000;
-	board.b_bitboard = 0x000000000000ffff;
+	board.w_bitboard = 0x000000000000ffff;
+	board.b_bitboard = 0xffff000000000000;
 
 	board.ply = 0;
 	board.castle = CASTLE_WK | CASTLE_WQ | CASTLE_BK | CASTLE_BQ;
@@ -64,6 +64,24 @@ void printboard(const board_t* restrict board) {
 	}
 }
 
+void printbitboard(const uint64_t bb) {
+	uint64_t pos = 0x0100000000000000; // top-left
+	do {
+		char ch = '0';
+		if (pos & bb)
+			ch = '1';
+		printf("%c ", ch);
+		// check if pos is on h-file and nl
+		if (pos & RIGHT_MASK) {
+			printf("\n");
+			pos >>= 15;
+		}
+		else
+			pos <<= 1;
+	} while (pos > 0);
+	printf("%p \n", (void*)bb);
+}
+
 void movepiece(board_t* restrict board, const int from, const int to) {
 	// move piece
 	board->pieces[to] = board->pieces[from];
@@ -73,10 +91,16 @@ void movepiece(board_t* restrict board, const int from, const int to) {
 	board->colour[to] = board->colour[from];
 
 	// change bitboards
-	board->w_bitboard |= ~SQTOBB(from);
-	board->b_bitboard |= ~SQTOBB(from);
-	board->w_bitboard |= SQTOBB(to);
-	board->b_bitboard |= SQTOBB(to);
+	if (board->colour[from] == WHITE) {
+		board->w_bitboard &= ~SQTOBB(from); // set "from" to 0
+		board->w_bitboard |= SQTOBB(to); // set "to" to 1
+		board->b_bitboard &= ~SQTOBB(to); // set "to" to 0 for black
+	}
+	else {
+		board->b_bitboard &= ~SQTOBB(from); // set "from" to 0
+		board->b_bitboard |= SQTOBB(to); // set "to" to 1
+		board->w_bitboard &= ~SQTOBB(to); // set "to" to 0 for white
+	}
 }
 
 #endif
