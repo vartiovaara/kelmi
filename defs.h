@@ -8,6 +8,14 @@ All of the shit needed and stuff idk.
 #include <stdint.h>
 #include <stdbool.h>
 
+// row. starts at 0
+#define ROW(sq) (floor(sq / 8))
+
+// column. starts at 0
+#define COL(sq) (sq % 8)
+
+#define SQTOBB(sq) ((uint64_t)0x1 << sq)
+
 enum piece_e {
 	KING,
 	QUEEN,
@@ -18,7 +26,7 @@ enum piece_e {
 	EMPTY_PIECE
 };
 
-enum color_e {
+enum colour_e {
 	WHITE,
 	BLACK,
 	EMPTY_COLOR
@@ -31,7 +39,7 @@ enum castle_e {
 	CASTLE_BQ = 8
 };
 
-static const char piece_char[] = {
+const char piece_char[] = {
 	[KING] = 'k',
 	[QUEEN] = 'q',
 	[ROOK] = 'r',
@@ -45,10 +53,12 @@ static const char piece_char[] = {
 // all of its necessary gamestate
 typedef struct {
 	uint8_t pieces[64];
-	uint8_t color[64];
+	uint8_t colour[64];
 	uint8_t castle; // 1=shortW, 2=longW, 4=shortB, 8=longB
 	uint8_t ply;
 	bool whiteturn;
+	uint64_t w_bitboard;
+	uint64_t b_bitboard;
 } board_t;
 
 #endif

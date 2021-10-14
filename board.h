@@ -9,3 +9,5 @@ Board header file.
 board_t getstartingboard();
 
 void printboard(const board_t* restrict board);
+
+void movepiece(board_t* restrict board, const int from, const int to);
