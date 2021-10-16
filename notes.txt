@@ -1,0 +1,3 @@
+Just a simple chess engine.
+User gives a move in algabreic notation, 
+and we make a move.
