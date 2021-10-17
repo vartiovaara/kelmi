@@ -7,8 +7,8 @@ Init stuff
 
 #include "defs.h"
 
-board_t getdefaultboard() {
-	board_t board;
+board_s getdefaultboard() {
+	board_s board;
 	return board;
 }
 
