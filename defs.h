@@ -18,6 +18,10 @@ All of the defines and structs and stuff
 #define BOTTOM_MASK 0x00000000000000ff
 #define LEFT_MASK   0x0101010101010101
 
+// Handy squares
+#define A8 0x0100000000000000
+
+
 // Empty square char
 #define NO_PIECE_CHAR ('.')
 
@@ -26,6 +30,8 @@ All of the defines and structs and stuff
 
 // See: https://chess.stackexchange.com/a/30006
 #define MAX_FEN_LEN 88 // includes trailing \0
+
+#define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 // Enums
 enum side_e {
@@ -63,8 +69,9 @@ extern board_s getdefaultboard();
 
 // board.c
 extern void printboard(const board_s*);
+extern void printbitboard(const uint64_t);
 extern board_s boardfromfen(const char*);
 extern void resetboard(board_s*);
 extern uint64_t bbvertivalflip(uint64_t);
 
-#endif
+#endif // DEFS_H

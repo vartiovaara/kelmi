@@ -22,66 +22,44 @@ const char piece_chars[N_PIECES] = {
 };
 
 void printboard(const board_s* board) {
-	// TODO: test which of the implementations works and choose one
-
-	uint64_t pos = SQTOBB(7*8); // a8, >>1 so that loop 1 is correct
-	uint64_t endsq = SQTOBB(7); // h1
-	while (1) {
-		// Loop through all of the bitboards of both sides
+	uint64_t pos = A8; // top-left
+	do {
 		for (int piece = 0; piece < N_PIECES; piece++) {
-			// Expects that both sides do not occupy
-			// the same square
 			if (pos & board->pieces[WHITE][piece]) {
-				printf("%c", toupper(piece_chars[piece]));
-				break;
+				printf("%c ", tolower(piece_chars[piece]));
+				goto PRINTBOARD_NO_PIECE_FOUND;
 			}
 			else if (pos & board->pieces[BLACK][piece]) {
-				printf("%c", tolower(piece_chars[piece]));
-				break;
-			}
-			else {
-				printf("%c", NO_PIECE_CHAR);
-				break;
+				printf("%c ", toupper(piece_chars[piece]));
+				goto PRINTBOARD_NO_PIECE_FOUND;
 			}
 		}
-		if (pos & endsq)
-			break;
+		printf("%c ", NO_PIECE_CHAR);
+		PRINTBOARD_NO_PIECE_FOUND:
+		// check if pos is on h-file and nl
 		if (pos & RIGHT_MASK) {
-			pos >>= 15;
 			printf("\n");
+			pos >>= 15;
 		}
 		else
 			pos <<= 1;
-	}
-	printf("\n");
-	/*
-	// starting at y=7 becouse we stop at 0 
-	for (int y = 7; y >= 0; y--) {
-		//for (uint64_t pos = SQTOBB(y*8); pos & ~RIGHT_MASK; pos <<= 1) {
-		uint64_t pos = SQTOBB(y*8)>>1; // >>1 so that at first loop we start right
-		do {
+	} while (pos > 0);
+}
+
+void printbitboard(const uint64_t bb) {
+	uint64_t pos = A8; // top-left
+	do {
+		char ch = ((pos & bb) ? '1' : '0');
+		printf("%c ", ch);
+		// check if pos is on h-file and nl
+		if (pos & RIGHT_MASK) {
+			printf("\n");
+			pos >>= 15;
+		}
+		else
 			pos <<= 1;
-			//printf("%p\n", (void*)pos);
-			// Loop through all of the bitboards of both sides
-			for (int piece = 0; piece < N_PIECES; piece++) {
-				// Expects that both sides do not occupy
-				// the same square
-				if (pos & board->pieces[WHITE][piece]) {
-					printf("%c", toupper(piece_chars[piece]));
-					break;
-				}
-				else if (pos & board->pieces[BLACK][piece]) {
-					printf("%c", tolower(piece_chars[piece]));
-					break;
-				}
-				else {
-					printf("%c", NO_PIECE_CHAR);
-					break;
-				}
-			}
-		} while (pos & ~RIGHT_MASK);
-		printf("\n");
-	}*/
+	} while (pos > 0);
+	printf("%p \n", (void*)bb);
 }
 
 board_s boardfromfen(const char* fen_str) {
@@ -92,9 +70,62 @@ board_s boardfromfen(const char* fen_str) {
 	strcpy(fen, fen_str);
 	
 	// split the fen into its fields
-	
+	char* pieces = strtok(fen, " ");
+	char* movingside = strtok(NULL, " ");
+	char* castling = strtok(NULL, " ");
+	char* en_passant = strtok(NULL, " ");
+	char* halfmove = strtok(NULL, " ");
+	char* fullmove = strtok(NULL, " ");
 
 	board_s board;
+	resetboard(&board);
+
+	// Parse piece positions
+	uint64_t pos = A8;
+	const int pieces_len = strlen(pieces);
+	for (int i = 0; i < pieces_len; i++) {
+		if (isalpha(pieces[i])) {
+			int piececode = 0;
+			switch (tolower(pieces[i])) {
+				case 'k':
+					piececode = KING;
+					break;
+				case 'q':
+					piececode = QUEEN;
+					break;
+				case 'b':
+					piececode = BISHOP;
+					break;
+				case 'n':
+					piececode = KNIGHT;
+					break;
+				case 'r':
+					piececode = ROOK;
+					break;
+				case 'p':
+					piececode = PAWN;
+					break;
+			}
+			const int side = (isupper(pieces[i]) ? WHITE : BLACK);
+			board.pieces[side][piececode] |= pos;
+			if (!(pos & RIGHT_MASK))
+				pos <<= 1;
+		}
+		else if (isdigit(pieces[i])) {
+			pos <<= (pieces[i] - '1');
+		}
+		else if (pieces[i] == '/')
+			pos >>= 15;
+	}
+
+#ifndef NDEBUG
+	printf("%s\n", pieces);
+	printf("%s\n", movingside);
+	printf("%s\n", castling);
+	printf("%s\n", en_passant);
+	printf("%s\n", halfmove);
+	printf("%s\n", fullmove);
+#endif // NDEBUG
 
 	return board;
 }
@@ -122,4 +153,4 @@ uint64_t bbverticalflip(uint64_t bb) {
 	return bb;
 }
 
-#endif
+#endif // BOARD_C
