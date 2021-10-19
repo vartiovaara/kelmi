@@ -32,6 +32,7 @@ All of the defines and structs and stuff
 #define MAX_FEN_LEN 88 // includes trailing \0
 
 #define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+//#define DEFAULT_FEN "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
 
 // Enums
 enum side_e {
@@ -48,12 +49,21 @@ enum piece_e {
 	PAWN
 };
 
+enum castling_e {
+	WKCASTLE = 1,
+	WQCASTLE = 2,
+	BKCASTLE = 4,
+	BQCASTLE = 8
+};
+
 
 // Structs
 typedef struct board_s {
 	uint64_t pieces[2][6]; // [side][piece_type]
 	uint64_t all_pieces[2]; // [side]
 	bool whiteturn;
+	uint64_t en_passant; // 0x0 if no en passant
+	uint8_t castling; // see castling_e enum
 	//uint8_t ply;
 } board_s;
 
@@ -65,13 +75,11 @@ extern const char piece_chars[N_PIECES];
 // Prototypes for different files
 
 // init.c
-extern board_s getdefaultboard();
 
 // board.c
 extern void printboard(const board_s*);
 extern void printbitboard(const uint64_t);
 extern board_s boardfromfen(const char*);
 extern void resetboard(board_s*);
-extern uint64_t bbvertivalflip(uint64_t);
 
 #endif // DEFS_H

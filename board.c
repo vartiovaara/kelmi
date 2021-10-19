@@ -9,6 +9,7 @@ Stuff about boards and bitboards.
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "defs.h"
 
@@ -24,18 +25,18 @@ const char piece_chars[N_PIECES] = {
 void printboard(const board_s* board) {
 	uint64_t pos = A8; // top-left
 	do {
+		char ch = NO_PIECE_CHAR;
 		for (int piece = 0; piece < N_PIECES; piece++) {
 			if (pos & board->pieces[WHITE][piece]) {
-				printf("%c ", tolower(piece_chars[piece]));
-				goto PRINTBOARD_NO_PIECE_FOUND;
+				ch = toupper(piece_chars[piece]);
+				break;
 			}
 			else if (pos & board->pieces[BLACK][piece]) {
-				printf("%c ", toupper(piece_chars[piece]));
-				goto PRINTBOARD_NO_PIECE_FOUND;
+				ch = tolower(piece_chars[piece]);
+				break;
 			}
 		}
-		printf("%c ", NO_PIECE_CHAR);
-		PRINTBOARD_NO_PIECE_FOUND:
+		printf("%c ", ch);
 		// check if pos is on h-file and nl
 		if (pos & RIGHT_MASK) {
 			printf("\n");
@@ -70,56 +71,78 @@ board_s boardfromfen(const char* fen_str) {
 	strcpy(fen, fen_str);
 	
 	// split the fen into its fields
-	char* pieces = strtok(fen, " ");
-	char* movingside = strtok(NULL, " ");
-	char* castling = strtok(NULL, " ");
-	char* en_passant = strtok(NULL, " ");
-	char* halfmove = strtok(NULL, " ");
-	char* fullmove = strtok(NULL, " ");
+	char* pos_str = strtok(fen, " ");
+	const char* movingside = strtok(NULL, " ");
+	const char* castling = strtok(NULL, " ");
+	const char* en_passant = strtok(NULL, " ");
+	const char* halfmove = strtok(NULL, " ");
+	const char* fullmove = strtok(NULL, " ");
+
+	// split the position string in its fields
+	const char* pos_row[8];
+	pos_row[0] = strtok(pos_str, "/");
+	for (int i = 1; i < 8; i++)
+		pos_row[i] = strtok(NULL, "/");
 
 	board_s board;
 	resetboard(&board);
 
 	// Parse piece positions
-	uint64_t pos = A8;
-	const int pieces_len = strlen(pieces);
-	for (int i = 0; i < pieces_len; i++) {
-		if (isalpha(pieces[i])) {
-			int piececode = 0;
-			switch (tolower(pieces[i])) {
-				case 'k':
-					piececode = KING;
-					break;
-				case 'q':
-					piececode = QUEEN;
-					break;
-				case 'b':
-					piececode = BISHOP;
-					break;
-				case 'n':
-					piececode = KNIGHT;
-					break;
-				case 'r':
-					piececode = ROOK;
-					break;
-				case 'p':
-					piececode = PAWN;
-					break;
-			}
-			const int side = (isupper(pieces[i]) ? WHITE : BLACK);
-			board.pieces[side][piececode] |= pos;
-			if (!(pos & RIGHT_MASK))
+	for (int y = 0; y < 8; y++) {
+		uint64_t pos = SQTOBB((7-y)*8);//A8>>(y*8);
+		const int row_len = strlen(pos_row[y]);
+		for (int i = 0; i < row_len; i++) {
+			if (isalpha(pos_row[y][i])) {
+				int piececode = 0;
+				switch (tolower(pos_row[y][i])) {
+					case 'k':
+						piececode = KING;
+						break;
+					case 'q':
+						piececode = QUEEN;
+						break;
+					case 'b':
+						piececode = BISHOP;
+						break;
+					case 'n':
+						piececode = KNIGHT;
+						break;
+					case 'r':
+						piececode = ROOK;
+						break;
+					case 'p':
+						piececode = PAWN;
+						break;
+				}
+				const int side = (isupper(pos_row[y][i]) ? WHITE : BLACK);
+				board.pieces[side][piececode] |= pos;
 				pos <<= 1;
+			}
+			else if (isdigit(pos_row[y][i])) {
+				pos <<= (pos_row[y][i] - '0');
+			}
 		}
-		else if (isdigit(pieces[i])) {
-			pos <<= (pieces[i] - '1');
-		}
-		else if (pieces[i] == '/')
-			pos >>= 15;
 	}
 
+	// Parse side to move
+	if (tolower(movingside[0]) == 'w')
+		board.whiteturn = true;
+	else
+		board.whiteturn = false;
+	
+	// Parse castling ability
+	if (strchr(castling, 'K'))
+		board.castling |= WKCASTLE;
+	if (strchr(castling, 'Q'))
+		board.castling |= WQCASTLE;
+	if (strchr(castling, 'k'))
+		board.castling |= BKCASTLE;
+	if (strchr(castling, 'q'))
+		board.castling |= BQCASTLE;
+
 #ifndef NDEBUG
-	printf("%s\n", pieces);
+	for (int i = 0; i < 8; i++)
+		printf("%s\n", pos_row[i]);
 	printf("%s\n", movingside);
 	printf("%s\n", castling);
 	printf("%s\n", en_passant);
@@ -139,18 +162,6 @@ void resetboard(board_s* board) {
 		board->all_pieces[side] = 0;
 	}
 	board->whiteturn = true;
-}
-
-// flips a bitboard 90 degrees
-// see:
-// https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Vertical
-uint64_t bbverticalflip(uint64_t bb) {
-	const uint64_t k1 = 0x00FF00FF00FF00FF;
-	const uint64_t k2 = 0x0000FFFF0000FFFF;
-	bb = ((bb >>  8) & k1) | ((bb & k1) <<  8);
-	bb = ((bb >> 16) & k2) | ((bb & k2) << 16);
-	bb = ( bb >> 32)       | ( bb       << 32);
-	return bb;
 }
 
 #endif // BOARD_C

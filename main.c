@@ -3,8 +3,8 @@
 #include "defs.h"
 
 int main(int argc, char** argv) {
-	printf("Hello, World!\n");
 	board_s board = boardfromfen(DEFAULT_FEN);
 	printboard(&board);
+	printf("%u\n", board.castling);
 	return 0;
 }
