@@ -64,6 +64,8 @@ typedef struct board_s {
 	bool whiteturn;
 	uint64_t en_passant; // 0x0 if no en passant
 	uint8_t castling; // see castling_e enum
+	uint8_t fiftym_counter; // 50-move rule counter
+	uint8_t fullmoves;
 	//uint8_t ply;
 } board_s;
 
@@ -73,6 +75,10 @@ typedef struct board_s {
 extern const char piece_chars[N_PIECES];
 
 // Prototypes for different files
+
+// algabreic.c
+extern uint64_t algsqtobb(const char*);
+extern int algsqtoint(const char*);
 
 // init.c
 

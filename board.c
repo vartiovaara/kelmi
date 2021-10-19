@@ -10,6 +10,7 @@ Stuff about boards and bitboards.
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #include "defs.h"
 
@@ -89,7 +90,7 @@ board_s boardfromfen(const char* fen_str) {
 
 	// Parse piece positions
 	for (int y = 0; y < 8; y++) {
-		uint64_t pos = SQTOBB((7-y)*8);//A8>>(y*8);
+		uint64_t pos = SQTOBB((7-y)*8);
 		const int row_len = strlen(pos_row[y]);
 		for (int i = 0; i < row_len; i++) {
 			if (isalpha(pos_row[y][i])) {
@@ -139,15 +140,27 @@ board_s boardfromfen(const char* fen_str) {
 		board.castling |= BKCASTLE;
 	if (strchr(castling, 'q'))
 		board.castling |= BQCASTLE;
+	
+	// Parse en passant
+	if (en_passant[0] != '-')
+		board.en_passant = algsqtobb(en_passant);
+	else
+		board.en_passant = 0; // no en passant
+	
+	// Move counters
+	board.fiftym_counter = strtoul(halfmove, NULL, 10);
+	board.fullmoves = strtoul(fullmove, NULL, 10);
 
 #ifndef NDEBUG
+	printf("Start FEN parsing debug info\n");
 	for (int i = 0; i < 8; i++)
 		printf("%s\n", pos_row[i]);
-	printf("%s\n", movingside);
-	printf("%s\n", castling);
-	printf("%s\n", en_passant);
-	printf("%s\n", halfmove);
-	printf("%s\n", fullmove);
+	printf("%s: %s\n", movingside, (board.whiteturn ? "white" : "black"));
+	printf("%s: %p\n", castling, (void*)board.castling);
+	printf("%s: %p\n", en_passant, (void*)board.en_passant);
+	printf("%s: %u\n", halfmove, board.fiftym_counter);
+	printf("%s: %u\n", fullmove, board.fullmoves);
+	printf("End FEN parsing debug info\n");
 #endif // NDEBUG
 
 	return board;
