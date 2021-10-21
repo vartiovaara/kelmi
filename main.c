@@ -2,9 +2,9 @@
 
 #include "defs.h"
 
-int main(int argc, char** argv) {
+int main() {
 	board_s board = boardfromfen(DEFAULT_FEN);
 	printboard(&board);
-	printf("%p\n", (void*)board.en_passant);
+	printbitboard(pseudo_legal_squares(&board, WHITE, board.pieces[WHITE][KING]));
 	return 0;
 }

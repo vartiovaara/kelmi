@@ -117,6 +117,7 @@ board_s boardfromfen(const char* fen_str) {
 				}
 				const int side = (isupper(pos_row[y][i]) ? WHITE : BLACK);
 				board.pieces[side][piececode] |= pos;
+				board.all_pieces[side] |= pos;
 				pos <<= 1;
 			}
 			else if (isdigit(pos_row[y][i])) {
@@ -151,18 +152,19 @@ board_s boardfromfen(const char* fen_str) {
 	board.fiftym_counter = strtoul(halfmove, NULL, 10);
 	board.fullmoves = strtoul(fullmove, NULL, 10);
 
+	/*
 #ifndef NDEBUG
 	printf("Start FEN parsing debug info\n");
 	for (int i = 0; i < 8; i++)
 		printf("%s\n", pos_row[i]);
 	printf("%s: %s\n", movingside, (board.whiteturn ? "white" : "black"));
-	printf("%s: %p\n", castling, (void*)board.castling);
+	printf("%s: %p\n", castling, (void*)(size_t)board.castling);
 	printf("%s: %p\n", en_passant, (void*)board.en_passant);
 	printf("%s: %u\n", halfmove, board.fiftym_counter);
 	printf("%s: %u\n", fullmove, board.fullmoves);
 	printf("End FEN parsing debug info\n");
 #endif // NDEBUG
-
+	*/
 	return board;
 }
 
@@ -175,6 +177,19 @@ void resetboard(board_s* board) {
 		board->all_pieces[side] = 0;
 	}
 	board->whiteturn = true;
+}
+
+
+// Finds, which one of the bitboards holds the piece.
+// exit(1) on not found
+uint8_t get_piece_type(const board_s* board, const uint8_t side, const uint64_t piecebb) {
+	for (int i = 0; i < N_PIECES; i++) {
+		if (board->pieces[side][i] & piecebb) {
+			return i;
+		}
+	}
+	fprintf(stderr, "get_piece_type(board, %u, %p)", side, (void*)piecebb);
+	exit(1);
 }
 
 #endif // BOARD_C
