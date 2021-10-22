@@ -188,7 +188,7 @@ uint8_t get_piece_type(const board_s* board, const uint8_t side, const uint64_t 
 			return i;
 		}
 	}
-	fprintf(stderr, "get_piece_type(board, %u, %p)", side, (void*)piecebb);
+	fprintf(stderr, "get_piece_type(board, %u, %p)\n", side, (void*)piecebb);
 	exit(1);
 }
 
