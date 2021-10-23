@@ -105,6 +105,17 @@ typedef struct board_s {
 	//uint8_t ply;
 } board_s;
 
+// Move
+typedef struct move_s {
+	uint64_t from;
+	uint64_t to;
+} move_s;
+
+// Movelist
+typedef struct movelist_s {
+	move_s* moves;
+	uint8_t n;
+} movelist_s;
 
 // Global variables
 extern const char piece_chars[N_PIECES];
@@ -118,13 +129,14 @@ extern uint64_t algsqtobb(const char*);
 extern int algsqtoint(const char*);
 
 // attack.c
-extern uint64_t pseudo_legal_squares(const board_s*, const uint8_t, const uint64_t);
+extern movelist_s pseudo_legal_squares(const board_s*, const uint8_t, const uint64_t);
 extern uint64_t pseudo_legal_squares_k(const board_s*, const uint8_t, uint64_t);
 extern uint64_t pseudo_legal_squares_n(const board_s*, const uint8_t, uint64_t);
 
 // bitboard.c
 extern uint8_t pop_bit(uint64_t*);
 extern uint64_t pop_bitboard(uint64_t*);
+extern int popcount();
 
 // init.c
 extern int init_all();
