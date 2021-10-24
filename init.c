@@ -6,6 +6,7 @@ Init stuff
 #define INIT_C
 
 #include <string.h>
+//#include <stdio.h>
 
 #include "defs.h"
 
@@ -15,6 +16,15 @@ int init_all() {
 	reset_lookup();
 	compute_king_lookup();
 	compute_knight_lookup();
+	/*
+	unsigned int i; unsigned long l; uint64_t ll;
+	printf("uint: %llu %llu\nulong: %llu %llu\nullong: %llu %llu\n",
+		(unsigned long long)sizeof i,
+		(unsigned long long)UINT_MAX,
+		(unsigned long long)sizeof l,
+		(unsigned long long)ULONG_MAX,
+		(unsigned long long)sizeof ll,
+		(unsigned long long)ULLONG_MAX);*/
 	return 0;
 }
 

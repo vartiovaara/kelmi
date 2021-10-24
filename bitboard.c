@@ -27,8 +27,16 @@ uint64_t pop_bitboard(uint64_t* bb) {
 }
 
 int popcount(uint64_t x) {
-	// TODO: may not work on systems
-	// with 32 bit unsigned long.
+	// NOTE: If needed to compile on anything other than gcc:
+	// See: http://0x80.pl/articles/sse-popcount.html
+	// See: https://en.wikipedia.org/wiki/Hamming_weight#Efficient_implementation
+	// #if test which type is enough to hold 64 bits
 	// See: https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
+	#if UINT_MAX==18446744073709551615ULL
+	return __builtin_popcount(x);
+	#elif ULONG_MAX==18446744073709551615ULL
 	return __builtin_popcountl(x);
+	#elif ULLONG_MAX>=18446744073709551615ULL
+	return __builtin_popcountll(x);
+	#endif
 }
