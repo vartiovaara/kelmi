@@ -15,19 +15,19 @@ const int BitTable[64] = {
 };
 
 // Originally taken from Vice bitboards.c
-uint8_t pop_bit(uint64_t* bb) {
+unsigned int pop_bit(uint64_t* bb) {
 	uint64_t b = *bb ^ (*bb - 1);
-	uint32_t fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
+	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
 	*bb &= (*bb - 1);
 	return BitTable[(fold * 0x783a9b23) >> 26];
 }
 
 uint64_t pop_bitboard(uint64_t* bb) {
+	// TODO: there is probably some simd instruction for this
 	return SQTOBB(pop_bit(bb));
 }
 
 int popcount(uint64_t x) {
-	// NOTE: If needed to compile on anything other than gcc:
 	// See: http://0x80.pl/articles/sse-popcount.html
 	// See: https://en.wikipedia.org/wiki/Hamming_weight#Efficient_implementation
 	// #if test which type is enough to hold 64 bits

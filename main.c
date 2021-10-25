@@ -10,8 +10,9 @@ int main() {
 	printboard(&board);
 	printf("%d\n", popcount(board.pieces[WHITE][KNIGHT]));
 
-	movelist_s moves = pseudo_legal_squares(&board, WHITE, QUEEN);
-	for (int i = 0; i < moves.n; i++) {
+	movelist_s moves = pseudo_legal_squares(&board, BLACK, PAWN);
+	printf("%u pieces: \n", moves.n);
+	for (unsigned int i = 0; i < moves.n; i++) {
 		printf("from:\n");
 		printbitboard(moves.moves[i].from);
 		printf("to:\n");

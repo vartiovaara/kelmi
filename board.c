@@ -182,7 +182,7 @@ void resetboard(board_s* board) {
 
 // Finds, which one of the bitboards holds the piece.
 // exit(1) on not found
-uint8_t get_piece_type(const board_s* board, const uint8_t side, const uint64_t piecebb) {
+unsigned int get_piece_type(const board_s* board, const unsigned int side, const uint64_t piecebb) {
 	for (int i = 0; i < N_PIECES; i++) {
 		if (board->pieces[side][i] & piecebb) {
 			return i;

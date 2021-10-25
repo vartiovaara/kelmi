@@ -30,6 +30,10 @@ All of the defines and structs and stuff
 #define BOTTOM_MASK_N 0x000000000000ffff
 #define LEFT_MASK_N   0x0303030303030303
 
+// Double-push rank masks
+#define TOP_DPUSH_MASK    0x00ff000000000000
+#define BOTTOM_DPUSH_MASK 0x000000000000ff00
+
 // Handy squares
 #define A8 0x0100000000000000
 
@@ -111,7 +115,7 @@ typedef struct move_s {
 // Movelist
 typedef struct movelist_s {
 	move_s* moves;
-	uint8_t n;
+	unsigned int n;
 } movelist_s;
 
 // Global variables
@@ -126,13 +130,16 @@ extern uint64_t algsqtobb(const char*);
 extern int algsqtoint(const char*);
 
 // attack.c
-extern movelist_s pseudo_legal_squares(const board_s*, const uint8_t, const uint8_t);
-extern uint64_t pseudo_legal_squares_k(const board_s*, const uint8_t, uint64_t);
-extern uint64_t pseudo_legal_squares_n(const board_s*, const uint8_t, uint64_t);
+extern movelist_s pseudo_legal_squares(const board_s*, const unsigned int, const unsigned int);
+extern uint64_t pseudo_legal_squares_k(const board_s*, const unsigned int, const uint64_t);
+extern uint64_t pseudo_legal_squares_n(const board_s*, const unsigned int, uint64_t);
 extern uint64_t pseudo_legal_squares_q(const board_s*, const unsigned int, const uint64_t);
+extern uint64_t pseudo_legal_squares_b(const board_s*, const unsigned int, const uint64_t);
+extern uint64_t pseudo_legal_squares_r(const board_s*, const unsigned int, const uint64_t);
+extern uint64_t pseudo_legal_squares_p(const board_s*, const unsigned int, const uint64_t);
 
 // bitboard.c
-extern uint8_t pop_bit(uint64_t*);
+extern unsigned int pop_bit(uint64_t*);
 extern uint64_t pop_bitboard(uint64_t*);
 extern int popcount();
 
@@ -147,6 +154,6 @@ extern void printboard(const board_s*);
 extern void printbitboard(const uint64_t);
 extern board_s boardfromfen(const char*);
 extern void resetboard(board_s*);
-extern uint8_t get_piece_type(const board_s*, const uint8_t, const uint64_t);
+extern unsigned int get_piece_type(const board_s*, const unsigned int, const uint64_t);
 
 #endif // DEFS_H

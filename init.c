@@ -95,4 +95,4 @@ void compute_knight_lookup() {
 	}
 }
 
-#endif
+#endif // INIT_C
