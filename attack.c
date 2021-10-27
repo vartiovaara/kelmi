@@ -37,16 +37,32 @@ movelist_s pseudo_legal_squares(const board_s* board, const unsigned int side, c
 			move.to = pseudo_legal_squares_r(board, side, curr_piece);
 		else if (piece_type == PAWN)
 			move.to = pseudo_legal_squares_p(board, side, curr_piece);
-		moves.moves[i] = move; 
+		moves.moves[i] = move;
 	}
+
 
 	return moves;
 }
 
-uint64_t pseudo_legal_squares_k(const board_s* board, const unsigned int side, uint64_t piece) {
-	uint64_t squares = movelookup[KING][pop_bit(&piece)];
+uint64_t pseudo_legal_squares_k(const board_s* board, const unsigned int side, const uint64_t piece) {
+	uint64_t piece_copy = piece;
+	uint64_t squares = movelookup[KING][pop_bit(&piece_copy)];
 	// don't eat own pieces
-	squares &= ~board->all_pieces[side]; 
+	squares &= ~board->all_pieces[side];
+	// Castling
+	const uint64_t every_piece = board->all_pieces[BLACK] | board->all_pieces[WHITE];
+	if (side == WHITE) {
+		if (board->castling & WQCASTLE && !(every_piece & WQ_CAST_CLEAR_MASK))
+			squares |= MV_W(MV_W(piece));
+		if (board->castling & WKCASTLE && !(every_piece & WK_CAST_CLEAR_MASK))
+			squares |= MV_E(MV_E(piece));
+	}
+	else {
+		if (board->castling & BQCASTLE && !(every_piece & BQ_CAST_CLEAR_MASK))
+			squares |= MV_W(MV_W(piece));
+		if (board->castling & BKCASTLE && !(every_piece & BK_CAST_CLEAR_MASK))
+			squares |= MV_E(MV_E(piece));
+	}
 	return squares;
 }
 

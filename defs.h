@@ -34,6 +34,12 @@ All of the defines and structs and stuff
 #define TOP_DPUSH_MASK    0x00ff000000000000
 #define BOTTOM_DPUSH_MASK 0x000000000000ff00
 
+// Castling "piece-in-the-way" masks
+#define WQ_CAST_CLEAR_MASK 0x000000000000000e
+#define WK_CAST_CLEAR_MASK 0x0000000000000060
+#define BQ_CAST_CLEAR_MASK 0x0e00000000000000
+#define BK_CAST_CLEAR_MASK 0x6000000000000000
+
 // Handy squares
 #define A8 0x0100000000000000
 
@@ -107,9 +113,17 @@ typedef struct board_s {
 } board_s;
 
 // Move
+// Flags will be dynamically allocated.
+// Flags will be set for every "to" square
+// in the order pop_bitboard(1) gives them.
+// Castling will not be in the flags, but 
+// will be represented by moving king 2 sq
+// left or right.
+// TODO: Implement flags.
 typedef struct move_s {
 	uint64_t from;
 	uint64_t to;
+	uint8_t* flags;
 } move_s;
 
 // Movelist
@@ -141,7 +155,7 @@ extern uint64_t pseudo_legal_squares_p(const board_s*, const unsigned int, const
 // bitboard.c
 extern unsigned int pop_bit(uint64_t*);
 extern uint64_t pop_bitboard(uint64_t*);
-extern int popcount();
+extern int popcount(uint64_t);
 
 // init.c
 extern int init_all();
