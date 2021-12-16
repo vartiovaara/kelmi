@@ -44,6 +44,7 @@ All of the defines and structs and stuff
 #define A8 0x0100000000000000
 
 // TODO: make these something else and stuff idk
+
 // Normalized piece vectors
 
 // horizontal and vertical
@@ -101,6 +102,11 @@ enum castling_e {
 
 
 // Structs
+
+/*
+Struct representing a board.
+TODO: Implement efficiently updateable attack maps
+*/
 typedef struct board_s {
 	uint64_t pieces[2][N_PIECES]; // [side][piece_type]
 	uint64_t all_pieces[2]; // [side]
@@ -112,14 +118,16 @@ typedef struct board_s {
 	//uint8_t ply;
 } board_s;
 
-// Move
-// Flags will be dynamically allocated.
-// Flags will be set for every "to" square
-// in the order pop_bitboard(1) gives them.
-// Castling will not be in the flags, but 
-// will be represented by moving king 2 sq
-// left or right.
-// TODO: Implement flags.
+/*
+Move
+Flags will be dynamically allocated.
+Flags will be set for every "to" square
+in the order pop_bitboard(1) gives them.
+Castling will not be in the flags, but 
+will be represented by moving king 2 sq
+left or right.
+TODO: Implement flags.
+*/
 typedef struct move_s {
 	uint64_t from;
 	uint64_t to;

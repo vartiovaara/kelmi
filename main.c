@@ -4,6 +4,10 @@
 
 #include "defs.h"
 
+/*
+TODO: Maybe start movegen again
+*/
+
 int main() {
 	init_all();
 	board_s board = boardfromfen(DEFAULT_FEN);
@@ -18,8 +22,10 @@ int main() {
 		printbitboard(moves.moves[i].to);
 	}
 	free(moves.moves);
+	/*
 	printbitboard(board.pieces[WHITE][PAWN]);
 	printbitboard(pop_bitboard(&board.pieces[WHITE][PAWN]));
 	printbitboard(board.pieces[WHITE][PAWN]);
+	*/
 	return 0;
 }

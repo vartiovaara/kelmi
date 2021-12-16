@@ -23,6 +23,10 @@ const char piece_chars[N_PIECES] = {
 	[PAWN] = 'p'
 };
 
+/*
+Prints the boards layout with symbols
+defined in piece_chars[N_PIECES]
+*/
 void printboard(const board_s* board) {
 	uint64_t pos = A8; // top-left
 	do {
@@ -179,6 +183,22 @@ void resetboard(board_s* board) {
 	board->whiteturn = true;
 }
 
+/*
+Moves a piece from from to to
+Doesn't "perform" a move (change en_passant, whiteturn etc.)
+Not very efficient, use in moderation
+TODO: Test the eligibility of this function
+*/
+void movepiece(board_s* board, const unsigned int side, const uint64_t from, const uint64_t to) {
+	// Otherwise we'd need to have a 4th argument
+	unsigned int type = get_piece_type(board, side, from);
+	
+	// Change piece bitboards
+	board->pieces[side][type] |= ~from; // remove from
+	board->pieces[side][type] |= to; // add to
+	board->all_pieces[side] |= ~from;
+	board->all_pieces[side] = to;
+}
 
 // Finds, which one of the bitboards holds the piece.
 // exit(1) on not found
@@ -191,5 +211,7 @@ unsigned int get_piece_type(const board_s* board, const unsigned int side, const
 	fprintf(stderr, "get_piece_type(board, %u, %p)\n", side, (void*)piecebb);
 	exit(1);
 }
+
+
 
 #endif // BOARD_C
