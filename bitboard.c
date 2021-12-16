@@ -14,7 +14,9 @@ const int BitTable[64] = {
 	58, 20, 37, 17, 36, 8
 };
 
+// Returns index of the lowest bit and sets it to 0
 // Originally taken from Vice bitboards.c
+// TODO: there is probably some kind of instruction for this
 unsigned int pop_bit(uint64_t* bb) {
 	uint64_t b = *bb ^ (*bb - 1);
 	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
@@ -22,9 +24,27 @@ unsigned int pop_bit(uint64_t* bb) {
 	return BitTable[(fold * 0x783a9b23) >> 26];
 }
 
+// Returns the lowest bit and sets it to 0
+// TODO: there is probably some kind of instruction for this
 uint64_t pop_bitboard(uint64_t* bb) {
-	// TODO: there is probably some simd instruction for this
-	return SQTOBB(pop_bit(bb));
+	uint64_t bb_copy = *bb;
+	*bb &= *bb - 1; // remove the lowest bit
+	return *bb ^ bb_copy; // return what was changed
+	//return (*bb ^ (*bb &= *bb-1)); // does the same thing but 1 liner
+}
+
+// Returns index of lowest bit
+// TODO: make speed (__builtin_ffs(int) ?)
+// see: https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
+// __builtin_ffs(int)
+unsigned int lowest_bitindex(const uint64_t bb) {
+	uint64_t bb_copy = bb;
+	return pop_bit(&bb_copy);
+}
+
+// Returns the lowest bit as a 
+uint64_t lowest_bitboard(const uint64_t bb) {
+	return bb & (bb - 1);
 }
 
 int popcount(uint64_t x) {
