@@ -140,6 +140,7 @@ typedef struct movelist_s {
 	unsigned int n;
 } movelist_s;
 
+
 // Global variables
 extern const char piece_chars[N_PIECES];
 extern uint64_t movelookup[N_NOSLIDE_PIECES][64];
@@ -172,6 +173,9 @@ extern int init_all();
 extern void reset_lookup();
 extern void compute_king_lookup();
 extern void compute_knight_lookup();
+
+// search.c
+extern unsigned int search(board_s*, unsigned int);
 
 // board.c
 extern void printboard(const board_s*);

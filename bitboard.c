@@ -25,7 +25,8 @@ unsigned int pop_bit(uint64_t* bb) {
 }
 
 // Returns the lowest bit and sets it to 0
-// TODO: there is probably some kind of instruction for this
+// TODO: there is probably some kind of instruction for this, 
+//       use that when availble (if such a thing exists at all)
 uint64_t pop_bitboard(uint64_t* bb) {
 	uint64_t bb_copy = *bb;
 	*bb &= *bb - 1; // remove the lowest bit
@@ -42,7 +43,7 @@ unsigned int lowest_bitindex(const uint64_t bb) {
 	return pop_bit(&bb_copy);
 }
 
-// Returns the lowest bit as a 
+// Returns the lowest bit as a bitboard
 uint64_t lowest_bitboard(const uint64_t bb) {
 	return bb & (bb - 1);
 }

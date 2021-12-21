@@ -186,7 +186,6 @@ void resetboard(board_s* board) {
 /*
 Moves a piece from from to to
 Doesn't "perform" a move (change en_passant, whiteturn etc.)
-Not very efficient, use in moderation
 TODO: Test the eligibility of this function
 */
 void movepiece(board_s* board, const unsigned int side, const uint64_t from, const uint64_t to) {
@@ -203,11 +202,12 @@ void movepiece(board_s* board, const unsigned int side, const uint64_t from, con
 // Finds, which one of the bitboards holds the piece.
 // exit(1) on not found
 unsigned int get_piece_type(const board_s* board, const unsigned int side, const uint64_t piecebb) {
-	for (int i = 0; i < N_PIECES; i++) {
-		if (board->pieces[side][i] & piecebb) {
-			return i;
-		}
-	}
+	if (board->all_pieces[WHITE] & piecebb)
+		return WHITE;
+	else if (board->all_pieces[BLACK] & piecebb)
+		return BLACK;
+	
+	// should never get here
 	fprintf(stderr, "get_piece_type(board, %u, %p)\n", side, (void*)piecebb);
 	exit(1);
 }
