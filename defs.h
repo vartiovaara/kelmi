@@ -72,8 +72,8 @@ All of the defines and structs and stuff
 // See: https://chess.stackexchange.com/a/30006
 #define MAX_FEN_LEN 88 // includes trailing \0
 
-//#define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
+#define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+//#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
 //#define DEFAULT_FEN "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
 
 // Enums
@@ -110,7 +110,7 @@ TODO: Implement efficiently updateable attack maps
 typedef struct board_s {
 	uint64_t pieces[2][N_PIECES]; // [side][piece_type]
 	uint64_t all_pieces[2]; // [side]
-	bool whiteturn;
+	uint8_t sidetomove; // see side_e enum
 	uint64_t en_passant; // 0x0 if no en passant
 	uint8_t castling; // see castling_e enum
 	uint8_t fiftym_counter; // 50-move rule counter
@@ -122,7 +122,7 @@ typedef struct board_s {
 Move
 Flags will be dynamically allocated.
 Flags will be set for every "to" square
-in the order pop_bitboard(1) gives them.
+in the order pop_bitboard() gives them.
 Castling will not be in the flags, but 
 will be represented by moving king 2 sq
 left or right.
@@ -133,12 +133,6 @@ typedef struct move_s {
 	uint64_t to;
 	uint8_t* flags;
 } move_s;
-
-// Movelist
-typedef struct movelist_s {
-	move_s* moves;
-	unsigned int n;
-} movelist_s;
 
 
 // Global variables
@@ -153,7 +147,7 @@ extern uint64_t algsqtobb(const char*);
 extern int algsqtoint(const char*);
 
 // attack.c
-extern movelist_s pseudo_legal_squares(const board_s*, const unsigned int, const unsigned int);
+extern move_s pseudo_legal_squares(const board_s*, const uint64_t);
 extern uint64_t pseudo_legal_squares_k(const board_s*, const unsigned int, const uint64_t);
 extern uint64_t pseudo_legal_squares_n(const board_s*, const unsigned int, uint64_t);
 extern uint64_t pseudo_legal_squares_q(const board_s*, const unsigned int, const uint64_t);
@@ -183,5 +177,6 @@ extern void printbitboard(const uint64_t);
 extern board_s boardfromfen(const char*);
 extern void resetboard(board_s*);
 extern unsigned int get_piece_type(const board_s*, const unsigned int, const uint64_t);
+extern unsigned int get_piece_side(const board_s*, const uint64_t);
 
 #endif // DEFS_H

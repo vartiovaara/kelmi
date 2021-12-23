@@ -7,41 +7,34 @@ Attack stuff.
 
 #include "defs.h"
 
-// generates all the squares the specified pieces could move
-// returns a movelist_s. one move has from and to
-// "to" has all of the pseudo-legal moves the "from" piece
-// could move. REMEMBER TO free({movelist_t}.moves)
-movelist_s pseudo_legal_squares(const board_s* board, const unsigned int side, const unsigned int piece_type) {
-	const uint64_t pieces = board->pieces[side][piece_type];
-	const unsigned int count = popcount(pieces);
-	// make and allocate movelist
-	movelist_s moves;
-	moves.n = count;
-	moves.moves = (move_s*)malloc(count * sizeof(move_s));
+// generates all the squares the specified piece could move
+// currently just pseudo-legal so doesn't check for
+move_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
+	move_s move;
+	move.from = piecebb;
 
-	uint64_t piece_copy = pieces;
-	
-	for (unsigned int i = 0; i < count; i++) {
-		const uint64_t curr_piece = pop_bitboard(&piece_copy);
-		move_s move;
-		move.from = curr_piece;
-		if (piece_type == KING)
-			move.to = pseudo_legal_squares_k(board, side, curr_piece);
-		else if (piece_type == KNIGHT)
-			move.to = pseudo_legal_squares_n(board, side, curr_piece);
-		else if (piece_type == QUEEN)
-			move.to = pseudo_legal_squares_q(board, side, curr_piece);
-		else if (piece_type == BISHOP)
-			move.to = pseudo_legal_squares_b(board, side, curr_piece);
-		else if (piece_type == ROOK)
-			move.to = pseudo_legal_squares_r(board, side, curr_piece);
-		else if (piece_type == PAWN)
-			move.to = pseudo_legal_squares_p(board, side, curr_piece);
-		moves.moves[i] = move;
+	const unsigned int side = get_piece_side(board, piecebb);
+	const unsigned int piece_type = get_piece_type(board, side, piecebb);
+
+	if (piece_type == KING)
+		move.to = pseudo_legal_squares_k(board, side, piecebb);
+	else if (piece_type == KNIGHT)
+		move.to = pseudo_legal_squares_n(board, side, piecebb);
+	else if (piece_type == QUEEN)
+		move.to = pseudo_legal_squares_q(board, side, piecebb);
+	else if (piece_type == BISHOP)
+		move.to = pseudo_legal_squares_b(board, side, piecebb);
+	else if (piece_type == ROOK)
+		move.to = pseudo_legal_squares_r(board, side, piecebb);
+	else if (piece_type == PAWN)
+		move.to = pseudo_legal_squares_p(board, side, piecebb);
+	else {
+		// should never get here
+		fprintf(stderr, "pseudo_legal_squares(%p, %p)\n", (void*)board, (void*)piecebb);
+		exit(1);
 	}
 
-
-	return moves;
+	return move;
 }
 
 uint64_t pseudo_legal_squares_k(const board_s* board, const unsigned int side, const uint64_t piece) {

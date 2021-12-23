@@ -132,9 +132,9 @@ board_s boardfromfen(const char* fen_str) {
 
 	// Parse side to move
 	if (tolower(movingside[0]) == 'w')
-		board.whiteturn = true;
+		board.sidetomove = WHITE;
 	else
-		board.whiteturn = false;
+		board.sidetomove = BLACK;
 	
 	// Parse castling ability
 	if (strchr(castling, 'K'))
@@ -180,7 +180,7 @@ void resetboard(board_s* board) {
 		}
 		board->all_pieces[side] = 0;
 	}
-	board->whiteturn = true;
+	board->sidetomove = WHITE;
 }
 
 /*
@@ -202,13 +202,25 @@ void movepiece(board_s* board, const unsigned int side, const uint64_t from, con
 // Finds, which one of the bitboards holds the piece.
 // exit(1) on not found
 unsigned int get_piece_type(const board_s* board, const unsigned int side, const uint64_t piecebb) {
+	for (int i = 0; i < N_PIECES; i++) {
+		if (board->pieces[side][i] & piecebb)
+			return i;
+	}
+	// should never get here
+	fprintf(stderr, "get_piece_type(board, %u, %p)\n", side, (void*)piecebb);
+	exit(1);
+}
+
+// Returns, what side the piece is
+// exit(1) on not found
+unsigned int get_piece_side(const board_s* board, const uint64_t piecebb) {
 	if (board->all_pieces[WHITE] & piecebb)
 		return WHITE;
-	else if (board->all_pieces[BLACK] & piecebb)
+	if (board->all_pieces[BLACK] & piecebb)
 		return BLACK;
 	
 	// should never get here
-	fprintf(stderr, "get_piece_type(board, %u, %p)\n", side, (void*)piecebb);
+	fprintf(stderr, "get_piece_side(board, %p)\n", (void*)piecebb);
 	exit(1);
 }
 
