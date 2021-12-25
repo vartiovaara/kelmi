@@ -39,7 +39,7 @@ movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
 	movelist_s moves;
 	moves.n = popcount(to);
 	moves.moves = malloc(sizeof(move_s) * moves.n);
-	// TODO: moveordering would be done here and taken into account in search
+	// TODO: move ordering would be done here and taken into account in search
 	for (unsigned int i = 0; i < moves.n; i++) {
 		moves.moves[i].from = from;
 		moves.moves[i].to = pop_bitboard(&to);

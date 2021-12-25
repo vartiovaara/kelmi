@@ -13,7 +13,9 @@ int main() {
 	board_s board = boardfromfen(DEFAULT_FEN);
 	//printboard(&board);
 
-	printf("%u\n", search(&board, 3));
+	perft(&board, 7);
+
+	//printf("%u\n", search(&board, 6));
 
 	
 	/*movelist_s moves = pseudo_legal_squares(&board, lowest_bitboard(board.pieces[WHITE][KNIGHT]));

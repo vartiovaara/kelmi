@@ -194,7 +194,8 @@ extern void compute_king_lookup();
 extern void compute_knight_lookup();
 
 // search.c
-extern unsigned int search(board_s*, unsigned int);
+extern void perft(board_s*, const unsigned int);
+extern unsigned int search(board_s*, const unsigned int);
 
 // board.c
 extern void printboard(const board_s*);
