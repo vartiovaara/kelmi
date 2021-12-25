@@ -174,6 +174,8 @@ board_s boardfromfen(const char* fen_str) {
 
 void resetboard(board_s* board) {
 	// we could just memset() the whole thing but idk
+	memset(board, 0, sizeof (board_s));
+	/*
 	for (int side = 0; side < 2; side++) {
 		for (int piece_type = 0; piece_type < 6; piece_type++) {
 			board->pieces[side][piece_type] = 0;
@@ -181,6 +183,9 @@ void resetboard(board_s* board) {
 		board->all_pieces[side] = 0;
 	}
 	board->sidetomove = WHITE;
+	board->movehistory = NULL;
+	board->ply = 0
+	*/
 }
 
 /*
@@ -193,10 +198,25 @@ void movepiece(board_s* board, const unsigned int side, const uint64_t from, con
 	unsigned int type = get_piece_type(board, side, from);
 	
 	// Change piece bitboards
-	board->pieces[side][type] |= ~from; // remove from
+	board->pieces[side][type] &= ~from; // remove from
 	board->pieces[side][type] |= to; // add to
-	board->all_pieces[side] |= ~from;
-	board->all_pieces[side] = to;
+	board->all_pieces[side] &= ~from;
+	board->all_pieces[side] |= to;
+}
+
+// Performs a move
+// TODO: Finish this function
+void makemove(board_s* board, const move_s* move) {
+	movepiece(board, board->sidetomove, move->from, move->to);
+	//if (move.flags & FLAGCAPTURE)
+	// change side to move
+	board->sidetomove = (board->sidetomove == WHITE ? BLACK : WHITE);
+}
+
+// Undoes the latest move done
+// TODO: Finish this function
+void unmakemove(board_s* board) {
+	board->sidetomove = (board->sidetomove == WHITE ? BLACK : WHITE);
 }
 
 // Finds, which one of the bitboards holds the piece.

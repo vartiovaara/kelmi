@@ -9,37 +9,46 @@ Attack stuff.
 
 // generates all the squares the specified piece could move
 // currently just pseudo-legal so doesn't check for
-move_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
-	move_s move;
-	move.from = piecebb;
+movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
+	const uint64_t from = piecebb;
+	uint64_t to;
 
 	const unsigned int side = get_piece_side(board, piecebb);
 	const unsigned int piece_type = get_piece_type(board, side, piecebb);
 
 	if (piece_type == KING)
-		move.to = pseudo_legal_squares_k(board, side, piecebb);
+		to = pseudo_legal_squares_k(board, side, piecebb);
 	else if (piece_type == KNIGHT)
-		move.to = pseudo_legal_squares_n(board, side, piecebb);
+		to = pseudo_legal_squares_n(board, side, piecebb);
 	else if (piece_type == QUEEN)
-		move.to = pseudo_legal_squares_q(board, side, piecebb);
+		to = pseudo_legal_squares_q(board, side, piecebb);
 	else if (piece_type == BISHOP)
-		move.to = pseudo_legal_squares_b(board, side, piecebb);
+		to = pseudo_legal_squares_b(board, side, piecebb);
 	else if (piece_type == ROOK)
-		move.to = pseudo_legal_squares_r(board, side, piecebb);
+		to = pseudo_legal_squares_r(board, side, piecebb);
 	else if (piece_type == PAWN)
-		move.to = pseudo_legal_squares_p(board, side, piecebb);
+		to = pseudo_legal_squares_p(board, side, piecebb);
 	else {
 		// should never get here
 		fprintf(stderr, "pseudo_legal_squares(%p, %p)\n", (void*)board, (void*)piecebb);
 		exit(1);
 	}
 
-	return move;
+	// now we have all of the proper "to" squares
+	// now we just have to assign flags and properly encode them
+	movelist_s moves;
+	moves.n = popcount(to);
+	moves.moves = malloc(sizeof(move_s) * moves.n);
+	// TODO: moveordering would be done here and taken into account in search
+	for (unsigned int i = 0; i < moves.n; i++) {
+		moves.moves[i].from = from;
+		moves.moves[i].to = pop_bitboard(&to);
+	}
+	return moves;
 }
 
 uint64_t pseudo_legal_squares_k(const board_s* board, const unsigned int side, const uint64_t piece) {
-	uint64_t piece_copy = piece;
-	uint64_t squares = movelookup[KING][pop_bit(&piece_copy)];
+	uint64_t squares = movelookup[KING][lowest_bitindex(piece)];
 	// don't eat own pieces
 	squares &= ~board->all_pieces[side];
 	// Castling
@@ -59,8 +68,8 @@ uint64_t pseudo_legal_squares_k(const board_s* board, const unsigned int side, c
 	return squares;
 }
 
-uint64_t pseudo_legal_squares_n(const board_s* board, const unsigned int side, uint64_t piece) {
-	uint64_t squares = movelookup[KNIGHT][pop_bit(&piece)];
+uint64_t pseudo_legal_squares_n(const board_s* board, const unsigned int side, const uint64_t piece) {
+	uint64_t squares = movelookup[KNIGHT][lowest_bitindex(piece)];
 	// don't eat own pieces
 	squares &= ~board->all_pieces[side]; 
 	return squares;

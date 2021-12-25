@@ -25,8 +25,6 @@ unsigned int pop_bit(uint64_t* bb) {
 }
 
 // Returns the lowest bit and sets it to 0
-// TODO: there is probably some kind of instruction for this, 
-//       use that when availble (if such a thing exists at all)
 uint64_t pop_bitboard(uint64_t* bb) {
 	uint64_t bb_copy = *bb;
 	*bb &= *bb - 1; // remove the lowest bit
@@ -39,13 +37,17 @@ uint64_t pop_bitboard(uint64_t* bb) {
 // see: https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
 // __builtin_ffs(int)
 unsigned int lowest_bitindex(const uint64_t bb) {
-	uint64_t bb_copy = bb;
-	return pop_bit(&bb_copy);
+	//uint64_t bb_copy = bb;
+	//return pop_bit(&bb_copy);
+	uint64_t b = bb ^ (bb - 1);
+	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
+	//*bb &= (*bb - 1);
+	return BitTable[(fold * 0x783a9b23) >> 26];
 }
 
 // Returns the lowest bit as a bitboard
 uint64_t lowest_bitboard(const uint64_t bb) {
-	return bb & (bb - 1);
+	return bb ^ (bb & (bb - 1));
 }
 
 int popcount(uint64_t x) {

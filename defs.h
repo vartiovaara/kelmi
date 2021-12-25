@@ -75,6 +75,7 @@ All of the defines and structs and stuff
 #define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 //#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
 //#define DEFAULT_FEN "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
+//#define DEFAULT_FEN "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8  "
 
 // Enums
 enum side_e {
@@ -100,6 +101,13 @@ enum castling_e {
 	BQCASTLE = 8
 };
 
+enum moveflags_e {
+	FLAGPAWNMOVE = 0x1,
+	FLAGCAPTURE = 0x2,
+	FLAGCHECK = 0x4,
+	FLAG
+};
+
 
 // Structs
 
@@ -115,24 +123,41 @@ typedef struct board_s {
 	uint8_t castling; // see castling_e enum
 	uint8_t fiftym_counter; // 50-move rule counter
 	uint8_t fullmoves;
-	//uint8_t ply;
+
+	unsigned int ply; // aka n of moves in movehistory
+	//move_s* movehistory;
 } board_s;
 
 /*
 Move
-Flags will be dynamically allocated.
-Flags will be set for every "to" square
-in the order pop_bitboard() gives them.
-Castling will not be in the flags, but 
-will be represented by moving king 2 sq
-left or right.
+Castling will be represented by moving
+king 2 sq left or right.
 TODO: Implement flags.
+
+Flags will also be in enum moveflags_e
+Flags:
+1000 0000:
+0100 0000:
+0010 0000:
+0001 0000:
+0000 1000:
+0000 0100: 
+0000 0010: Capture
+0000 0001: Pawn move
 */
 typedef struct move_s {
 	uint64_t from;
 	uint64_t to;
-	uint8_t* flags;
+	uint8_t flags;
+	uint8_t piecetaken; // marks what piece was eaten with this move
+	uint8_t promoteto; // what to promote to
 } move_s;
+
+typedef struct movelist_s {
+	move_s* moves; // remember to free this after done with this
+	unsigned int n; // amount of moves
+} movelist_s;
+
 
 
 // Global variables
@@ -147,9 +172,9 @@ extern uint64_t algsqtobb(const char*);
 extern int algsqtoint(const char*);
 
 // attack.c
-extern move_s pseudo_legal_squares(const board_s*, const uint64_t);
+extern movelist_s pseudo_legal_squares(const board_s*, const uint64_t);
 extern uint64_t pseudo_legal_squares_k(const board_s*, const unsigned int, const uint64_t);
-extern uint64_t pseudo_legal_squares_n(const board_s*, const unsigned int, uint64_t);
+extern uint64_t pseudo_legal_squares_n(const board_s*, const unsigned int, const uint64_t);
 extern uint64_t pseudo_legal_squares_q(const board_s*, const unsigned int, const uint64_t);
 extern uint64_t pseudo_legal_squares_b(const board_s*, const unsigned int, const uint64_t);
 extern uint64_t pseudo_legal_squares_r(const board_s*, const unsigned int, const uint64_t);
@@ -176,6 +201,9 @@ extern void printboard(const board_s*);
 extern void printbitboard(const uint64_t);
 extern board_s boardfromfen(const char*);
 extern void resetboard(board_s*);
+extern void movepiece(board_s* board, const unsigned int side, const uint64_t from, const uint64_t to);
+extern void makemove(board_s* board, const move_s* move);
+extern void unmakemove(board_s* board);
 extern unsigned int get_piece_type(const board_s*, const unsigned int, const uint64_t);
 extern unsigned int get_piece_side(const board_s*, const uint64_t);
 
