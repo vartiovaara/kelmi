@@ -4,6 +4,8 @@
 
 #include "defs.h"
 
+#include <assert.h>
+
 /*
 TODO: Maybe start movegen again
 */
@@ -13,7 +15,7 @@ int main() {
 	board_s board = boardfromfen(DEFAULT_FEN);
 	//printboard(&board);
 
-	perft(&board, 7);
+	perft(&board, 6);
 
 	//printf("%u\n", search(&board, 6));
 

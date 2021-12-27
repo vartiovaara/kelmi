@@ -14,6 +14,8 @@ Stuff about boards and bitboards.
 
 #include "defs.h"
 
+#include <assert.h>
+
 const char piece_chars[N_PIECES] = {
 	[KING] = 'k',
 	[QUEEN] = 'q',
@@ -72,6 +74,8 @@ board_s boardfromfen(const char* fen_str) {
 	// TODO: have a FEN validation function as the
 	// behaviour of this function is undefined with invalid FENs
 
+	assert(strlen(fen_str) <= MAX_FEN_LEN);
+
 	char fen[MAX_FEN_LEN];
 	strcpy(fen, fen_str);
 	
@@ -82,6 +86,13 @@ board_s boardfromfen(const char* fen_str) {
 	const char* en_passant = strtok(NULL, " ");
 	const char* halfmove = strtok(NULL, " ");
 	const char* fullmove = strtok(NULL, " ");
+
+	assert(strlen(pos_str) > 0);
+	assert(strlen(movingside) > 0);
+	assert(strlen(castling) > 0);
+	assert(strlen(en_passant) > 0);
+	assert(strlen(halfmove) > 0);
+	assert(strlen(fullmove) > 0);
 
 	// split the position string in its fields
 	const char* pos_row[8];
@@ -118,6 +129,8 @@ board_s boardfromfen(const char* fen_str) {
 					case 'p':
 						piececode = PAWN;
 						break;
+					default:
+						assert(0);
 				}
 				const int side = (isupper(pos_row[y][i]) ? WHITE : BLACK);
 				board.pieces[side][piececode] |= pos;
@@ -222,6 +235,9 @@ void unmakemove(board_s* board) {
 // Finds, which one of the bitboards holds the piece.
 // exit(1) on not found
 unsigned int get_piece_type(const board_s* board, const unsigned int side, const uint64_t piecebb) {
+	assert(side == WHITE || side == BLACK);
+	assert(popcount(piecebb) == 1);
+	assert(piecebb & board->all_pieces[side]);
 	for (int i = 0; i < N_PIECES; i++) {
 		if (board->pieces[side][i] & piecebb)
 			return i;
@@ -234,14 +250,12 @@ unsigned int get_piece_type(const board_s* board, const unsigned int side, const
 // Returns, what side the piece is
 // exit(1) on not found
 unsigned int get_piece_side(const board_s* board, const uint64_t piecebb) {
+	assert((board->all_pieces[WHITE] | board->all_pieces[BLACK]) & piecebb);
+	assert(popcount(piecebb) == 1);
+
 	if (board->all_pieces[WHITE] & piecebb)
 		return WHITE;
-	if (board->all_pieces[BLACK] & piecebb)
-		return BLACK;
-	
-	// should never get here
-	fprintf(stderr, "get_piece_side(board, %p)\n", (void*)piecebb);
-	exit(1);
+	return BLACK;
 }
 
 

@@ -10,12 +10,12 @@ Attack stuff.
 // generates all the squares the specified piece could move
 // currently just pseudo-legal so doesn't check for
 movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
-	const uint64_t from = piecebb;
-	uint64_t to;
-
 	const unsigned int side = get_piece_side(board, piecebb);
 	const unsigned int piece_type = get_piece_type(board, side, piecebb);
 
+	uint64_t to;
+	// TODO: have the corresponding function pointer in a array of function pointer
+	//	thusly there are less branching
 	if (piece_type == KING)
 		to = pseudo_legal_squares_k(board, side, piecebb);
 	else if (piece_type == KNIGHT)
@@ -41,7 +41,7 @@ movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
 	moves.moves = malloc(sizeof(move_s) * moves.n);
 	// TODO: move ordering would be done here and taken into account in search
 	for (unsigned int i = 0; i < moves.n; i++) {
-		moves.moves[i].from = from;
+		moves.moves[i].from = piecebb;
 		moves.moves[i].to = pop_bitboard(&to);
 	}
 	return moves;
