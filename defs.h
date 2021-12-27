@@ -199,8 +199,8 @@ extern uint64_t pseudo_legal_squares_r(const board_s*, const unsigned int, const
 extern uint64_t pseudo_legal_squares_p(const board_s*, const unsigned int, const uint64_t);
 
 // bitboard.c
-extern unsigned int pop_bit(uint64_t*);
-extern uint64_t pop_bitboard(uint64_t*);
+extern unsigned int pop_bit(uint64_t* const);
+extern uint64_t pop_bitboard(uint64_t* const);
 extern unsigned int lowest_bitindex(const uint64_t);
 extern uint64_t lowest_bitboard(const uint64_t);
 extern int popcount(uint64_t);

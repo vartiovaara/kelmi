@@ -20,23 +20,19 @@ const int BitTable[64] = {
 // Originally taken from Vice bitboards.c
 // TODO: there is probably some kind of instruction for this
 // FIXME: Probably shits itself when bb is 0
-unsigned int pop_bit(uint64_t* bb) {
-#ifndef NDEBUG
-	const uint64_t bb_copy = *bb;
-#endif // NDEBUG
+unsigned int pop_bit(uint64_t* const bb) {
+	assert(*bb > 0);
 	uint64_t b = *bb ^ (*bb - 1);
 	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
 	*bb &= (*bb - 1);
-	assert(*bb < bb_copy);
 	return BitTable[(fold * 0x783a9b23) >> 26];
 }
 
 // Returns the lowest bit and sets it to 0
-// FIXME: Probably shits itself when bb is 0
-uint64_t pop_bitboard(uint64_t* bb) {
+uint64_t pop_bitboard(uint64_t* const bb) {
+	assert(*bb > 0);
 	uint64_t bb_copy = *bb;
 	*bb &= *bb - 1; // remove the lowest bit
-	assert(*bb < bb_copy);
 	return *bb ^ bb_copy; // return what was changed
 	//return (*bb ^ (*bb &= *bb-1)); // does the same thing but 1 liner
 }
@@ -49,6 +45,7 @@ uint64_t pop_bitboard(uint64_t* bb) {
 unsigned int lowest_bitindex(const uint64_t bb) {
 	//uint64_t bb_copy = bb;
 	//return pop_bit(&bb_copy);
+	assert(bb > 0);
 	uint64_t b = bb ^ (bb - 1);
 	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
 	//*bb &= (*bb - 1);
@@ -57,9 +54,8 @@ unsigned int lowest_bitindex(const uint64_t bb) {
 
 // Returns the lowest bit as a bitboard
 uint64_t lowest_bitboard(const uint64_t bb) {
-	const uint64_t lowest = bb ^ (bb & (bb - 1));
-	assert(bb > lowest);
-	return lowest;
+	assert(bb > 0);
+	return bb ^ (bb & (bb - 1));
 }
 
 int popcount(uint64_t x) {
