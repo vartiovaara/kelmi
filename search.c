@@ -45,27 +45,31 @@ unsigned int search(board_s* board, const unsigned int depth) {
 		return 1; // normally do eval here but nyehhh
 	}
 	
-	unsigned int nleaves = 0;
+	const unsigned int initial_npos = 0;
+	unsigned int npos = initial_npos;
 
 	uint64_t pieces_copy = board->all_pieces[board->sidetomove];
 	unsigned int npieces = popcount(pieces_copy);
 
-	board_s boardcopy = *board;
-	//memcpy(&boardcopy, board, sizeof (board_s));
+	board_s boardcopy;// = *board;
+	memcpy(&boardcopy, board, sizeof (board_s)); // for some reason, it's faster with memcpy
 
 	for (unsigned int i = 0; i < npieces; i++) {
 		// generate moves
 		movelist_s moves = pseudo_legal_squares(board, pop_bitboard(&pieces_copy));
+		if (!moves.n)
+			continue; // otherwise we'd get segfault from freeing carbage data
 		// go trough every move
 		for (unsigned int j = 0; j < moves.n; j++) {
 			makemove(board, &moves.moves[j]);
-			nleaves += search(board, depth-1);
-			//memcpy(board, &boardcopy, sizeof (board_s));
-			*board = boardcopy;
+			npos += search(board, depth-1);
+			memcpy(board, &boardcopy, sizeof (board_s));
+			//*board = boardcopy;
 		}
 		free(moves.moves);
 	}
 	//memcpy(board, &boardcopy, sizeof (board_s));
-
-	return nleaves;
+	if (npos == initial_npos)
+		return 1; // this position doesn't have any legal moves
+	return npos;
 }

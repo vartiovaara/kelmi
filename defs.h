@@ -95,6 +95,7 @@ exit(1);}
 //#define DEFAULT_FEN "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
 //#define DEFAULT_FEN "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
 
+
 // Enums
 enum side_e {
 	WHITE,
@@ -123,7 +124,6 @@ enum moveflags_e {
 	FLAGPAWNMOVE = 0x1,
 	FLAGCAPTURE = 0x2,
 	FLAGCHECK = 0x4,
-	FLAG
 };
 
 

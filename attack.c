@@ -7,9 +7,12 @@ Attack stuff.
 
 #include "defs.h"
 
+#include <assert.h>
+
 // generates all the squares the specified piece could move
 // currently just pseudo-legal so doesn't check for
 movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
+	assert(piecebb);
 	const unsigned int side = get_piece_side(board, piecebb);
 	const unsigned int piece_type = get_piece_type(board, side, piecebb);
 
@@ -38,7 +41,13 @@ movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
 	// now we just have to assign flags and properly encode them
 	movelist_s moves;
 	moves.n = popcount(to);
+	if (!moves.n)
+		return moves; // skip everything as there is no moves
 	moves.moves = malloc(sizeof(move_s) * moves.n);
+	if (!moves.moves) {
+		fprintf(stderr, "malloc failed at pseeudo_legal_squares()\n");
+		exit(1);
+	}
 	// TODO: move ordering would be done here and taken into account in search
 	for (unsigned int i = 0; i < moves.n; i++) {
 		moves.moves[i].from = piecebb;
