@@ -10,12 +10,17 @@
 TODO: Maybe start movegen again
 */
 
-int main() {
+int main(int argc, char** argv) {
+	if(argc < 2)
+		return 1;
+	if(argv[1][0] < 48 || argv[1][0] > 57)
+		return 1;
+	
 	init_all();
 	board_s board = boardfromfen(DEFAULT_FEN);
 	//printboard(&board);
 
-	perft(&board, 6);
+	perft(&board, argv[1][0]-48);
 
 	//printf("%u\n", search(&board, 6));
 

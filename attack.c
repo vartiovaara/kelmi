@@ -9,6 +9,7 @@ Attack stuff.
 
 #include <assert.h>
 
+
 // generates all the squares the specified piece could move
 // currently just pseudo-legal so doesn't check for
 movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
