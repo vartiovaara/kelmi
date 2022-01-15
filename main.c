@@ -11,10 +11,14 @@ TODO: Maybe start movegen again
 */
 
 int main(int argc, char** argv) {
-	if(argc < 2)
+	if(argc != 2) {
+		fprintf(stderr, "Wrong number of arguments!\n");
 		return 1;
-	if(argv[1][0] < 48 || argv[1][0] > 57)
+	}
+	if(argv[1][0] < 48 || argv[1][0] > 57) {
+		fprintf(stderr, "just give me a number wtf.\n");
 		return 1;
+	}
 	
 	init_all();
 	board_s board = boardfromfen(DEFAULT_FEN);

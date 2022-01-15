@@ -102,14 +102,12 @@ enum side_e {
 	BLACK
 };
 
-// this ordering so all the non-sliding
-// pieces are first (pawns not included)
 enum piece_e {
 	KING,
-	KNIGHT,
 	QUEEN,
-	BISHOP,
 	ROOK,
+	BISHOP,
+	KNIGHT,
 	PAWN
 };
 
@@ -132,6 +130,7 @@ enum moveflags_e {
 /*
 Struct representing a board.
 TODO: Implement efficiently updateable attack maps
+TODO: Maybe change all_pieces[] to have all pieces and have a separate for this
 */
 typedef struct board_s {
 	uint64_t pieces[2][N_PIECES]; // [side][piece_type]
@@ -180,7 +179,13 @@ typedef struct movelist_s {
 
 // Global variables
 extern const char piece_chars[N_PIECES];
-extern uint64_t movelookup[N_NOSLIDE_PIECES][64];
+/*
+extern uint64_t kinglookup[64];
+extern uint64_t rooklookup[64];
+extern uint64_t bishoplookup[64];
+extern uint64_t knightlookup[64];
+extern uint64_t knightlookup[64];
+*/
 
 
 // Prototypes for different files
@@ -207,9 +212,17 @@ extern int popcount(uint64_t);
 
 // init.c
 extern int init_all();
-extern void reset_lookup();
+
+// lookup.c
+extern uint64_t piecelookup(unsigned int, unsigned int, unsigned int);
+extern void reset_lookups();
+extern void compute_lookups();
+extern void set_lookup_pointers();
 extern void compute_king_lookup();
+extern void compute_rook_lookup();
+extern void compute_bishop_lookup();
 extern void compute_knight_lookup();
+extern void compute_white_pawn_lookup();
 
 // search.c
 extern void perft(board_s*, const unsigned int);

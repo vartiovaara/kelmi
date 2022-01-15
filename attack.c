@@ -9,6 +9,8 @@ Attack stuff.
 
 #include <assert.h>
 
+// Note to self: read god damn it
+// https://essays.jwatzman.org/essays/chess-move-generation-with-magic-bitboards.html
 
 // generates all the squares the specified piece could move
 // currently just pseudo-legal so doesn't check for
@@ -42,7 +44,7 @@ movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
 	// now we just have to assign flags and properly encode them
 	movelist_s moves;
 	moves.n = popcount(to);
-	if (!moves.n)
+	if (moves.n == 0)
 		return moves; // skip everything as there is no moves
 	moves.moves = malloc(sizeof(move_s) * moves.n);
 	if (!moves.moves) {
@@ -58,7 +60,7 @@ movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
 }
 
 uint64_t pseudo_legal_squares_k(const board_s* board, const unsigned int side, const uint64_t piece) {
-	uint64_t squares = movelookup[KING][lowest_bitindex(piece)];
+	uint64_t squares = piecelookup(lowest_bitindex(piece), KING, 0);
 	// don't eat own pieces
 	squares &= ~board->all_pieces[side];
 	// Castling
@@ -79,7 +81,7 @@ uint64_t pseudo_legal_squares_k(const board_s* board, const unsigned int side, c
 }
 
 uint64_t pseudo_legal_squares_n(const board_s* board, const unsigned int side, const uint64_t piece) {
-	uint64_t squares = movelookup[KNIGHT][lowest_bitindex(piece)];
+	uint64_t squares = piecelookup(lowest_bitindex(piece), KNIGHT, 0);
 	// don't eat own pieces
 	squares &= ~board->all_pieces[side]; 
 	return squares;
