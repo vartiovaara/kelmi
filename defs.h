@@ -179,16 +179,10 @@ typedef struct movelist_s {
 
 // Global variables
 extern const char piece_chars[N_PIECES];
-/*
-extern uint64_t kinglookup[64];
-extern uint64_t rooklookup[64];
-extern uint64_t bishoplookup[64];
-extern uint64_t knightlookup[64];
-extern uint64_t knightlookup[64];
-*/
 
 
 // Prototypes for different files
+// Those which are commented out are supposed to be "private"
 
 // algabreic.c
 extern uint64_t algsqtobb(const char*);
@@ -196,12 +190,12 @@ extern int algsqtoint(const char*);
 
 // attack.c
 extern movelist_s pseudo_legal_squares(const board_s*, const uint64_t);
-extern uint64_t pseudo_legal_squares_k(const board_s*, const unsigned int, const uint64_t);
-extern uint64_t pseudo_legal_squares_n(const board_s*, const unsigned int, const uint64_t);
-extern uint64_t pseudo_legal_squares_q(const board_s*, const unsigned int, const uint64_t);
-extern uint64_t pseudo_legal_squares_b(const board_s*, const unsigned int, const uint64_t);
-extern uint64_t pseudo_legal_squares_r(const board_s*, const unsigned int, const uint64_t);
-extern uint64_t pseudo_legal_squares_p(const board_s*, const unsigned int, const uint64_t);
+//extern uint64_t pseudo_legal_squares_k(const board_s*, const unsigned int, const uint64_t);
+//extern uint64_t pseudo_legal_squares_n(const board_s*, const unsigned int, const uint64_t);
+//extern uint64_t pseudo_legal_squares_q(const board_s*, const unsigned int, const uint64_t);
+//extern uint64_t pseudo_legal_squares_b(const board_s*, const unsigned int, const uint64_t);
+//extern uint64_t pseudo_legal_squares_r(const board_s*, const unsigned int, const uint64_t);
+//extern uint64_t pseudo_legal_squares_p(const board_s*, const unsigned int, const uint64_t);
 
 // bitboard.c
 extern unsigned int pop_bit(uint64_t* const);
@@ -218,11 +212,11 @@ extern uint64_t piecelookup(unsigned int, unsigned int, unsigned int);
 extern void reset_lookups();
 extern void compute_lookups();
 extern void set_lookup_pointers();
-extern void compute_king_lookup();
-extern void compute_rook_lookup();
-extern void compute_bishop_lookup();
-extern void compute_knight_lookup();
-extern void compute_white_pawn_lookup();
+//extern void compute_king_lookup();
+//extern void compute_rook_lookup();
+//extern void compute_bishop_lookup();
+//extern void compute_knight_lookup();
+//extern void compute_white_pawn_lookup();
 
 // search.c
 extern void perft(board_s*, const unsigned int);

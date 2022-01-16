@@ -12,6 +12,14 @@ Attack stuff.
 // Note to self: read god damn it
 // https://essays.jwatzman.org/essays/chess-move-generation-with-magic-bitboards.html
 
+uint64_t pseudo_legal_squares_k(const board_s*, const unsigned int, const uint64_t);
+uint64_t pseudo_legal_squares_n(const board_s*, const unsigned int, const uint64_t);
+uint64_t pseudo_legal_squares_q(const board_s*, const unsigned int, const uint64_t);
+uint64_t pseudo_legal_squares_b(const board_s*, const unsigned int, const uint64_t);
+uint64_t pseudo_legal_squares_r(const board_s*, const unsigned int, const uint64_t);
+uint64_t pseudo_legal_squares_p(const board_s*, const unsigned int, const uint64_t);
+
+
 // generates all the squares the specified piece could move
 // currently just pseudo-legal so doesn't check for
 movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {

@@ -5,17 +5,25 @@
 
 #include "defs.h"
 
+// The queen lookup will just be (rook | bishop)
 uint64_t kinglookup[64];
-//uint64_t queenlookup[64];
 uint64_t rooklookup[64];
 uint64_t bishoplookup[64];
 uint64_t knightlookup[64];
 uint64_t pawnlookup[2][64]; // black and white pawns
 
-
 // pointers to according lookups
 // needs to be void* becouse pawnlookup has different size
 void* lookup[N_PIECES]; //[piece_e]
+
+
+// Private functions
+void compute_king_lookup();
+void compute_rook_lookup();
+void compute_bishop_lookup();
+void compute_knight_lookup();
+void compute_white_pawn_lookup();
+
 
 // side can be anything when using anything other than pawn
 uint64_t piecelookup(unsigned int pos, unsigned int piece, unsigned int side) {
