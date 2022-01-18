@@ -135,6 +135,7 @@ board_s boardfromfen(const char* fen_str) {
 				const int side = (isupper(pos_row[y][i]) ? WHITE : BLACK);
 				board.pieces[side][piececode] |= pos;
 				board.all_pieces[side] |= pos;
+				board.every_piece |= pos;
 				pos <<= 1;
 			}
 			else if (isdigit(pos_row[y][i])) {
@@ -186,19 +187,7 @@ board_s boardfromfen(const char* fen_str) {
 }
 
 void resetboard(board_s* board) {
-	// we could just memset() the whole thing but idk
 	memset(board, 0, sizeof (board_s));
-	/*
-	for (int side = 0; side < 2; side++) {
-		for (int piece_type = 0; piece_type < 6; piece_type++) {
-			board->pieces[side][piece_type] = 0;
-		}
-		board->all_pieces[side] = 0;
-	}
-	board->sidetomove = WHITE;
-	board->movehistory = NULL;
-	board->ply = 0
-	*/
 }
 
 /*
@@ -207,6 +196,12 @@ Doesn't "perform" a move (change en_passant, whiteturn etc.)
 TODO: Test the eligibility of this function
 */
 void movepiece(board_s* board, const unsigned int side, const uint64_t from, const uint64_t to) {
+	assert(popcount(to) == 1);
+	assert(popcount(from) == 1);
+	assert(to ^ board->every_piece);
+
+	assert(board->every_piece == (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
+
 	// Otherwise we'd need to have a 4th argument
 	unsigned int type = get_piece_type(board, side, from);
 	
@@ -215,15 +210,41 @@ void movepiece(board_s* board, const unsigned int side, const uint64_t from, con
 	board->pieces[side][type] |= to; // add to
 	board->all_pieces[side] &= ~from;
 	board->all_pieces[side] |= to;
+	board->every_piece &= ~from;
+	board->every_piece |= to;
+
+	assert(board->every_piece == (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
+}
+
+void removepiece(board_s* board, const uint64_t pos, const unsigned int side, const unsigned int type) {
+	assert(popcount(pos) == 1);
+	assert(side == WHITE || side == BLACK);
+	assert(type < N_PIECES);
+
+	board->pieces[side][type] &= ~pos;
+	board->all_pieces[side] &= ~pos;
+	board->every_piece &= ~pos;
 }
 
 // Performs a move
 // TODO: Finish this function
 void makemove(board_s* board, const move_s* move) {
+	assert(popcount(move->from) == 1);
+	assert(popcount(move->to) == 1);
+	assert(move->from & board->all_pieces[board->sidetomove]); // can trigger if wrong side tries to perform a move
+
+	// If the piece was captured, remove it.
+	if (move->flags & FLAG_CAPTURE) {
+		assert(move->to & board->every_piece);
+		const unsigned int captured_side = get_piece_side(board, move->to);
+		const unsigned int captured_type = get_piece_type(board, captured_side, move->to);
+		removepiece(board, move->to, captured_side, captured_type);
+	}
+
 	movepiece(board, board->sidetomove, move->from, move->to);
-	//if (move.flags & FLAGCAPTURE)
+	
 	// change side to move
-	board->sidetomove = (board->sidetomove == WHITE ? BLACK : WHITE);
+	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
 }
 
 // Undoes the latest move done
@@ -248,10 +269,9 @@ unsigned int get_piece_type(const board_s* board, const unsigned int side, const
 }
 
 // Returns, what side the piece is
-// exit(1) on not found
 unsigned int get_piece_side(const board_s* board, const uint64_t piecebb) {
-	assert((board->all_pieces[WHITE] | board->all_pieces[BLACK]) & piecebb);
 	assert(popcount(piecebb) == 1);
+	assert(board->every_piece & piecebb);
 
 	if (board->all_pieces[WHITE] & piecebb)
 		return WHITE;

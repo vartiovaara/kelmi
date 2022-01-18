@@ -8,6 +8,7 @@ All of the defines and structs and stuff
 #include <stdint.h>
 #include <stdbool.h>
 
+
 //#define NDEBUG
 
 /*
@@ -28,7 +29,9 @@ exit(1);}
 
 // Defines
 
+// Macros
 #define SQTOBB(sq) ((uint64_t)0x1<<(sq))
+#define OPPOSITE_SIDE(side) ((side == WHITE) ? BLACK : WHITE)
 
 // Border masks
 #define TOP_MASK    0xff00000000000000
@@ -119,9 +122,9 @@ enum castling_e {
 };
 
 enum moveflags_e {
-	FLAGPAWNMOVE = 0x1,
-	FLAGCAPTURE = 0x2,
-	FLAGCHECK = 0x4,
+	FLAG_PAWNMOVE = 0x1,
+	FLAG_CAPTURE = 0x2,
+	FLAG_CHECK = 0x4,
 };
 
 
@@ -134,6 +137,7 @@ TODO: Maybe change all_pieces[] to have all pieces and have a separate for this
 */
 typedef struct board_s {
 	uint64_t pieces[2][N_PIECES]; // [side][piece_type]
+	uint64_t every_piece; // holds all the pieces
 	uint64_t all_pieces[2]; // [side]
 	uint8_t sidetomove; // see side_e enum
 	uint64_t en_passant; // 0x0 if no en passant
@@ -166,7 +170,7 @@ typedef struct move_s {
 	uint64_t from;
 	uint64_t to;
 	uint8_t flags;
-	uint8_t piecetaken; // marks what piece was eaten with this move
+	//uint8_t piece_captured; // marks what piece was eaten with this move
 	uint8_t promoteto; // what to promote to
 } move_s;
 
@@ -228,6 +232,7 @@ extern void printbitboard(const uint64_t);
 extern board_s boardfromfen(const char*);
 extern void resetboard(board_s*);
 extern void movepiece(board_s* board, const unsigned int side, const uint64_t from, const uint64_t to);
+extern void removepiece(board_s*, const uint64_t, const unsigned int, const unsigned int);
 extern void makemove(board_s* board, const move_s* move);
 extern void unmakemove(board_s* board);
 extern unsigned int get_piece_type(const board_s*, const unsigned int, const uint64_t);

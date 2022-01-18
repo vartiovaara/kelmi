@@ -6,14 +6,15 @@ Init stuff
 #define INIT_C
 
 #include <string.h>
-//#include <stdio.h>
 
 #include "defs.h"
+#include "magicmoves/magicmoves.h"
 
 int init_all() {
 	reset_lookups();
 	compute_lookups();
 	set_lookup_pointers();
+	initmagicmoves();
 	/*
 	unsigned int i; unsigned long l; uint64_t ll;
 	printf("uint: %llu %llu\nulong: %llu %llu\nullong: %llu %llu\n",

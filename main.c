@@ -6,6 +6,8 @@
 
 #include <assert.h>
 
+#include "magicmoves/magicmoves.h"
+
 /*
 TODO: Maybe start movegen again
 */
@@ -24,12 +26,24 @@ int main(int argc, char** argv) {
 	board_s board = boardfromfen(DEFAULT_FEN);
 	//printboard(&board);
 
+	printbitboard(board.every_piece);
+
 	perft(&board, argv[1][0]-48);
 
 	//printf("%u\n", search(&board, 6));
 
+	//printbitboard(piecelookup(lowest_bitindex(board.all_pieces[WHITE]), ROOK, 0));
 	
-	/*movelist_s moves = pseudo_legal_squares(&board, lowest_bitboard(board.pieces[WHITE][KNIGHT]));
+	/*const uint64_t piece_index = lowest_bitindex(board.pieces[WHITE][ROOK]);
+	const uint64_t moves = Rmagic(
+		piece_index,
+		piecelookup(piece_index, ROOK, 0) | (board.all_pieces[WHITE] | board.all_pieces[BLACK]));
+	printbitboard(moves);
+	printbitboard(moves & ~board.all_pieces[WHITE]);*/
+
+	/*
+	board.sidetomove = BLACK;
+	movelist_s moves = pseudo_legal_squares(&board, lowest_bitboard(board.pieces[BLACK][ROOK]));
 	printboard(&board);
 	printf("From:\n");
 	printbitboard(moves.moves[0].from);
@@ -45,11 +59,5 @@ int main(int argc, char** argv) {
 	}
 	free(moves.moves);*/
 	
-
-	/*
-	printbitboard(board.pieces[WHITE][PAWN]);
-	printbitboard(pop_bitboard(&board.pieces[WHITE][PAWN]));
-	printbitboard(board.pieces[WHITE][PAWN]);
-	*/
 	return 0;
 }

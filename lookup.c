@@ -1,9 +1,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 #include "defs.h"
+
+#include <assert.h>
 
 // The queen lookup will just be (rook | bishop)
 uint64_t kinglookup[64];
@@ -27,7 +28,7 @@ void compute_white_pawn_lookup();
 
 // side can be anything when using anything other than pawn
 uint64_t piecelookup(unsigned int pos, unsigned int piece, unsigned int side) {
-	assert(pos);
+	assert(pos < 64);
 	assert(piece < N_PIECES);
 	assert(side == WHITE || side == BLACK);
 	if (piece == QUEEN) {
