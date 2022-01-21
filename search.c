@@ -24,14 +24,14 @@ void perft(board_s* board, const unsigned int depth) {
 
 	clock_t t = clock();
 	
-	pertf_result res = {0, 0};
+	pertf_result_s res = {0, 0};
 	search(board, depth, &res);
 	
 	t = clock() - t;
 	double time_taken = ((double)t)/CLOCKS_PER_SEC;
 
 	printf("%llu nodes searched in %3fs\n", res.nodes, time_taken);
-	printf("%fNps\n\n", (float)res.nodes/time_taken);
+	printf("%f Nps\n\n", (float)res.nodes/time_taken);
 	
 
 	printf("Expected perft: %u\n", expected_perft[depth]);
@@ -45,16 +45,11 @@ a recursive search algorithm.
 so far just a prototype.
 starts with the side that is supposed to move 
 according to board_s.whiteturn.
-either returns the amount of leaves(nodes?) searched total
-or the amount of positions reached in the end (depending on if
-nleaves is 1 or 0)
+Check perft_result_s
 */
-void search(board_s* board, const unsigned int depth, pertf_result* res) {
-	//printf("Entered search with parameters %p, %u \n", (void*)board, depth);
+void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
+	// is position a last one
 	if (depth == 0) {
-		//printf("Last move by %s.\nReached position:\n", (board->sidetomove==WHITE ? "white" : "black"));
-		//printboard(board);
-		//return 1; // normally do eval here but nyehhh
 		res->end_positions++;
 		res->nodes++;
 		return;
@@ -73,20 +68,25 @@ void search(board_s* board, const unsigned int depth, pertf_result* res) {
 	for (unsigned int i = 0; i < npieces; i++) {
 		// generate moves
 		movelist_s moves = pseudo_legal_squares(board, pop_bitboard(&pieces_copy));
+		
+		// if there aren't any moves, cont now.
+		// otherwise we'd be freeing memory that has never
+		// been allocated
 		if (!moves.n)
-			continue; // otherwise we'd get segfault from freeing carbage data
+			continue;
+		
 		// go trough every move
 		for (unsigned int j = 0; j < moves.n; j++) {
 			makemove(board, &moves.moves[j]);
-			//npos += search(board, depth-1);
 			res->nodes++;
 			search(board, depth-1, res);
 			memcpy(board, &boardcopy, sizeof (board_s));
 			//*board = boardcopy;
 		}
+
 		free(moves.moves);
 	}
-	//memcpy(board, &boardcopy, sizeof (board_s));
+
 	if (res->nodes == initial_nodes) {
 		res->end_positions++;
 		res->nodes++;
