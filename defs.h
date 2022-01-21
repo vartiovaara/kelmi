@@ -179,6 +179,11 @@ typedef struct movelist_s {
 	unsigned int n; // amount of moves
 } movelist_s;
 
+// Defines perft results
+typedef struct {
+	unsigned long long end_positions;
+	unsigned long long nodes;
+} pertf_result;
 
 
 // Global variables
@@ -224,7 +229,7 @@ extern void set_lookup_pointers();
 
 // search.c
 extern void perft(board_s*, const unsigned int);
-extern unsigned int search(board_s*, const unsigned int);
+extern void search(board_s* restrict, const unsigned int, pertf_result* restrict);
 
 // board.c
 extern void printboard(const board_s*);

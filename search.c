@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "defs.h"
 
@@ -17,15 +18,26 @@ const unsigned int expected_perft[] = {
 	3195901860 // ply 7
 };
 
-void perft(board_s* board, const unsigned int depth) {
-	printf("Starting perft with depth %u\n", depth);
 
-	const unsigned int search_res = search(board, depth);
+void perft(board_s* board, const unsigned int depth) {
+	printf("Starting perft with depth %u...\n\n", depth);
+
+	clock_t t = clock();
+	
+	pertf_result res = {0, 0};
+	search(board, depth, &res);
+	
+	t = clock() - t;
+	double time_taken = ((double)t)/CLOCKS_PER_SEC;
+
+	printf("%llu nodes searched in %3fs\n", res.nodes, time_taken);
+	printf("%fNps\n\n", (float)res.nodes/time_taken);
+	
 
 	printf("Expected perft: %u\n", expected_perft[depth]);
-	printf("Calculated perft: %u\n", search_res);
-	printf("Error: %d\n", (int)search_res-(int)expected_perft[depth]);
-	printf("Procentual error: %f%%\n", ((float)((int)search_res-(int)expected_perft[depth])/(float)expected_perft[depth])*100.f);
+	printf("Calculated perft: %llu\n", res.end_positions);
+	printf("Error: %lld\n", (long long)res.end_positions-(long long)expected_perft[depth]);
+	printf("Procentual error: %f%%\n", ((double)((long long)res.end_positions-(long long)expected_perft[depth])/(double)expected_perft[depth])*(double)100);
 }
 
 /*
@@ -37,16 +49,20 @@ either returns the amount of leaves(nodes?) searched total
 or the amount of positions reached in the end (depending on if
 nleaves is 1 or 0)
 */
-unsigned int search(board_s* board, const unsigned int depth) {
+void search(board_s* board, const unsigned int depth, pertf_result* res) {
 	//printf("Entered search with parameters %p, %u \n", (void*)board, depth);
 	if (depth == 0) {
 		//printf("Last move by %s.\nReached position:\n", (board->sidetomove==WHITE ? "white" : "black"));
 		//printboard(board);
-		return 1; // normally do eval here but nyehhh
+		//return 1; // normally do eval here but nyehhh
+		res->end_positions++;
+		res->nodes++;
+		return;
 	}
 	
-	const unsigned int initial_npos = 0;
-	unsigned int npos = initial_npos;
+	//const unsigned int initial_npos = 0;
+	//unsigned int npos = initial_npos;
+	const unsigned long long initial_nodes = res->nodes;
 
 	uint64_t pieces_copy = board->all_pieces[board->sidetomove];
 	unsigned int npieces = popcount(pieces_copy);
@@ -62,14 +78,18 @@ unsigned int search(board_s* board, const unsigned int depth) {
 		// go trough every move
 		for (unsigned int j = 0; j < moves.n; j++) {
 			makemove(board, &moves.moves[j]);
-			npos += search(board, depth-1);
+			//npos += search(board, depth-1);
+			res->nodes++;
+			search(board, depth-1, res);
 			memcpy(board, &boardcopy, sizeof (board_s));
 			//*board = boardcopy;
 		}
 		free(moves.moves);
 	}
 	//memcpy(board, &boardcopy, sizeof (board_s));
-	if (npos == initial_npos)
-		return 1; // this position doesn't have any legal moves
-	return npos;
+	if (res->nodes == initial_nodes) {
+		res->end_positions++;
+		res->nodes++;
+		return; // this position doesn't have any legal moves
+	}
 }

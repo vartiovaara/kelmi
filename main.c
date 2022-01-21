@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
 	board_s board = boardfromfen(DEFAULT_FEN);
 	//printboard(&board);
 
-	printbitboard(board.every_piece);
+	//printbitboard(board.every_piece);
 
 	perft(&board, argv[1][0]-48);
 
