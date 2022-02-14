@@ -79,14 +79,20 @@
 //the default configuration is the best
 
 //Uncommont either one of the following or none
-//#define MINIMIZE_MAGIC
-//#define PERFECT_MAGIC_HASH unsigned short
+//#define MINIMIZE_MAGIC // default: on
+//#define PERFECT_MAGIC_HASH unsigned short // default: off
 
 //the following works only for perfect magic hash or no defenitions above
 //it uses variable shift for each square
-#define VARIABLE_SHIFT
+#define VARIABLE_SHIFT // default: off
 
+// default: off?
 #define USE_INLINING /*the MMINLINE keyword is assumed to be available*/
+
+// Following definition of U64 added by me
+//#define __64_BIT_INTEGER_DEFINED__
+//#include <stdint.h>
+//typedef uint64_t U64;
 
 #ifndef __64_BIT_INTEGER_DEFINED__
 	#define __64_BIT_INTEGER_DEFINED__

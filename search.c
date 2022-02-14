@@ -44,7 +44,7 @@ void perft(board_s* board, const unsigned int depth) {
 a recursive search algorithm.
 so far just a prototype.
 starts with the side that is supposed to move 
-according to board_s.whiteturn.
+according to board_s.sidetomove.
 Check perft_result_s
 */
 void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
@@ -62,6 +62,12 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 	uint64_t pieces_copy = board->all_pieces[board->sidetomove];
 	unsigned int npieces = popcount(pieces_copy);
 
+
+	// used for not getting itself in check by moving own piece or not blocking
+	//const bool initially_in_check = is_in_check(board, board->sidetomove);
+	//printf("initially_in_check = %u\n", initially_in_check);
+	const unsigned int initial_side = board->sidetomove;
+
 	board_s boardcopy;// = *board;
 	memcpy(&boardcopy, board, sizeof (board_s)); // for some reason, it's faster with memcpy
 
@@ -78,8 +84,13 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 		// go trough every move
 		for (unsigned int j = 0; j < moves.n; j++) {
 			makemove(board, &moves.moves[j]);
+			if (is_in_check(board, initial_side)) {
+				res->end_positions++;
+				goto SEARCH_SKIP_MOVE;
+			}
 			res->nodes++;
 			search(board, depth-1, res);
+			SEARCH_SKIP_MOVE: // if move was illegal, go here
 			memcpy(board, &boardcopy, sizeof (board_s));
 			//*board = boardcopy;
 		}

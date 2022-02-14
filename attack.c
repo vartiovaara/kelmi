@@ -4,16 +4,18 @@ Attack stuff.
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include "defs.h"
 
-#include <assert.h>
+#include <assert.h> // needs to be after defs.h
 
 #include "magicmoves/magicmoves.h"
 
 // Note to self: read god damn it
 // https://essays.jwatzman.org/essays/chess-move-generation-with-magic-bitboards.html
 
+// "Private" functions
 uint64_t pseudo_legal_squares_k(const board_s*, const unsigned int, const uint64_t);
 uint64_t pseudo_legal_squares_n(const board_s*, const unsigned int, const uint64_t);
 uint64_t pseudo_legal_squares_q(const board_s*, const unsigned int, const uint64_t);
@@ -21,6 +23,36 @@ uint64_t pseudo_legal_squares_b(const board_s*, const unsigned int, const uint64
 uint64_t pseudo_legal_squares_r(const board_s*, const unsigned int, const uint64_t);
 uint64_t pseudo_legal_squares_p(const board_s*, const unsigned int, const uint64_t);
 
+// side: the side whose king to check
+bool is_in_check (const board_s* board, const unsigned int side) {
+	assert(side == WHITE || side == BLACK);
+	assert(popcount(board->pieces[side][KING]) == 1);
+
+	const unsigned int opposite_side = OPPOSITE_SIDE(side);
+	const uint64_t king_bb = lowest_bitboard(board->pieces[side][KING]);
+	const unsigned int king_pos = lowest_bitindex(king_bb);
+
+	// first check knights, as they are cheap to check (only array accesses)
+	if (board->pieces[opposite_side][KNIGHT] & piecelookup(king_pos, KNIGHT, 0))
+		return true;
+	
+	// then check pawns, as they are also cheap
+	if (board->pieces[opposite_side][PAWN] & piecelookup(king_pos, PAWN, side))
+		return true;
+
+	// check files and diagonals
+	const uint64_t rb_mask = piecelookup(king_pos, QUEEN, 0);
+	const uint64_t rb_magic_squares = Qmagic(king_pos, rb_mask & board->every_piece);
+	
+	// opposite side's rook, bishop and queens
+	const uint64_t opposite_rbq = board->pieces[opposite_side][ROOK] |
+	                              board->pieces[opposite_side][BISHOP] |
+	                              board->pieces[opposite_side][QUEEN];
+	if (rb_magic_squares & opposite_rbq)
+		return true;
+	
+	return false;
+}
 
 // generates all the squares the specified piece could move
 // currently just pseudo-legal so doesn't check for
@@ -67,6 +99,7 @@ movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
 		moves.moves[i].to = pop_bitboard(&to);
 		moves.moves[i].flags = 0;
 		if (moves.moves[i].to & board->every_piece) { // move was a capture
+			assert(!(board->pieces[OPPOSITE_SIDE(side)][KING] & moves.moves[i].to));
 			assert(moves.moves[i].to & board->all_pieces[OPPOSITE_SIDE(side)]);
 			moves.moves[i].flags |= FLAG_CAPTURE;
 		}

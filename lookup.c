@@ -24,6 +24,7 @@ void compute_rook_lookup();
 void compute_bishop_lookup();
 void compute_knight_lookup();
 void compute_white_pawn_lookup();
+void compute_black_pawn_lookup();
 
 
 // side can be anything when using anything other than pawn
@@ -35,7 +36,8 @@ uint64_t piecelookup(unsigned int pos, unsigned int piece, unsigned int side) {
 		return ((uint64_t*)lookup[ROOK])[pos] | ((uint64_t*)lookup[BISHOP])[pos];
 	}
 	if (piece == PAWN) {
-		return ((uint64_t**)lookup[PAWN])[side][pos];
+		//return (((uint64_t**)lookup[PAWN))[side][pos]);
+		return pawnlookup[side][pos];
 	}
 	assert(lookup[piece]); // make sure is not NULL
 	return ((uint64_t*)lookup[piece])[pos];
@@ -56,6 +58,7 @@ void compute_lookups() {
 	compute_bishop_lookup();
 	compute_knight_lookup();
 	compute_white_pawn_lookup();
+	compute_black_pawn_lookup();
 }
 
 void set_lookup_pointers() {
@@ -64,7 +67,7 @@ void set_lookup_pointers() {
 	lookup[ROOK] = rooklookup;
 	lookup[BISHOP] = bishoplookup;
 	lookup[KNIGHT] = knightlookup;
-	lookup[PAWN] = pawnlookup;
+	lookup[PAWN] = &pawnlookup; // doesn't work for some reason
 }
 
 void compute_king_lookup() {
@@ -205,14 +208,13 @@ void compute_knight_lookup() {
 // TODO: Test eligibility
 void compute_white_pawn_lookup() {
 	for (unsigned int i = 0; i < 64; i++) {
-		// without the cast, all hell breaks loose
 		const uint64_t pos = SQTOBB(i);
 
 		// On rank 8. attack will be empty
 		if (pos & TOP_MASK)
 			continue;
 		// one forward
-		pawnlookup[WHITE][i] |= pos<<8;
+		//pawnlookup[WHITE][i] |= pos<<8;
 		// Not a-file. top-left capture available
 		if (!(pos & LEFT_MASK))
 			pawnlookup[WHITE][i] |= pos<<7;
@@ -220,8 +222,8 @@ void compute_white_pawn_lookup() {
 		if (!(pos & RIGHT_MASK))
 			pawnlookup[WHITE][i] |= pos<<9;
 		// On rank 2. double push available
-		if(i >= 8 && i <= 15)
-			pawnlookup[WHITE][i] |= pos<<16;
+		//if(i >= 8 && i <= 15)
+		//	pawnlookup[WHITE][i] |= pos<<16;
 	}
 }
 
@@ -234,7 +236,7 @@ void compute_black_pawn_lookup() {
 		if (pos & BOTTOM_MASK)
 			continue;
 		// one forward
-		pawnlookup[BLACK][i] |= pos>>8;
+		//pawnlookup[BLACK][i] |= pos>>8;
 		// Not a-file. left capture available
 		if (!(pos & LEFT_MASK))
 			pawnlookup[BLACK][i] |= pos>>9;
@@ -242,7 +244,7 @@ void compute_black_pawn_lookup() {
 		if (!(pos & RIGHT_MASK))
 			pawnlookup[BLACK][i] |= pos>>7;
 		// On rank 7. double push available
-		if(i >= 48 && i <= 55)
-			pawnlookup[BLACK][i] |= pos>>16;
+		//if(i >= 48 && i <= 55)
+		//	pawnlookup[BLACK][i] |= pos>>16;
 	}
 }

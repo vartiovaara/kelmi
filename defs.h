@@ -9,7 +9,7 @@ All of the defines and structs and stuff
 #include <stdbool.h>
 
 
-//#define NDEBUG
+#define NDEBUG
 
 /*
 // Taken from Vice11 defs.h
@@ -198,6 +198,7 @@ extern uint64_t algsqtobb(const char*);
 extern int algsqtoint(const char*);
 
 // attack.c
+extern bool is_in_check (const board_s*, const unsigned int);
 extern movelist_s pseudo_legal_squares(const board_s*, const uint64_t);
 //extern uint64_t pseudo_legal_squares_k(const board_s*, const unsigned int, const uint64_t);
 //extern uint64_t pseudo_legal_squares_n(const board_s*, const unsigned int, const uint64_t);
