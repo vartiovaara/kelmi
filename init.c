@@ -16,7 +16,7 @@ int init_all() {
 	set_lookup_pointers();
 	initmagicmoves();
 	/*
-	unsigned int i; unsigned long l; uint64_t ll;
+	unsigned int i; unsigned long l; BitBoard ll;
 	printf("uint: %llu %llu\nulong: %llu %llu\nullong: %llu %llu\n",
 		(unsigned long long)sizeof i,
 		(unsigned long long)UINT_MAX,

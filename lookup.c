@@ -7,11 +7,11 @@
 #include <assert.h>
 
 // The queen lookup will just be (rook | bishop)
-uint64_t kinglookup[64];
-uint64_t rooklookup[64];
-uint64_t bishoplookup[64];
-uint64_t knightlookup[64];
-uint64_t pawnlookup[2][64]; // black and white pawns
+BitBoard kinglookup[64];
+BitBoard rooklookup[64];
+BitBoard bishoplookup[64];
+BitBoard knightlookup[64];
+BitBoard pawnlookup[2][64]; // black and white pawns
 
 // pointers to according lookups
 // needs to be void* becouse pawnlookup has different size
@@ -28,19 +28,19 @@ void compute_black_pawn_lookup();
 
 
 // side can be anything when using anything other than pawn
-uint64_t piecelookup(unsigned int pos, unsigned int piece, unsigned int side) {
+BitBoard piecelookup(unsigned int pos, unsigned int piece, unsigned int side) {
 	assert(pos < 64);
 	assert(piece < N_PIECES);
 	assert(side == WHITE || side == BLACK);
 	if (piece == QUEEN) {
-		return ((uint64_t*)lookup[ROOK])[pos] | ((uint64_t*)lookup[BISHOP])[pos];
+		return ((BitBoard*)lookup[ROOK])[pos] | ((BitBoard*)lookup[BISHOP])[pos];
 	}
 	if (piece == PAWN) {
-		//return (((uint64_t**)lookup[PAWN))[side][pos]);
+		//return (((BitBoard**)lookup[PAWN))[side][pos]);
 		return pawnlookup[side][pos];
 	}
 	assert(lookup[piece]); // make sure is not NULL
-	return ((uint64_t*)lookup[piece])[pos];
+	return ((BitBoard*)lookup[piece])[pos];
 }
 
 void reset_lookups() {
@@ -72,7 +72,7 @@ void set_lookup_pointers() {
 
 void compute_king_lookup() {
 	for (unsigned int i = 0; i < 64; i++) {
-		const uint64_t pos = SQTOBB(i); // cuck thing to do
+		const BitBoard pos = SQTOBB(i); // cuck thing to do
 		 // north
 		if (!(pos & TOP_MASK)) {
 			kinglookup[i] |= pos<<8;
@@ -101,7 +101,7 @@ void compute_king_lookup() {
 // TODO: Test eligibility
 void compute_rook_lookup() {
 	for (unsigned int i = 0; i < 64; i++) {
-		const uint64_t pos = SQTOBB(i);
+		const BitBoard pos = SQTOBB(i);
 
 		// Left moves
 		for (int x = (i%8); x > 0; x--) {
@@ -112,7 +112,7 @@ void compute_rook_lookup() {
 			rooklookup[i] |= pos<<x;
 		}
 		// Top moves
-		uint64_t c_pos = pos;
+		BitBoard c_pos = pos;
 		ROOK_TOP:
 		if (!(c_pos & TOP_MASK)) {
 			c_pos <<= 8;
@@ -133,10 +133,10 @@ void compute_rook_lookup() {
 // TODO: Test eligibility
 void compute_bishop_lookup() {
 	for (unsigned int i = 0; i < 64; i++) {
-		const uint64_t pos = SQTOBB(i);
+		const BitBoard pos = SQTOBB(i);
 
 		// north-east
-		uint64_t c_pos = pos;
+		BitBoard c_pos = pos;
 		BISHOP_NE:
 		if (!(c_pos & TOP_MASK) && !(c_pos & RIGHT_MASK)) {
 			c_pos <<= 9;
@@ -172,7 +172,7 @@ void compute_bishop_lookup() {
 
 void compute_knight_lookup() {
 	for (unsigned int i = 0; i < 64; i++) {
-		const uint64_t pos = SQTOBB(i);
+		const BitBoard pos = SQTOBB(i);
 
 		// north-north
 		if (!(pos & TOP_MASK_N)) {
@@ -208,7 +208,7 @@ void compute_knight_lookup() {
 // TODO: Test eligibility
 void compute_white_pawn_lookup() {
 	for (unsigned int i = 0; i < 64; i++) {
-		const uint64_t pos = SQTOBB(i);
+		const BitBoard pos = SQTOBB(i);
 
 		// On rank 8. attack will be empty
 		if (pos & TOP_MASK)
@@ -230,7 +230,7 @@ void compute_white_pawn_lookup() {
 // TODO: Test eligibility
 void compute_black_pawn_lookup() {
 	for (unsigned int i = 0; i < 64; i++) {
-		const uint64_t pos = SQTOBB(i);
+		const BitBoard pos = SQTOBB(i);
 
 		// On rank 1. attack will be empty
 		if (pos & BOTTOM_MASK)

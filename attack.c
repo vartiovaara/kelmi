@@ -16,12 +16,12 @@ Attack stuff.
 // https://essays.jwatzman.org/essays/chess-move-generation-with-magic-bitboards.html
 
 // "Private" functions
-uint64_t pseudo_legal_squares_k(const board_s*, const unsigned int, const uint64_t);
-uint64_t pseudo_legal_squares_n(const board_s*, const unsigned int, const uint64_t);
-uint64_t pseudo_legal_squares_q(const board_s*, const unsigned int, const uint64_t);
-uint64_t pseudo_legal_squares_b(const board_s*, const unsigned int, const uint64_t);
-uint64_t pseudo_legal_squares_r(const board_s*, const unsigned int, const uint64_t);
-uint64_t pseudo_legal_squares_p(const board_s*, const unsigned int, const uint64_t);
+BitBoard pseudo_legal_squares_k(const board_s*, const unsigned int, const BitBoard);
+BitBoard pseudo_legal_squares_n(const board_s*, const unsigned int, const BitBoard);
+BitBoard pseudo_legal_squares_q(const board_s*, const unsigned int, const BitBoard);
+BitBoard pseudo_legal_squares_b(const board_s*, const unsigned int, const BitBoard);
+BitBoard pseudo_legal_squares_r(const board_s*, const unsigned int, const BitBoard);
+BitBoard pseudo_legal_squares_p(const board_s*, const unsigned int, const BitBoard);
 
 // side: the side whose king to check
 bool is_in_check (const board_s* board, const unsigned int side) {
@@ -29,7 +29,7 @@ bool is_in_check (const board_s* board, const unsigned int side) {
 	assert(popcount(board->pieces[side][KING]) == 1);
 
 	const unsigned int opposite_side = OPPOSITE_SIDE(side);
-	const uint64_t king_bb = lowest_bitboard(board->pieces[side][KING]);
+	const BitBoard king_bb = lowest_bitboard(board->pieces[side][KING]);
 	const unsigned int king_pos = lowest_bitindex(king_bb);
 
 	// first check knights, as they are cheap to check (only array accesses)
@@ -41,11 +41,11 @@ bool is_in_check (const board_s* board, const unsigned int side) {
 		return true;
 
 	// check files and diagonals
-	const uint64_t rb_mask = piecelookup(king_pos, QUEEN, 0);
-	const uint64_t rb_magic_squares = Qmagic(king_pos, rb_mask & board->every_piece);
+	const BitBoard rb_mask = piecelookup(king_pos, QUEEN, 0);
+	const BitBoard rb_magic_squares = Qmagic(king_pos, rb_mask & board->every_piece);
 	
 	// opposite side's rook, bishop and queens
-	const uint64_t opposite_rbq = board->pieces[opposite_side][ROOK] |
+	const BitBoard opposite_rbq = board->pieces[opposite_side][ROOK] |
 	                              board->pieces[opposite_side][BISHOP] |
 	                              board->pieces[opposite_side][QUEEN];
 	if (rb_magic_squares & opposite_rbq)
@@ -56,12 +56,12 @@ bool is_in_check (const board_s* board, const unsigned int side) {
 
 // generates all the squares the specified piece could move
 // currently just pseudo-legal so doesn't check for
-movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
+movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 	assert(popcount(piecebb));
 	const unsigned int side = get_piece_side(board, piecebb);
 	const unsigned int piece_type = get_piece_type(board, side, piecebb);
 
-	uint64_t to;
+	BitBoard to;
 	// TODO: have the corresponding function pointer in a array of function pointer
 	//	thusly there are less branching
 	if (piece_type == KING)
@@ -107,8 +107,8 @@ movelist_s pseudo_legal_squares(const board_s* board, const uint64_t piecebb) {
 	return moves;
 }
 
-uint64_t pseudo_legal_squares_k(const board_s* board, const unsigned int side, const uint64_t piece) {
-	uint64_t squares = piecelookup(lowest_bitindex(piece), KING, 0);
+BitBoard pseudo_legal_squares_k(const board_s* board, const unsigned int side, const BitBoard piece) {
+	BitBoard squares = piecelookup(lowest_bitindex(piece), KING, 0);
 	// don't eat own pieces
 	squares &= ~board->all_pieces[side];
 	// Castling
@@ -127,21 +127,21 @@ uint64_t pseudo_legal_squares_k(const board_s* board, const unsigned int side, c
 	return squares;
 }
 
-uint64_t pseudo_legal_squares_n(const board_s* board, const unsigned int side, const uint64_t piece) {
-	uint64_t squares = piecelookup(lowest_bitindex(piece), KNIGHT, 0);
+BitBoard pseudo_legal_squares_n(const board_s* board, const unsigned int side, const BitBoard piece) {
+	BitBoard squares = piecelookup(lowest_bitindex(piece), KNIGHT, 0);
 	// don't eat own pieces
 	squares &= ~board->all_pieces[side]; 
 	return squares;
 }
 
-uint64_t pseudo_legal_squares_q(const board_s* board, const unsigned int side, const uint64_t piece) {
+BitBoard pseudo_legal_squares_q(const board_s* board, const unsigned int side, const BitBoard piece) {
 	const unsigned int piece_index = lowest_bitindex(piece);
-	const uint64_t squares = Qmagic(piece_index, piecelookup(piece_index, QUEEN, 0) & board->every_piece);
+	const BitBoard squares = Qmagic(piece_index, piecelookup(piece_index, QUEEN, 0) & board->every_piece);
 	return squares & ~board->all_pieces[side]; // don't go on own pieces
 
 	/*
-	uint64_t squares = 0x0;
-	uint64_t pos;
+	BitBoard squares = 0x0;
+	BitBoard pos;
 	const unsigned int opposite_side = ((side == WHITE) ? BLACK : WHITE);
 
 	// north
@@ -228,14 +228,14 @@ uint64_t pseudo_legal_squares_q(const board_s* board, const unsigned int side, c
 	*/
 }
 
-uint64_t pseudo_legal_squares_b(const board_s* board, const unsigned int side, const uint64_t piece) {
+BitBoard pseudo_legal_squares_b(const board_s* board, const unsigned int side, const BitBoard piece) {
 	const unsigned int piece_index = lowest_bitindex(piece);
-	const uint64_t squares = Bmagic(piece_index, piecelookup(piece_index, BISHOP, 0) & board->every_piece);
+	const BitBoard squares = Bmagic(piece_index, piecelookup(piece_index, BISHOP, 0) & board->every_piece);
 	return squares & ~board->all_pieces[side]; // don't go on own pieces
 
 	/*
-	uint64_t squares = 0x0;
-	uint64_t pos;
+	BitBoard squares = 0x0;
+	BitBoard pos;
 	const unsigned int opposite_side = ((side == WHITE) ? BLACK : WHITE);
 	
 	// north-east
@@ -282,14 +282,14 @@ uint64_t pseudo_legal_squares_b(const board_s* board, const unsigned int side, c
 	*/
 }
 
-uint64_t pseudo_legal_squares_r(const board_s* board, const unsigned int side, const uint64_t piece) {
+BitBoard pseudo_legal_squares_r(const board_s* board, const unsigned int side, const BitBoard piece) {
 	const unsigned int piece_index = lowest_bitindex(piece);
-	const uint64_t squares = Rmagic(piece_index, piecelookup(piece_index, ROOK, 0) & (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
+	const BitBoard squares = Rmagic(piece_index, piecelookup(piece_index, ROOK, 0) & (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
 	return squares & ~board->all_pieces[side]; // don't go on own pieces
 	
 	/*
-	uint64_t squares = 0x0;
-	uint64_t pos;
+	BitBoard squares = 0x0;
+	BitBoard pos;
 	const unsigned int opposite_side = ((side == WHITE) ? BLACK : WHITE);
 
 	// north
@@ -335,15 +335,15 @@ uint64_t pseudo_legal_squares_r(const board_s* board, const unsigned int side, c
 	*/
 }
 
-uint64_t pseudo_legal_squares_p(const board_s* board, const unsigned int side, const uint64_t piece) {
-	uint64_t squares = 0x0;
-	//uint64_t pos;
+BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, const BitBoard piece) {
+	BitBoard squares = 0x0;
+	//BitBoard pos;
 	const unsigned int opposite_side = ((side == WHITE) ? BLACK : WHITE);
 
-	uint64_t first_forward;
-	uint64_t second_forward;
-	uint64_t w_capture;
-	uint64_t e_capture;
+	BitBoard first_forward;
+	BitBoard second_forward;
+	BitBoard w_capture;
+	BitBoard e_capture;
 
 	if (piece & TOP_MASK)
 		return squares;
@@ -380,7 +380,7 @@ uint64_t pseudo_legal_squares_p(const board_s* board, const unsigned int side, c
 	}
 
 	// First forward
-	//const uint64_t bw_pieces = board->all_pieces[WHITE] | board->all_pieces[BLACK];
+	//const BitBoard bw_pieces = board->all_pieces[WHITE] | board->all_pieces[BLACK];
 	if (!(first_forward & board->every_piece)) {
 		squares |= first_forward;
 		// Second forward

@@ -7,7 +7,7 @@ Stuff with algabreic moves.
 #include "defs.h"
 
 // Converts and algabraic square notation to a bitboard
-uint64_t algsqtobb(const char* alg) {
+BitBoard algsqtobb(const char* alg) {
 	return SQTOBB(algsqtoint(alg));
 }
 

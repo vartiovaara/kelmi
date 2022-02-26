@@ -59,7 +59,7 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 	//unsigned int npos = initial_npos;
 	const unsigned long long initial_nodes = res->nodes;
 
-	uint64_t pieces_copy = board->all_pieces[board->sidetomove];
+	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
 	unsigned int npieces = popcount(pieces_copy);
 
 

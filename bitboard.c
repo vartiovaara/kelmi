@@ -21,18 +21,18 @@ const int BitTable[64] = {
 // Originally taken from Vice bitboards.c
 // TODO: there is probably some kind of instruction for this
 // FIXME: Probably shits itself when bb is 0
-unsigned int pop_bit(uint64_t* const bb) {
+unsigned int pop_bit(BitBoard* const bb) {
 	assert(*bb > 0);
-	uint64_t b = *bb ^ (*bb - 1);
+	BitBoard b = *bb ^ (*bb - 1);
 	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
 	*bb &= (*bb - 1);
 	return BitTable[(fold * 0x783a9b23) >> 26];
 }
 
 // Returns the lowest bit and sets it to 0
-uint64_t pop_bitboard(uint64_t* const bb) {
+BitBoard pop_bitboard(BitBoard* const bb) {
 	assert(*bb > 0);
-	uint64_t bb_copy = *bb;
+	BitBoard bb_copy = *bb;
 	*bb &= *bb - 1; // remove the lowest bit
 	return *bb ^ bb_copy; // return what was changed
 	//return (*bb ^ (*bb &= *bb-1)); // does the same thing but 1 liner
@@ -43,23 +43,23 @@ uint64_t pop_bitboard(uint64_t* const bb) {
 // see: https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
 // __builtin_ffs(int)
 // TODO: Test eligibility of this function
-unsigned int lowest_bitindex(const uint64_t bb) {
-	//uint64_t bb_copy = bb;
+unsigned int lowest_bitindex(const BitBoard bb) {
+	//BitBoard bb_copy = bb;
 	//return pop_bit(&bb_copy);
 	assert(bb > 0);
-	uint64_t b = bb ^ (bb - 1);
+	BitBoard b = bb ^ (bb - 1);
 	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
 	//*bb &= (*bb - 1);
 	return BitTable[(fold * 0x783a9b23) >> 26];
 }
 
 // Returns the lowest bit as a bitboard
-uint64_t lowest_bitboard(const uint64_t bb) {
+BitBoard lowest_bitboard(const BitBoard bb) {
 	assert(bb > 0);
 	return bb ^ (bb & (bb - 1));
 }
 
-int popcount(uint64_t x) {
+int popcount(BitBoard x) {
 	// See: http://0x80.pl/articles/sse-popcount.html
 	// See: https://en.wikipedia.org/wiki/Hamming_weight#Efficient_implementation
 	// #if test which type is enough to hold 64 bits

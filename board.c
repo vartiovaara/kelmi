@@ -30,7 +30,7 @@ Prints the boards layout with symbols
 defined in piece_chars[N_PIECES]
 */
 void printboard(const board_s* board) {
-	uint64_t pos = A8; // top-left
+	BitBoard pos = A8; // top-left
 	do {
 		char ch = NO_PIECE_CHAR;
 		for (int piece = 0; piece < N_PIECES; piece++) {
@@ -54,8 +54,8 @@ void printboard(const board_s* board) {
 	} while (pos > 0);
 }
 
-void printbitboard(const uint64_t bb) {
-	uint64_t pos = A8; // top-left
+void printbitboard(const BitBoard bb) {
+	BitBoard pos = A8; // top-left
 	do {
 		char ch = ((pos & bb) ? '1' : '0');
 		printf("%c ", ch);
@@ -105,7 +105,7 @@ board_s boardfromfen(const char* fen_str) {
 
 	// Parse piece positions
 	for (int y = 0; y < 8; y++) {
-		uint64_t pos = SQTOBB((7-y)*8);
+		BitBoard pos = SQTOBB((7-y)*8);
 		const int row_len = strlen(pos_row[y]);
 		for (int i = 0; i < row_len; i++) {
 			if (isalpha(pos_row[y][i])) {
@@ -195,7 +195,7 @@ Moves a piece from from to to
 Doesn't "perform" a move (change en_passant, whiteturn etc.)
 TODO: Test the eligibility of this function
 */
-void movepiece(board_s* board, const unsigned int side, const uint64_t from, const uint64_t to) {
+void movepiece(board_s* board, const unsigned int side, const BitBoard from, const BitBoard to) {
 	assert(popcount(to) == 1);
 	assert(popcount(from) == 1);
 	assert(to ^ board->every_piece);
@@ -216,7 +216,7 @@ void movepiece(board_s* board, const unsigned int side, const uint64_t from, con
 	assert(board->every_piece == (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
 }
 
-void removepiece(board_s* board, const uint64_t pos, const unsigned int side, const unsigned int type) {
+void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type) {
 	assert(popcount(pos) == 1);
 	assert(side == WHITE || side == BLACK);
 	assert(type < N_PIECES);
@@ -255,7 +255,7 @@ void unmakemove(board_s* board) {
 
 // Finds, which one of the bitboards holds the piece.
 // exit(1) on not found
-unsigned int get_piece_type(const board_s* board, const unsigned int side, const uint64_t piecebb) {
+unsigned int get_piece_type(const board_s* board, const unsigned int side, const BitBoard piecebb) {
 	assert(side == WHITE || side == BLACK);
 	assert(popcount(piecebb) == 1);
 	assert(piecebb & board->all_pieces[side]);
@@ -269,7 +269,7 @@ unsigned int get_piece_type(const board_s* board, const unsigned int side, const
 }
 
 // Returns, what side the piece is
-unsigned int get_piece_side(const board_s* board, const uint64_t piecebb) {
+unsigned int get_piece_side(const board_s* board, const BitBoard piecebb) {
 	assert(popcount(piecebb) == 1);
 	assert(board->every_piece & piecebb);
 

@@ -30,7 +30,7 @@ exit(1);}
 // Defines
 
 // Macros
-#define SQTOBB(sq) ((uint64_t)0x1<<(sq))
+#define SQTOBB(sq) ((BitBoard)0x1<<(sq))
 #define OPPOSITE_SIDE(side) ((side == WHITE) ? BLACK : WHITE)
 
 // Border masks
@@ -99,7 +99,15 @@ exit(1);}
 //#define DEFAULT_FEN "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
 
 
-// Enums
+/*
+ * Typedefs
+ */
+typedef uint64_t BitBoard;
+
+
+/*
+ * Enums
+ */
 enum side_e {
 	WHITE,
 	BLACK
@@ -128,19 +136,21 @@ enum moveflags_e {
 };
 
 
-// Structs
+/*
+ * Structs
+ */
 
 /*
-Struct representing a board.
-TODO: Implement efficiently updateable attack maps
-TODO: Maybe change all_pieces[] to have all pieces and have a separate for this
+ * Struct representing a board.
+ * TODO: Implement efficiently updateable attack maps
+ * TODO: Maybe change all_pieces[] to have all pieces and have a separate for this
 */
 typedef struct board_s {
-	uint64_t pieces[2][N_PIECES]; // [side][piece_type]
-	uint64_t every_piece; // holds all the pieces
-	uint64_t all_pieces[2]; // [side]
+	BitBoard pieces[2][N_PIECES]; // [side][piece_type]
+	BitBoard every_piece; // holds all the pieces
+	BitBoard all_pieces[2]; // [side]
 	uint8_t sidetomove; // see side_e enum
-	uint64_t en_passant; // 0x0 if no en passant
+	BitBoard en_passant; // 0x0 if no en passant
 	uint8_t castling; // see castling_e enum
 	uint8_t fiftym_counter; // 50-move rule counter
 	uint8_t fullmoves;
@@ -167,8 +177,8 @@ Flags:
 0000 0001: Pawn move
 */
 typedef struct move_s {
-	uint64_t from;
-	uint64_t to;
+	BitBoard from;
+	BitBoard to;
 	uint8_t flags;
 	//uint8_t piece_captured; // marks what piece was eaten with this move
 	uint8_t promoteto; // what to promote to
@@ -189,36 +199,36 @@ typedef struct {
 // Global variables
 extern const char piece_chars[N_PIECES];
 
-
-// Prototypes for different files
-// Those which are commented out are supposed to be "private"
-
+/*
+ * Prototypes for different files
+ * Those which are commented out are supposed to be "private"
+*/
 // algabreic.c
-extern uint64_t algsqtobb(const char*);
+extern BitBoard algsqtobb(const char*);
 extern int algsqtoint(const char*);
 
 // attack.c
 extern bool is_in_check (const board_s*, const unsigned int);
-extern movelist_s pseudo_legal_squares(const board_s*, const uint64_t);
-//extern uint64_t pseudo_legal_squares_k(const board_s*, const unsigned int, const uint64_t);
-//extern uint64_t pseudo_legal_squares_n(const board_s*, const unsigned int, const uint64_t);
-//extern uint64_t pseudo_legal_squares_q(const board_s*, const unsigned int, const uint64_t);
-//extern uint64_t pseudo_legal_squares_b(const board_s*, const unsigned int, const uint64_t);
-//extern uint64_t pseudo_legal_squares_r(const board_s*, const unsigned int, const uint64_t);
-//extern uint64_t pseudo_legal_squares_p(const board_s*, const unsigned int, const uint64_t);
+extern movelist_s pseudo_legal_squares(const board_s*, const BitBoard);
+//extern BitBoard pseudo_legal_squares_k(const board_s*, const unsigned int, const BitBoard);
+//extern BitBoard pseudo_legal_squares_n(const board_s*, const unsigned int, const BitBoard);
+//extern BitBoard pseudo_legal_squares_q(const board_s*, const unsigned int, const BitBoard);
+//extern BitBoard pseudo_legal_squares_b(const board_s*, const unsigned int, const BitBoard);
+//extern BitBoard pseudo_legal_squares_r(const board_s*, const unsigned int, const BitBoard);
+//extern BitBoard pseudo_legal_squares_p(const board_s*, const unsigned int, const BitBoard);
 
 // bitboard.c
-extern unsigned int pop_bit(uint64_t* const);
-extern uint64_t pop_bitboard(uint64_t* const);
-extern unsigned int lowest_bitindex(const uint64_t);
-extern uint64_t lowest_bitboard(const uint64_t);
-extern int popcount(uint64_t);
+extern unsigned int pop_bit(BitBoard* const);
+extern BitBoard pop_bitboard(BitBoard* const);
+extern unsigned int lowest_bitindex(const BitBoard);
+extern BitBoard lowest_bitboard(const BitBoard);
+extern int popcount(BitBoard);
 
 // init.c
 extern int init_all();
 
 // lookup.c
-extern uint64_t piecelookup(unsigned int, unsigned int, unsigned int);
+extern BitBoard piecelookup(unsigned int, unsigned int, unsigned int);
 extern void reset_lookups();
 extern void compute_lookups();
 extern void set_lookup_pointers();
@@ -234,14 +244,14 @@ extern void search(board_s* restrict, const unsigned int, pertf_result_s* restri
 
 // board.c
 extern void printboard(const board_s*);
-extern void printbitboard(const uint64_t);
+extern void printbitboard(const BitBoard);
 extern board_s boardfromfen(const char*);
 extern void resetboard(board_s*);
-extern void movepiece(board_s* board, const unsigned int side, const uint64_t from, const uint64_t to);
-extern void removepiece(board_s*, const uint64_t, const unsigned int, const unsigned int);
+extern void movepiece(board_s* board, const unsigned int side, const BitBoard from, const BitBoard to);
+extern void removepiece(board_s*, const BitBoard, const unsigned int, const unsigned int);
 extern void makemove(board_s* board, const move_s* move);
 extern void unmakemove(board_s* board);
-extern unsigned int get_piece_type(const board_s*, const unsigned int, const uint64_t);
-extern unsigned int get_piece_side(const board_s*, const uint64_t);
+extern unsigned int get_piece_type(const board_s*, const unsigned int, const BitBoard);
+extern unsigned int get_piece_side(const board_s*, const BitBoard);
 
 #endif // DEFS_H
