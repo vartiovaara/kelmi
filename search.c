@@ -22,9 +22,10 @@ const unsigned int expected_perft[] = {
 void perft(board_s* board, const unsigned int depth) {
 	printf("Starting perft with depth %u...\n\n", depth);
 
+	pertf_result_s res = {0, 0};
+	
 	clock_t t = clock();
 	
-	pertf_result_s res = {0, 0};
 	search(board, depth, &res);
 	
 	t = clock() - t;
