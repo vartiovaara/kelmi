@@ -16,6 +16,7 @@ Stuff about boards and bitboards.
 
 #include <assert.h>
 
+// used for printing the board.
 const char piece_chars[N_PIECES] = {
 	[KING] = 'k',
 	[QUEEN] = 'q',
@@ -26,9 +27,9 @@ const char piece_chars[N_PIECES] = {
 };
 
 /*
-Prints the boards layout with symbols
-defined in piece_chars[N_PIECES]
-*/
+ * Prints the boards layout with symbols
+ * defined in piece_chars[N_PIECES]
+ */
 void printboard(const board_s* board) {
 	BitBoard pos = A8; // top-left
 	do {
@@ -250,7 +251,7 @@ void makemove(board_s* board, const move_s* move) {
 // Undoes the latest move done
 // TODO: Finish this function
 void unmakemove(board_s* board) {
-	board->sidetomove = (board->sidetomove == WHITE ? BLACK : WHITE);
+	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
 }
 
 // Finds, which one of the bitboards holds the piece.
@@ -259,6 +260,7 @@ unsigned int get_piece_type(const board_s* board, const unsigned int side, const
 	assert(side == WHITE || side == BLACK);
 	assert(popcount(piecebb) == 1);
 	assert(piecebb & board->all_pieces[side]);
+
 	for (int i = 0; i < N_PIECES; i++) {
 		if (board->pieces[side][i] & piecebb)
 			return i;

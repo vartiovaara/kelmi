@@ -11,11 +11,11 @@ BitBoard kinglookup[64];
 BitBoard rooklookup[64];
 BitBoard bishoplookup[64];
 BitBoard knightlookup[64];
-BitBoard pawnlookup[2][64]; // black and white pawns
+BitBoard pawnlookup[2][64]; // black and white pawns [side][sq_n]
 
 // pointers to according lookups
 // needs to be void* becouse pawnlookup has different size
-void* lookup[N_PIECES]; //[piece_e]
+BitBoard* lookup[N_PIECES]; //[piece_e]
 
 
 // Private functions
@@ -32,15 +32,15 @@ BitBoard piecelookup(unsigned int pos, unsigned int piece, unsigned int side) {
 	assert(pos < 64);
 	assert(piece < N_PIECES);
 	assert(side == WHITE || side == BLACK);
+
 	if (piece == QUEEN) {
-		return ((BitBoard*)lookup[ROOK])[pos] | ((BitBoard*)lookup[BISHOP])[pos];
+		return lookup[ROOK][pos] | lookup[BISHOP][pos];
 	}
 	if (piece == PAWN) {
-		//return (((BitBoard**)lookup[PAWN))[side][pos]);
 		return pawnlookup[side][pos];
 	}
 	assert(lookup[piece]); // make sure is not NULL
-	return ((BitBoard*)lookup[piece])[pos];
+	return lookup[piece][pos];
 }
 
 void reset_lookups() {
@@ -67,7 +67,7 @@ void set_lookup_pointers() {
 	lookup[ROOK] = rooklookup;
 	lookup[BISHOP] = bishoplookup;
 	lookup[KNIGHT] = knightlookup;
-	lookup[PAWN] = &pawnlookup; // doesn't work for some reason
+	lookup[PAWN] = NULL; // has a separate array
 }
 
 void compute_king_lookup() {

@@ -23,7 +23,7 @@ void perft(board_s* board, const unsigned int depth) {
 	printf("Starting perft with depth %u...\n\n", depth);
 
 	pertf_result_s res = {0, 0};
-	
+
 	clock_t t = clock();
 	
 	search(board, depth, &res);
@@ -42,12 +42,12 @@ void perft(board_s* board, const unsigned int depth) {
 }
 
 /*
-a recursive search algorithm.
-so far just a prototype.
-starts with the side that is supposed to move 
-according to board_s.sidetomove.
-Check perft_result_s
-*/
+ * a recursive search algorithm.
+ * so far just a prototype.
+ * starts with the side that is supposed to move 
+ * according to board_s.sidetomove.
+ * Check perft_result_s
+ */
 void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 	// is position a last one
 	if (depth == 0) {
@@ -84,12 +84,15 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 		
 		// go trough every move
 		for (unsigned int j = 0; j < moves.n; j++) {
-			makemove(board, &moves.moves[j]);
-			if (is_in_check(board, initial_side)) {
-				res->end_positions++;
-				goto SEARCH_SKIP_MOVE;
-			}
 			res->nodes++;
+			
+			makemove(board, &moves.moves[j]);
+
+			// check if that side got itself in check
+			if (is_in_check(board, initial_side))
+				goto SEARCH_SKIP_MOVE;
+			
+			//res->nodes++; // currently only legal positions are consididired as "searched"
 			search(board, depth-1, res);
 			SEARCH_SKIP_MOVE: // if move was illegal, go here
 			memcpy(board, &boardcopy, sizeof (board_s));

@@ -1,6 +1,6 @@
 /*
-All of the defines and structs and stuff
-*/
+ *All of the defines and structs and stuff
+ */
 
 #ifndef DEFS_H
 #define DEFS_H
@@ -9,25 +9,12 @@ All of the defines and structs and stuff
 #include <stdbool.h>
 
 
-#define NDEBUG
+//#define NDEBUG
+
 
 /*
-// Taken from Vice11 defs.h
-#ifndef DEBUG
-#define ASSERT(n)
-#else
-#define ASSERT(n) \
-if(!(n)) { \
-printf("%s - Failed",#n); \
-printf("On %s ",__DATE__); \
-printf("At %s ",__TIME__); \
-printf("In File %s ",__FILE__); \
-printf("At Line %d\n",__LINE__); \
-exit(1);}
-#endif
-*/
-
-// Defines
+ * Defines
+ */
 
 // Macros
 #define SQTOBB(sq) ((BitBoard)0x1<<(sq))
@@ -51,7 +38,7 @@ exit(1);}
 #define BOTTOM_MASK_N 0x000000000000ffff
 #define LEFT_MASK_N   0x0303030303030303
 
-// Double-push rank masks
+// Double-push rank masks (when is it allowed)
 #define TOP_DPUSH_MASK    0x00ff000000000000
 #define BOTTOM_DPUSH_MASK 0x000000000000ff00
 
@@ -64,9 +51,8 @@ exit(1);}
 // Handy squares
 #define A8 0x0100000000000000
 
-// TODO: make these something else and stuff idk
-
 // Normalized piece vectors
+// TODO: make these something else and stuff idk
 
 // horizontal and vertical
 #define MV_N(sq) (sq << 8)
@@ -80,15 +66,11 @@ exit(1);}
 #define MV_SW(sq) MV_S(MV_W(sq)) //-9
 #define MV_NW(sq) MV_N(MV_W(sq)) //7
 
-
 // Empty square char
 #define NO_PIECE_CHAR ('.')
 
 // Number of piece types
 #define N_PIECES 6
-
-// Number of non-sliding pieces (pawn is not included)
-#define N_NOSLIDE_PIECES 2
 
 // See: https://chess.stackexchange.com/a/30006
 #define MAX_FEN_LEN 88 // includes trailing \0
@@ -102,12 +84,14 @@ exit(1);}
 /*
  * Typedefs
  */
+
 typedef uint64_t BitBoard;
 
 
 /*
  * Enums
  */
+
 enum side_e {
 	WHITE,
 	BLACK
@@ -141,41 +125,22 @@ enum moveflags_e {
  */
 
 /*
- * Struct representing a board.
- * TODO: Implement efficiently updateable attack maps
- * TODO: Maybe change all_pieces[] to have all pieces and have a separate for this
-*/
-typedef struct board_s {
-	BitBoard pieces[2][N_PIECES]; // [side][piece_type]
-	BitBoard every_piece; // holds all the pieces
-	BitBoard all_pieces[2]; // [side]
-	uint8_t sidetomove; // see side_e enum
-	BitBoard en_passant; // 0x0 if no en passant
-	uint8_t castling; // see castling_e enum
-	uint8_t fiftym_counter; // 50-move rule counter
-	uint8_t fullmoves;
-
-	unsigned int ply; // aka n of moves in movehistory
-	//move_s* movehistory;
-} board_s;
-
-/*
-Move
-Castling will be represented by moving
-king 2 sq left or right.
-TODO: Implement flags.
-
-Flags will also be in enum moveflags_e
-Flags:
-1000 0000:
-0100 0000:
-0010 0000:
-0001 0000:
-0000 1000:
-0000 0100: 
-0000 0010: Capture
-0000 0001: Pawn move
-*/
+ * Move
+ * Castling will be represented by moving
+ * king 2 sq left or right.
+ * TODO: Implement flags.
+ * 
+ * Flags will also be in enum moveflags_e
+ * Flags:
+ * 1000 0000:
+ * 0100 0000:
+ * 0010 0000:
+ * 0001 0000:
+ * 0000 1000:
+ * 0000 0100: 
+ * 0000 0010: Capture
+ * 0000 0001: Pawn move
+ */
 typedef struct move_s {
 	BitBoard from;
 	BitBoard to;
@@ -189,6 +154,27 @@ typedef struct movelist_s {
 	unsigned int n; // amount of moves
 } movelist_s;
 
+/*
+ * Struct representing a board.
+ * TODO: Implement efficiently updateable attack maps
+ * TODO: Make and unmake moves
+ */
+typedef struct board_s {
+	BitBoard pieces[2][N_PIECES]; // [side][piece_type]
+	BitBoard every_piece; // holds all the pieces
+	BitBoard all_pieces[2]; // [side]
+	uint8_t sidetomove; // see side_e enum
+	BitBoard en_passant; // 0x0 if no en passant
+	uint8_t castling; // see castling_e enum
+	uint8_t fiftym_counter; // 50-move rule counter
+	uint8_t fullmoves;
+
+	unsigned int ply; // aka n of moves in movehistory
+
+	move_s* movehistory;
+	unsigned int mvhistory_size;
+} board_s;
+
 // Defines perft results
 typedef struct {
 	unsigned long long end_positions;
@@ -196,13 +182,18 @@ typedef struct {
 } pertf_result_s;
 
 
-// Global variables
+/*
+ * Global variables
+ */
+
 extern const char piece_chars[N_PIECES];
+
 
 /*
  * Prototypes for different files
  * Those which are commented out are supposed to be "private"
-*/
+ */
+
 // algabreic.c
 extern BitBoard algsqtobb(const char*);
 extern int algsqtoint(const char*);
@@ -210,12 +201,6 @@ extern int algsqtoint(const char*);
 // attack.c
 extern bool is_in_check (const board_s*, const unsigned int);
 extern movelist_s pseudo_legal_squares(const board_s*, const BitBoard);
-//extern BitBoard pseudo_legal_squares_k(const board_s*, const unsigned int, const BitBoard);
-//extern BitBoard pseudo_legal_squares_n(const board_s*, const unsigned int, const BitBoard);
-//extern BitBoard pseudo_legal_squares_q(const board_s*, const unsigned int, const BitBoard);
-//extern BitBoard pseudo_legal_squares_b(const board_s*, const unsigned int, const BitBoard);
-//extern BitBoard pseudo_legal_squares_r(const board_s*, const unsigned int, const BitBoard);
-//extern BitBoard pseudo_legal_squares_p(const board_s*, const unsigned int, const BitBoard);
 
 // bitboard.c
 extern unsigned int pop_bit(BitBoard* const);

@@ -58,6 +58,7 @@ bool is_in_check (const board_s* board, const unsigned int side) {
 // currently just pseudo-legal so doesn't check for
 movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 	assert(popcount(piecebb));
+
 	const unsigned int side = get_piece_side(board, piecebb);
 	const unsigned int piece_type = get_piece_type(board, side, piecebb);
 
@@ -338,7 +339,7 @@ BitBoard pseudo_legal_squares_r(const board_s* board, const unsigned int side, c
 BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, const BitBoard piece) {
 	BitBoard squares = 0x0;
 	//BitBoard pos;
-	const unsigned int opposite_side = ((side == WHITE) ? BLACK : WHITE);
+	const unsigned int opposite_side = OPPOSITE_SIDE(side);
 
 	BitBoard first_forward;
 	BitBoard second_forward;
