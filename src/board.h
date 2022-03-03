@@ -3,6 +3,7 @@
 
 #include "defs.h"
 
+
 /*
  * Prints the boards layout with symbols
  * defined in piece_chars[N_PIECES]
@@ -35,5 +36,6 @@ unsigned int get_piece_type(const board_s* board, const unsigned int side, const
 
 // Returns, what side the piece is
 unsigned int get_piece_side(const board_s* board, const BitBoard piecebb);
+
 
 #endif // BOARD_H

@@ -20,4 +20,5 @@ BitBoard lowest_bitboard(const BitBoard);
 
 int popcount(BitBoard);
 
+
 #endif // BITBOARD_H

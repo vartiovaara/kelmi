@@ -9,9 +9,6 @@
 #include <stdbool.h>
 
 
-//#define NDEBUG
-
-
 /*
  * Defines
  */
@@ -181,62 +178,5 @@ typedef struct {
 	unsigned long long nodes;
 } pertf_result_s;
 
-
-/*
- * Global variables
- */
-
-//extern const char piece_chars[N_PIECES];
-
-
-/*
- * Prototypes for different files
- * Those which are commented out are supposed to be "private"
- */
-
-// algabreic.c
-////extern BitBoard algsqtobb(const char*);
-////extern int algsqtoint(const char*);
-
-// attack.c
-////extern bool is_in_check (const board_s*, const unsigned int);
-////extern movelist_s pseudo_legal_squares(const board_s*, const BitBoard);
-
-// bitboard.c
-////extern unsigned int pop_bit(BitBoard* const);
-////extern BitBoard pop_bitboard(BitBoard* const);
-////extern unsigned int lowest_bitindex(const BitBoard);
-////extern BitBoard lowest_bitboard(const BitBoard);
-////extern int popcount(BitBoard);
-
-// init.c
-////extern int init_all();
-
-// lookup.c
-////extern BitBoard piecelookup(unsigned int, unsigned int, unsigned int);
-////extern void reset_lookups();
-////extern void compute_lookups();
-////extern void set_lookup_pointers();
-//extern void compute_king_lookup();
-//extern void compute_rook_lookup();
-//extern void compute_bishop_lookup();
-//extern void compute_knight_lookup();
-//extern void compute_white_pawn_lookup();
-
-// search.c
-////extern void perft(board_s*, const unsigned int);
-////extern void search(board_s* restrict, const unsigned int, pertf_result_s* restrict);
-
-// board.c
-////extern void printboard(const board_s*);
-////extern void printbitboard(const BitBoard);
-////extern board_s boardfromfen(const char*);
-////extern void resetboard(board_s*);
-////extern void movepiece(board_s* board, const unsigned int side, const BitBoard from, const BitBoard to);
-////extern void removepiece(board_s*, const BitBoard, const unsigned int, const unsigned int);
-////extern void makemove(board_s* board, const move_s* move);
-////extern void unmakemove(board_s* board);
-////extern unsigned int get_piece_type(const board_s*, const unsigned int, const BitBoard);
-////extern unsigned int get_piece_side(const board_s*, const BitBoard);
 
 #endif // DEFS_H

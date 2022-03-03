@@ -21,6 +21,17 @@ Attack stuff.
 // https://essays.jwatzman.org/essays/chess-move-generation-with-magic-bitboards.html
 
 
+/*
+ * Private functions
+ */
+BitBoard pseudo_legal_squares_k(const board_s* board, const unsigned int side, const BitBoard piece);
+BitBoard pseudo_legal_squares_n(const board_s* board, const unsigned int side, const BitBoard piece);
+BitBoard pseudo_legal_squares_q(const board_s* board, const unsigned int side, const BitBoard piece);
+BitBoard pseudo_legal_squares_b(const board_s* board, const unsigned int side, const BitBoard piece);
+BitBoard pseudo_legal_squares_r(const board_s* board, const unsigned int side, const BitBoard piece);
+BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, const BitBoard piece);
+
+
 
 bool is_in_check (const board_s* board, const unsigned int side) {
 	assert(side == WHITE || side == BLACK);
@@ -105,6 +116,7 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 	return moves;
 }
 
+
 BitBoard pseudo_legal_squares_k(const board_s* board, const unsigned int side, const BitBoard piece) {
 	BitBoard squares = piecelookup(lowest_bitindex(piece), KING, 0);
 	// don't eat own pieces
@@ -125,12 +137,14 @@ BitBoard pseudo_legal_squares_k(const board_s* board, const unsigned int side, c
 	return squares;
 }
 
+
 BitBoard pseudo_legal_squares_n(const board_s* board, const unsigned int side, const BitBoard piece) {
 	BitBoard squares = piecelookup(lowest_bitindex(piece), KNIGHT, 0);
 	// don't eat own pieces
 	squares &= ~board->all_pieces[side]; 
 	return squares;
 }
+
 
 BitBoard pseudo_legal_squares_q(const board_s* board, const unsigned int side, const BitBoard piece) {
 	const unsigned int piece_index = lowest_bitindex(piece);
@@ -226,6 +240,7 @@ BitBoard pseudo_legal_squares_q(const board_s* board, const unsigned int side, c
 	*/
 }
 
+
 BitBoard pseudo_legal_squares_b(const board_s* board, const unsigned int side, const BitBoard piece) {
 	const unsigned int piece_index = lowest_bitindex(piece);
 	const BitBoard squares = Bmagic(piece_index, piecelookup(piece_index, BISHOP, 0) & board->every_piece);
@@ -280,6 +295,7 @@ BitBoard pseudo_legal_squares_b(const board_s* board, const unsigned int side, c
 	*/
 }
 
+
 BitBoard pseudo_legal_squares_r(const board_s* board, const unsigned int side, const BitBoard piece) {
 	const unsigned int piece_index = lowest_bitindex(piece);
 	const BitBoard squares = Rmagic(piece_index, piecelookup(piece_index, ROOK, 0) & (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
@@ -332,6 +348,7 @@ BitBoard pseudo_legal_squares_r(const board_s* board, const unsigned int side, c
 	return squares;
 	*/
 }
+
 
 BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, const BitBoard piece) {
 	BitBoard squares = 0x0;

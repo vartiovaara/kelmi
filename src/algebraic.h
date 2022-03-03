@@ -4,7 +4,6 @@
 
 #include "defs.h"
 
-
 // Converts and algabraic square notation to a bitboard
 BitBoard algsqtobb(const char* alg);
 
