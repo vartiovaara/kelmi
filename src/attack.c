@@ -106,11 +106,27 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 	for (unsigned int i = 0; i < moves.n; i++) {
 		moves.moves[i].from = piecebb;
 		moves.moves[i].to = pop_bitboard(&to);
+		moves.moves[i].fromtype = piece_type;
 		moves.moves[i].flags = 0;
+		
+		// Setting capture flag
+		// TODO: set piece_captured
 		if (moves.moves[i].to & board->every_piece) { // move was a capture
 			assert(!(board->pieces[OPPOSITE_SIDE(side)][KING] & moves.moves[i].to));
 			assert(moves.moves[i].to & board->all_pieces[OPPOSITE_SIDE(side)]);
+
 			moves.moves[i].flags |= FLAG_CAPTURE;
+		}
+
+		// Setting castling flag
+		if (piece_type == KING) {
+			// TODO: could be anothed #define
+			const BitBoard kcastle = MV_E(MV_E(moves.moves[i].from));
+			const BitBoard qcastle = MV_W(MV_W(moves.moves[i].from));
+			if (moves.moves[i].to & kcastle)
+				moves.moves[i].flags |= FLAG_KCASTLE;
+			else if (moves.moves[i].to & qcastle)
+				moves.moves[i].flags |= FLAG_QCASTLE;
 		}
 	}
 	return moves;
@@ -121,7 +137,7 @@ BitBoard pseudo_legal_squares_k(const board_s* board, const unsigned int side, c
 	BitBoard squares = piecelookup(lowest_bitindex(piece), KING, 0);
 	// don't eat own pieces
 	squares &= ~board->all_pieces[side];
-	// Castling
+	// Castling (represented by moving 2 squares)
 	if (side == WHITE) {
 		if (board->castling & WQCASTLE && !(board->every_piece & WQ_CAST_CLEAR_MASK))
 			squares |= MV_W(MV_W(piece));

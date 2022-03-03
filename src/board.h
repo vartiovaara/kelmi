@@ -24,7 +24,7 @@ void movepiece(board_s* board, const unsigned int side, const BitBoard from, con
 
 void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type);
 
-// Performs a move
+// Performs a move. Do not use with wrong side piece.
 void makemove(board_s* board, const move_s* move);
 
 // Undoes the latest move done (not done)

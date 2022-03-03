@@ -247,6 +247,26 @@ void makemove(board_s* board, const move_s* move) {
 		removepiece(board, move->to, captured_side, captured_type);
 	}
 
+	// Revoking of castling rights by rook move
+	if (move->fromtype == ROOK && board->castling) {
+		// Flag to remove. See enum castling_e
+		uint8_t castle_remove = 0x1;
+		
+		if (board->sidetomove == BLACK)
+			castle_remove <<= 2; // only changing blacks castling rights
+		
+		if (move->from & RIGHT_MASK)
+			board->castling &= ~castle_remove; // removing king-side castling
+		else if (move->from & LEFT_MASK)
+			board->castling &= ~(castle_remove << 1); // removing queen-side castling
+	}
+
+	if (move->flags & FLAG_QCASTLE) {
+		assert(move->fromtype == KING);
+
+		
+	}
+
 	movepiece(board, board->sidetomove, move->from, move->to);
 	
 	// change side to move
