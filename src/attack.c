@@ -5,25 +5,23 @@ Attack stuff.
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <assert.h>
+
+#include "attack.h"
+
+#include "bitboard.h"
+#include "lookup.h"
+#include "board.h"
+#include "magicmoves/magicmoves.h"
 
 #include "defs.h"
 
-#include <assert.h> // needs to be after defs.h
-
-#include "magicmoves/magicmoves.h"
 
 // Note to self: read god damn it
 // https://essays.jwatzman.org/essays/chess-move-generation-with-magic-bitboards.html
 
-// "Private" functions
-BitBoard pseudo_legal_squares_k(const board_s*, const unsigned int, const BitBoard);
-BitBoard pseudo_legal_squares_n(const board_s*, const unsigned int, const BitBoard);
-BitBoard pseudo_legal_squares_q(const board_s*, const unsigned int, const BitBoard);
-BitBoard pseudo_legal_squares_b(const board_s*, const unsigned int, const BitBoard);
-BitBoard pseudo_legal_squares_r(const board_s*, const unsigned int, const BitBoard);
-BitBoard pseudo_legal_squares_p(const board_s*, const unsigned int, const BitBoard);
 
-// side: the side whose king to check
+
 bool is_in_check (const board_s* board, const unsigned int side) {
 	assert(side == WHITE || side == BLACK);
 	assert(popcount(board->pieces[side][KING]) == 1);
@@ -54,8 +52,7 @@ bool is_in_check (const board_s* board, const unsigned int side) {
 	return false;
 }
 
-// generates all the squares the specified piece could move
-// currently just pseudo-legal so doesn't check for
+
 movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 	assert(popcount(piecebb));
 

@@ -1,10 +1,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+
+#include "lookup.h"
 
 #include "defs.h"
 
-#include <assert.h>
 
 // The queen lookup will just be (rook | bishop)
 BitBoard kinglookup[64];

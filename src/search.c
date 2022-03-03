@@ -3,7 +3,14 @@
 #include <string.h>
 #include <time.h>
 
+#include "search.h"
+
+#include "attack.h"
+#include "bitboard.h"
+#include "board.h"
+
 #include "defs.h"
+
 
 //https://oeis.org/A048987
 //https://www.chessprogramming.org/Perft_Results#Initial_Position
@@ -17,6 +24,10 @@ const unsigned int expected_perft[] = {
 	119060324,
 	3195901860 // ply 7
 };
+
+
+// Private functions
+void search(board_s* board, const unsigned int depth, pertf_result_s* res);
 
 
 void perft(board_s* board, const unsigned int depth) {

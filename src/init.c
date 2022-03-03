@@ -2,12 +2,12 @@
 Init stuff
 */
 
-#ifndef INIT_C
-#define INIT_C
+#include "init.h"
 
 #include <string.h>
 
 #include "defs.h"
+#include "lookup.h"
 #include "magicmoves/magicmoves.h"
 
 int init_all() {
@@ -26,5 +26,3 @@ int init_all() {
 		(unsigned long long)ULLONG_MAX);*/
 	return 0;
 }
-
-#endif // INIT_C

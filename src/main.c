@@ -1,16 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <assert.h>
+
+#include "init.h"
+#include "search.h"
+#include "board.h"
 
 #include "defs.h"
 
-#include <assert.h>
 
-#include "magicmoves/magicmoves.h"
-
-/*
-TODO: Maybe start movegen again
-*/
 
 int main(int argc, char** argv) {
 	if(argc != 2) {

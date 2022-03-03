@@ -5,9 +5,11 @@ Stuff about bitboards.
 #include <stdint.h>
 #include <limits.h>
 
-#include "defs.h"
-
 #include <assert.h>
+
+#include "bitboard.h"
+
+#include "defs.h"
 
 // for pop_bit()
 const int BitTable[64] = {
@@ -17,8 +19,7 @@ const int BitTable[64] = {
 	58, 20, 37, 17, 36, 8
 };
 
-// Returns index of the lowest bit and sets it to 0
-// Originally taken from Vice bitboards.c
+
 // TODO: there is probably some kind of instruction for this
 // FIXME: Probably shits itself when bb is 0
 unsigned int pop_bit(BitBoard* const bb) {
@@ -29,7 +30,7 @@ unsigned int pop_bit(BitBoard* const bb) {
 	return BitTable[(fold * 0x783a9b23) >> 26];
 }
 
-// Returns the lowest bit and sets it to 0
+
 BitBoard pop_bitboard(BitBoard* const bb) {
 	assert(*bb > 0);
 	BitBoard bb_copy = *bb;
@@ -38,7 +39,7 @@ BitBoard pop_bitboard(BitBoard* const bb) {
 	//return (*bb ^ (*bb &= *bb-1)); // does the same thing but 1 liner
 }
 
-// Returns index of lowest bit
+
 // TODO: make speed (__builtin_ffs(int) ?)
 // see: https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
 // __builtin_ffs(int)
@@ -53,11 +54,12 @@ unsigned int lowest_bitindex(const BitBoard bb) {
 	return BitTable[(fold * 0x783a9b23) >> 26];
 }
 
-// Returns the lowest bit as a bitboard
+
 BitBoard lowest_bitboard(const BitBoard bb) {
 	assert(bb > 0);
 	return bb ^ (bb & (bb - 1));
 }
+
 
 int popcount(BitBoard x) {
 	// See: http://0x80.pl/articles/sse-popcount.html

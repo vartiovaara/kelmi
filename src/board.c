@@ -11,10 +11,15 @@ Stuff about boards and bitboards.
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <assert.h>
+
+#include "board.h"
+
+#include "bitboard.h"
+#include "algebraic.h"
 
 #include "defs.h"
 
-#include <assert.h>
 
 // used for printing the board.
 const char piece_chars[N_PIECES] = {
@@ -26,10 +31,7 @@ const char piece_chars[N_PIECES] = {
 	[PAWN] = 'p'
 };
 
-/*
- * Prints the boards layout with symbols
- * defined in piece_chars[N_PIECES]
- */
+
 void printboard(const board_s* board) {
 	BitBoard pos = A8; // top-left
 	do {
@@ -55,6 +57,7 @@ void printboard(const board_s* board) {
 	} while (pos > 0);
 }
 
+
 void printbitboard(const BitBoard bb) {
 	BitBoard pos = A8; // top-left
 	do {
@@ -70,6 +73,7 @@ void printbitboard(const BitBoard bb) {
 	} while (pos > 0);
 	printf("%p \n", (void*)bb);
 }
+
 
 board_s boardfromfen(const char* fen_str) {
 	// TODO: have a FEN validation function as the
@@ -187,13 +191,13 @@ board_s boardfromfen(const char* fen_str) {
 	return board;
 }
 
+
 void resetboard(board_s* board) {
 	memset(board, 0, sizeof (board_s));
 }
 
+
 /*
-Moves a piece from from to to
-Doesn't "perform" a move (change en_passant, whiteturn etc.)
 TODO: Test the eligibility of this function
 */
 void movepiece(board_s* board, const unsigned int side, const BitBoard from, const BitBoard to) {
@@ -217,6 +221,7 @@ void movepiece(board_s* board, const unsigned int side, const BitBoard from, con
 	assert(board->every_piece == (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
 }
 
+
 void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type) {
 	assert(popcount(pos) == 1);
 	assert(side == WHITE || side == BLACK);
@@ -227,7 +232,7 @@ void removepiece(board_s* board, const BitBoard pos, const unsigned int side, co
 	board->every_piece &= ~pos;
 }
 
-// Performs a move
+
 // TODO: Finish this function
 void makemove(board_s* board, const move_s* move) {
 	assert(popcount(move->from) == 1);
@@ -248,14 +253,13 @@ void makemove(board_s* board, const move_s* move) {
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
 }
 
-// Undoes the latest move done
+
 // TODO: Finish this function
 void unmakemove(board_s* board) {
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
 }
 
-// Finds, which one of the bitboards holds the piece.
-// exit(1) on not found
+
 unsigned int get_piece_type(const board_s* board, const unsigned int side, const BitBoard piecebb) {
 	assert(side == WHITE || side == BLACK);
 	assert(popcount(piecebb) == 1);
@@ -270,7 +274,7 @@ unsigned int get_piece_type(const board_s* board, const unsigned int side, const
 	exit(1);
 }
 
-// Returns, what side the piece is
+
 unsigned int get_piece_side(const board_s* board, const BitBoard piecebb) {
 	assert(popcount(piecebb) == 1);
 	assert(board->every_piece & piecebb);
