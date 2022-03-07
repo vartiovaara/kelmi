@@ -46,7 +46,10 @@
 #define BK_CAST_CLEAR_MASK 0x6000000000000000
 
 // Handy squares
+#define A1 0x0000000000000001
 #define A8 0x0100000000000000
+#define H1 0x0000000000000080
+#define H8 0x8000000000000000
 
 // Normalized piece vectors
 // TODO: make these something else and stuff idk

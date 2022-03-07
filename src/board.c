@@ -234,7 +234,7 @@ void removepiece(board_s* board, const BitBoard pos, const unsigned int side, co
 
 
 // TODO: Finish this function
-void makemove(board_s* board, const move_s* move) {
+void makemove(board_s* restrict board, const move_s* restrict move) {
 	assert(popcount(move->from) == 1);
 	assert(popcount(move->to) == 1);
 	assert(move->from & board->all_pieces[board->sidetomove]); // can trigger if wrong side tries to perform a move
@@ -249,6 +249,7 @@ void makemove(board_s* board, const move_s* move) {
 
 	// Revoking of castling rights by rook move
 	if (move->fromtype == ROOK && board->castling) {
+		/*
 		// Flag to remove. See enum castling_e
 		uint8_t castle_remove = 0x1;
 		
@@ -259,16 +260,70 @@ void makemove(board_s* board, const move_s* move) {
 			board->castling &= ~castle_remove; // removing king-side castling
 		else if (move->from & LEFT_MASK)
 			board->castling &= ~(castle_remove << 1); // removing queen-side castling
+		*/
+		// check which rook was moved and change correct flags
+		if (board->sidetomove == WHITE) {
+			if (move->from & RIGHT_MASK)
+				board->castling &= ~WKCASTLE;
+			if (move->from & LEFT_MASK)
+				board->castling &= ~WQCASTLE;
+		}
+		else {
+			if (move->from & RIGHT_MASK)
+				board->castling &= ~BKCASTLE;
+			if (move->from & LEFT_MASK)
+				board->castling &= ~BQCASTLE;
+		}
 	}
 
-	if (move->flags & FLAG_QCASTLE) {
+	// Castling performing.
+	// TODO: Test eligibility of this logic
+	if (move->flags & FLAG_KCASTLE) {
 		assert(move->fromtype == KING);
 
-		
+		// do the castling kingside
+		if (board->sidetomove == WHITE) {
+			assert(board->pieces[WHITE][ROOK] & H1); // make sure there exists a rook at H1
+			assert(popcount(board->pieces[WHITE][KING]) == 1);
+
+			movepiece(board, board->sidetomove, board->pieces[WHITE][KING], board->pieces[WHITE][KING]<<2); // move king 2sq right
+			movepiece(board, board->sidetomove, H1, H1>>2); // move supposed rook from h1 2sq left
+		}
+		else {
+			assert(board->pieces[BLACK][ROOK] & H8); // make suser there exists a rook at H1
+			assert(popcount(board->pieces[BLACK][KING]) == 1);
+			
+			movepiece(board, board->sidetomove, board->pieces[BLACK][KING], board->pieces[BLACK][KING]<<2); // move king 2sq right
+			movepiece(board, board->sidetomove, H8, H8>>2); // move supposed rook from h8 2sq left
+		}
+		goto MAKEMOVE_PIECES_MOVED;
+	}
+	else if (move->flags & FLAG_QCASTLE) {
+		assert(move->fromtype == KING);
+
+		// do the castling queenside
+		if (board->sidetomove == WHITE) {
+			assert(board->pieces[WHITE][ROOK] & A1); // make sure there exists a rook at A1
+			assert(popcount(board->pieces[WHITE][KING]) == 1);
+
+			movepiece(board, board->sidetomove, board->pieces[WHITE][KING], board->pieces[WHITE][KING]>>2); // move king 2sq left
+			movepiece(board, board->sidetomove, A1, A1>>3); // move supposed rook from A1 3sq left
+		}
+		else {
+			assert(board->pieces[BLACK][ROOK] & A8); // make suser there exists a rook at A8
+			assert(popcount(board->pieces[BLACK][KING]) == 1);
+			
+			movepiece(board, board->sidetomove, board->pieces[BLACK][KING], board->pieces[BLACK][KING]>>2); // move king 2sq left
+			movepiece(board, board->sidetomove, A8, A8>>3); // move supposed rook from A8 3sq left
+		}
+		goto MAKEMOVE_PIECES_MOVED;
 	}
 
 	movepiece(board, board->sidetomove, move->from, move->to);
 	
+	// goto here if all pieces are moved already
+	MAKEMOVE_PIECES_MOVED:
+
 	// change side to move
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
 }

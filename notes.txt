@@ -1,3 +1,4 @@
 Just a simple chess engine.
-User gives a move in algabreic notation, 
-and we make a move.
+
+07.03.2022:
+Castling doesn't check for attack between them.
