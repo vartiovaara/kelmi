@@ -33,7 +33,13 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res);
 void perft(board_s* board, const unsigned int depth) {
 	printf("Starting perft with depth %u...\n\n", depth);
 
-	pertf_result_s res = {0, 0};
+	// initialize perft_result_s
+	pertf_result_s res;
+	memset(&res, 0, sizeof(pertf_result_s)); // set everithing to 0
+	res.n_plies = depth;
+	// +1 becouse even with depth=0 we need atleast len of 1 * ull
+	res.n_positions = (unsigned long long*)malloc((depth * sizeof(res.n_positions)) + 1);
+	memset(res.n_positions, 0, depth * sizeof res.n_positions + 1); // set it to 0
 
 	clock_t t = clock();
 	
@@ -44,12 +50,17 @@ void perft(board_s* board, const unsigned int depth) {
 
 	printf("%llu nodes searched in %3fs\n", res.nodes, time_taken);
 	printf("%f Nps\n\n", (float)res.nodes/time_taken);
-	
 
-	printf("Expected perft: %u\n", expected_perft[depth]);
-	printf("Calculated perft: %llu\n", res.end_positions);
-	printf("Error: %lld\n", (long long)res.end_positions-(long long)expected_perft[depth]);
-	printf("Procentual error: %f%%\n", ((double)((long long)res.end_positions-(long long)expected_perft[depth])/(double)expected_perft[depth])*(double)100);
+	for (unsigned int i = 0; i <= res.n_plies; i++) {
+		//printf("Positions at depth %u: %llu \n", i, res.n_positions[i]);
+		printf("Depth %u:\n", i);
+		printf("Expected perft: %u\n", expected_perft[i]);
+		printf("Calculated perft: %llu\n", res.n_positions[i]);
+		printf("Error: %lld\n", (long long)res.n_positions[i]-(long long)expected_perft[i]);
+		printf("Procentual error: %f%%\n\n", ((double)((long long)res.n_positions[i]-(long long)expected_perft[i])/(double)expected_perft[i])*(double)100);
+	}
+
+	free(res.n_positions);
 }
 
 /*
@@ -60,6 +71,8 @@ void perft(board_s* board, const unsigned int depth) {
  * Check perft_result_s
  */
 void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
+	res->n_positions[res->n_plies - depth]++;
+
 	// is position a last one
 	if (depth == 0) {
 		res->end_positions++;

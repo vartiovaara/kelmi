@@ -360,5 +360,15 @@ unsigned int get_piece_side(const board_s* board, const BitBoard piecebb) {
 }
 
 
+board_s* cloneboard(board_s* board) {
+
+}
+
+
+board_s* freeboard(board_s* board) {
+	
+}
+
+
 
 #endif // BOARD_C

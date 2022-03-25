@@ -178,8 +178,11 @@ typedef struct board_s {
 } board_s;
 
 // Defines perft results
+// Remember to free n_positions after use
 typedef struct {
-	unsigned long long end_positions;
+	unsigned int n_plies; // Number of plies computed
+	unsigned long long* n_positions; // malloc -> Number of positions in nth ply
+	unsigned long long end_positions; // delete??
 	unsigned long long nodes;
 } pertf_result_s;
 

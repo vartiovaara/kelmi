@@ -17,6 +17,19 @@ board_s boardfromfen(const char* fen_str);
 void resetboard(board_s* board);
 
 /*
+ * Generates a fully independent copy of the board_s supplied.
+ * Allocates movehistory too.
+ * Free the board gotten from here with freeboard(board_s*) 
+ */
+board_s* cloneboard(board_s* board);
+
+/*
+ * Frees the board supplied by cloneboard(board_s*)
+ * NOTE: Baybe change this to a general purpose freeing function.
+ */
+board_s* freeboard(board_s* board);
+
+/*
  * Moves a piece from from to to
  * Doesn't "perform" a move (change en_passant, whiteturn etc.)
  */
