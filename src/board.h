@@ -17,23 +17,10 @@ board_s boardfromfen(const char* fen_str);
 void resetboard(board_s* board);
 
 /*
- * Generates a fully independent copy of the board_s supplied.
- * Allocates movehistory too.
- * Free the board gotten from here with freeboard(board_s*) 
- */
-board_s* cloneboard(board_s* board);
-
-/*
- * Frees the board supplied by cloneboard(board_s*)
- * NOTE: Baybe change this to a general purpose freeing function.
- */
-board_s* freeboard(board_s* board);
-
-/*
  * Moves a piece from from to to
  * Doesn't "perform" a move (change en_passant, whiteturn etc.)
  */
-void movepiece(board_s* board, const unsigned int side, const BitBoard from, const BitBoard to);
+void movepiece(board_s* board, const unsigned int type, const BitBoard from, const BitBoard to);
 
 void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type);
 
@@ -42,8 +29,14 @@ void removepiece(board_s* board, const BitBoard pos, const unsigned int side, co
 // TODO: Maybe add a side variable for a move
 void makemove(board_s* restrict board, const move_s* restrict move);
 
-// Undoes the latest move done (not done)
+// Undoes the latest move done (function not done)
 void unmakemove(board_s* board);
+
+/*
+ * Performs a castling. See castling_e enum in defs.h.
+ * Also revokes castling sides castling permissions.
+ */
+void performcastle(board_s* board, const unsigned int castle);
 
 // Finds, which one of the bitboards holds the piece.
 // exit(1) on not found
