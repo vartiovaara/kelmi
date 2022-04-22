@@ -107,6 +107,7 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 		moves.moves[i].from = piecebb;
 		moves.moves[i].to = pop_bitboard(&to);
 		moves.moves[i].fromtype = piece_type;
+		moves.moves[i].side = side;
 		moves.moves[i].flags = 0;
 		
 		// Setting capture flag
@@ -121,12 +122,22 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 		// Setting castling flag
 		if (piece_type == KING) {
 			// TODO: could be anothed #define
-			const BitBoard kcastle = MV_E(MV_E(moves.moves[i].from));
-			const BitBoard qcastle = MV_W(MV_W(moves.moves[i].from));
+			const BitBoard kcastle = MV_E(moves.moves[i].from, 2);
+			const BitBoard qcastle = MV_W(moves.moves[i].from, 2);
 			if (moves.moves[i].to & kcastle)
 				moves.moves[i].flags |= FLAG_KCASTLE;
 			else if (moves.moves[i].to & qcastle)
 				moves.moves[i].flags |= FLAG_QCASTLE;
+		}
+
+		// Setting pawn flag and double push flag
+		if (piece_type == PAWN) {
+			moves.moves[i].flags |= FLAG_PAWNMOVE;
+			
+			if (moves.moves[i].to == MV_N(moves.moves[i].from, 2)
+			 || moves.moves[i].to == MV_S(moves.moves[i].from, 2)) {
+				 moves.moves[i].flags |= FLAG_DOUBLEPUSH;
+			}
 		}
 	}
 	return moves;
@@ -140,15 +151,15 @@ BitBoard pseudo_legal_squares_k(const board_s* board, const unsigned int side, c
 	// Castling (represented by moving 2 squares)
 	if (side == WHITE) {
 		if (board->castling & WQCASTLE && !(board->every_piece & WQ_CAST_CLEAR_MASK))
-			squares |= MV_W(MV_W(piece));
+			squares |= MV_W(piece, 2);
 		if (board->castling & WKCASTLE && !(board->every_piece & WK_CAST_CLEAR_MASK))
-			squares |= MV_E(MV_E(piece));
+			squares |= MV_E(piece, 2);
 	}
 	else {
 		if (board->castling & BQCASTLE && !(board->every_piece & BQ_CAST_CLEAR_MASK))
-			squares |= MV_W(MV_W(piece));
+			squares |= MV_W(piece, 2);
 		if (board->castling & BKCASTLE && !(board->every_piece & BK_CAST_CLEAR_MASK))
-			squares |= MV_E(MV_E(piece));
+			squares |= MV_E(piece, 2);
 	}
 	return squares;
 }
@@ -380,24 +391,24 @@ BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, c
 		return squares;
 
 	if (side == WHITE) {
-		first_forward = MV_N(piece);
+		first_forward = MV_N(piece, 1);
 		// this takes care of checking if double-push is even allowed
 		if (piece & BOTTOM_DPUSH_MASK)
-			second_forward = MV_N(MV_N(piece));
+			second_forward = MV_N(piece, 2);
 		else
 			second_forward = first_forward;
-		w_capture = MV_NW(piece);
-		e_capture = MV_NE(piece);
+		w_capture = MV_NW(piece, 1);
+		e_capture = MV_NE(piece, 1);
 	}
 	else {
-		first_forward = MV_S(piece);
+		first_forward = MV_S(piece, 1);
 		// this takes care of checking if double-push is even allowed
 		if (piece & TOP_DPUSH_MASK)
-			second_forward = MV_S(MV_S(piece));
+			second_forward = MV_S(piece, 2);
 		else
 			second_forward = first_forward;
-		w_capture = MV_SW(piece);
-		e_capture = MV_SE(piece);
+		w_capture = MV_SW(piece, 1);
+		e_capture = MV_SE(piece, 1);
 	}
 
 	// Captures

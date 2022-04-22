@@ -239,6 +239,11 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 	assert(popcount(move->to) == 1);
 	assert(move->from & board->all_pieces[board->sidetomove]); // can trigger if wrong side tries to perform a move
 
+	bool pieces_moved = false;
+
+	// Clear en passant
+	board->en_passant = 0x0;
+
 	// If the piece was captured, remove it.
 	if (move->flags & FLAG_CAPTURE) {
 		assert(move->to & board->every_piece);
@@ -247,13 +252,19 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 		removepiece(board, move->to, captured_side, captured_type);
 	}
 
+	// Set en passant target square
+	if (move->flags & FLAG_DOUBLEPUSH) {
+		board->en_passant = (move->side==WHITE ? MV_S(move->to, 1) : MV_N(move->to, 1));
+	}
+
+	// Do castling
 	if (move->flags & FLAG_KCASTLE) {
 		unsigned int castle_flags = WKCASTLE;
 		if (board->sidetomove == BLACK)
 			castle_flags = BKCASTLE;
 		
 		performcastle(board, castle_flags);
-		goto MAKEMOVE_PIECES_MOVED;
+		pieces_moved = true;
 	}
 	else if (move->flags & FLAG_QCASTLE) {
 		unsigned int castle_flags = WQCASTLE;
@@ -261,7 +272,7 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 			castle_flags = BQCASTLE;
 		
 		performcastle(board, castle_flags);
-		goto MAKEMOVE_PIECES_MOVED;
+		pieces_moved = true;
 	}
 
 	// Revoking of castling rights by rook move
@@ -281,10 +292,9 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 		}
 	}
 
-	movepiece(board, move->fromtype, move->from, move->to);
-	
-	// goto here if all pieces are moved already
-	MAKEMOVE_PIECES_MOVED:
+	// some moves are already handled (like castling)
+	if (!pieces_moved)
+		movepiece(board, move->fromtype, move->from, move->to);
 
 	// change side to move
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
@@ -347,8 +357,6 @@ void performcastle(board_s* board, const unsigned int castle) {
 
 		rook_from = H1;
 		rook_to = WK_CASTLE_ROOK_TARGET;
-		//movepiece(board, board->sidetomove, W_KING_DEFAULT_POS, WK_CASTLE_KING_TARGET); // move king 2sq right
-		//movepiece(board, board->sidetomove, H1, H1>>2); // move supposed rook from h1 2sq left
 	}
 	else if (castle == WQCASTLE) {
 		assert(board->pieces[WHITE][KING] == W_KING_DEFAULT_POS);

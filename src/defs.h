@@ -77,16 +77,16 @@
 // TODO: make these something else and stuff idk
 
 // horizontal and vertical
-#define MV_N(sq) (sq << 8)
-#define MV_E(sq) (sq << 1)
-#define MV_S(sq) (sq >> 8)
-#define MV_W(sq) (sq >> 1)
+#define MV_N(sq, n) (sq << 8*n)
+#define MV_E(sq, n) (sq << 1*n)
+#define MV_S(sq, n) (sq >> 8*n)
+#define MV_W(sq, n) (sq >> 1*n)
 
 // diagonals
-#define MV_NE(sq) MV_N(MV_E(sq)) //9
-#define MV_SE(sq) MV_S(MV_E(sq)) //-7
-#define MV_SW(sq) MV_S(MV_W(sq)) //-9
-#define MV_NW(sq) MV_N(MV_W(sq)) //7
+#define MV_NE(sq, n) MV_N(MV_E(sq, n), n)
+#define MV_SE(sq, n) MV_S(MV_E(sq, n), n)
+#define MV_SW(sq, n) MV_S(MV_W(sq, n), n)
+#define MV_NW(sq, n) MV_N(MV_W(sq, n), n)
 
 // Empty square char
 #define NO_PIECE_CHAR ('.')
@@ -136,10 +136,11 @@ enum castling_e {
 };
 
 enum moveflags_e {
-	FLAG_PAWNMOVE = 0x1,
-	FLAG_CAPTURE  = 0x2,
-	FLAG_KCASTLE  = 0x4,
-	FLAG_QCASTLE  = 0x8,
+	FLAG_PAWNMOVE   = 0x1,
+	FLAG_CAPTURE    = 0x2,
+	FLAG_KCASTLE    = 0x4,
+	FLAG_QCASTLE    = 0x8,
+	FLAG_DOUBLEPUSH = 0x8<<1 
 };
 
 
@@ -158,7 +159,7 @@ enum moveflags_e {
  * 1000 0000:
  * 0100 0000:
  * 0010 0000:
- * 0001 0000:
+ * 0001 0000: Pawn Double push
  * 0000 1000: Queen Castle
  * 0000 0100: King Castle
  * 0000 0010: Capture
@@ -169,6 +170,7 @@ typedef struct move_s {
 	BitBoard to;
 	uint8_t flags;
 	uint8_t fromtype; // what type was the from piece
+	uint8_t side;
 	//uint8_t piece_captured; // marks what piece was eaten with this move
 	uint8_t promoteto; // what to promote to
 } move_s;
