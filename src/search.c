@@ -37,9 +37,13 @@ void perft(board_s* board, const unsigned int depth) {
 	pertf_result_s res;
 	memset(&res, 0, sizeof(pertf_result_s)); // set everithing to 0
 	res.n_plies = depth;
+	
 	// +1 becouse even with depth=0 we need atleast len of 1 * ull
 	res.n_positions = (unsigned long long*)malloc((depth * sizeof(res.n_positions)) + 1);
 	memset(res.n_positions, 0, depth * sizeof res.n_positions + 1); // set it to 0
+
+	res.captures = (unsigned long long*)malloc((depth * sizeof(res.n_positions)) + 1);
+	memset(res.captures, 0, depth * sizeof res.captures + 1); // set it to 0
 
 	clock_t t = clock();
 	
@@ -57,10 +61,13 @@ void perft(board_s* board, const unsigned int depth) {
 		printf("Expected perft: %u\n", expected_perft[i]);
 		printf("Calculated perft: %llu\n", res.n_positions[i]);
 		printf("Error: %lld\n", (long long)res.n_positions[i]-(long long)expected_perft[i]);
-		printf("Procentual error: %f%%\n\n", ((double)((long long)res.n_positions[i]-(long long)expected_perft[i])/(double)expected_perft[i])*(double)100);
+		printf("Procentual error: %f%%\n", ((double)((long long)res.n_positions[i]-(long long)expected_perft[i])/(double)expected_perft[i])*(double)100);
+		printf("Captures: %lld\n", res.captures[i]);
+		puts("\n");
 	}
 
 	free(res.n_positions);
+	free(res.captures);
 }
 
 /*
@@ -116,6 +123,11 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 			if (is_in_check(board, initial_side))
 				goto SEARCH_SKIP_MOVE;
 			
+			// MOVE WILL BE DONE
+
+			if (moves.moves[j].flags & FLAG_CAPTURE)
+				res->captures[(res->n_plies - depth)+1]++; // +1 becouse that move got itself to that depth so it will be counted as such
+
 			//res->nodes++; // currently only legal positions are consididired as "searched"
 			search(board, depth-1, res);
 			SEARCH_SKIP_MOVE: // if move was illegal, go here

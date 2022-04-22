@@ -384,11 +384,11 @@ BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, c
 
 	BitBoard first_forward;
 	BitBoard second_forward;
-	BitBoard w_capture;
-	BitBoard e_capture;
 
 	if (piece & TOP_MASK)
 		return squares;
+
+	BitBoard attacks = piecelookup(lowest_bitindex(piece), PAWN, side);
 
 	if (side == WHITE) {
 		first_forward = MV_N(piece, 1);
@@ -397,8 +397,6 @@ BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, c
 			second_forward = MV_N(piece, 2);
 		else
 			second_forward = first_forward;
-		w_capture = MV_NW(piece, 1);
-		e_capture = MV_NE(piece, 1);
 	}
 	else {
 		first_forward = MV_S(piece, 1);
@@ -407,19 +405,10 @@ BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, c
 			second_forward = MV_S(piece, 2);
 		else
 			second_forward = first_forward;
-		w_capture = MV_SW(piece, 1);
-		e_capture = MV_SE(piece, 1);
 	}
 
 	// Captures
-	if (w_capture & board->all_pieces[opposite_side]
-	 || w_capture & board->en_passant) {
-		squares |= w_capture;
-	}
-	if (e_capture & board->all_pieces[opposite_side]
-	 || e_capture & board->en_passant) {
-		squares |= e_capture;
-	}
+	squares |= attacks & board->all_pieces[opposite_side];
 
 	// First forward
 	//const BitBoard bw_pieces = board->all_pieces[WHITE] | board->all_pieces[BLACK];

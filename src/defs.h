@@ -208,6 +208,9 @@ typedef struct {
 	unsigned long long* n_positions; // malloc -> Number of positions in nth ply
 	unsigned long long end_positions; // delete??
 	unsigned long long nodes;
+
+	// "advanced" information
+	unsigned long long* captures;
 } pertf_result_s;
 
 
