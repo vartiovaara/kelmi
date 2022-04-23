@@ -2,19 +2,21 @@ CC = cc
 
 SRC = main.c algebraic.c attack.c bitboard.c board.c defs.h init.c lookup.c search.c magicmoves/magicmoves.c
 
-CFLAGS = -Wall -Wextra -pedantic -O1 -mtune=generic -std=c17
-NDFLAGS = -DNDEBUG -Wall -Wextra -pedantic -O3 -march=native -mtune=native -std=c17
+CFLAGS = -Wall -Wextra -pedantic -Og -mtune=generic -std=c17
+NDCFLAGS = -DNDEBUG -Wall -Wextra -pedantic -O3 -march=native -mtune=native -std=c17
+
+OUTPUTNAME = kelmi
 
 all:
 	cd src && \
-	${CC} -o ../kelmi ${SRC} ${CFLAGS}
+	${CC} -o ../${OUTPUTNAME} ${SRC} ${CFLAGS}
 
 ndebug:
 	cd src && \
-	${CC} -o ../kelmi ${SRC} ${NDFLAGS}
+	${CC} -o ../${OUTPUTNAME} ${SRC} ${NDCFLAGS}
 
 clean:
-	rm kelmi
+	rm ${OUTPUTNAME}
 
 
 #kelmi: *.c *.h

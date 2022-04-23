@@ -30,20 +30,29 @@ const unsigned int expected_perft[] = {
 void search(board_s* board, const unsigned int depth, pertf_result_s* res);
 
 
+void init_perft_result(pertf_result_s* res, unsigned int depth) {
+	memset(res, 0, sizeof(pertf_result_s));
+	res->n_plies = depth;
+
+	res->n_positions = (unsigned long long*)calloc(depth+1, sizeof res->n_positions);
+	res->captures = (unsigned long long*)calloc(depth+1, sizeof res->captures);
+	res->checks = (unsigned long long*)calloc(depth+1, sizeof res->checks);
+}
+
+void free_perft_result(pertf_result_s* res) {
+	free(res->n_positions);
+	free(res->captures);
+	free(res->checks);
+}
+
+
 void perft(board_s* board, const unsigned int depth) {
 	printf("Starting perft with depth %u...\n\n", depth);
 
 	// initialize perft_result_s
 	pertf_result_s res;
-	memset(&res, 0, sizeof(pertf_result_s)); // set everithing to 0
-	res.n_plies = depth;
-	
-	// +1 becouse even with depth=0 we need atleast len of 1 * ull
-	res.n_positions = (unsigned long long*)malloc((depth * sizeof(res.n_positions)) + 1);
-	memset(res.n_positions, 0, depth * sizeof res.n_positions + 1); // set it to 0
+	init_perft_result(&res, depth);
 
-	res.captures = (unsigned long long*)malloc((depth * sizeof(res.n_positions)) + 1);
-	memset(res.captures, 0, depth * sizeof res.captures + 1); // set it to 0
 
 	clock_t t = clock();
 	
@@ -63,11 +72,11 @@ void perft(board_s* board, const unsigned int depth) {
 		printf("Error: %lld\n", (long long)res.n_positions[i]-(long long)expected_perft[i]);
 		printf("Procentual error: %f%%\n", ((double)((long long)res.n_positions[i]-(long long)expected_perft[i])/(double)expected_perft[i])*(double)100);
 		printf("Captures: %lld\n", res.captures[i]);
-		puts("\n");
+		printf("Checks: %lld\n", res.checks[i]);
+		printf("\n");
 	}
 
-	free(res.n_positions);
-	free(res.captures);
+	free_perft_result(&res);
 }
 
 /*
@@ -82,27 +91,22 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 
 	// is position a last one
 	if (depth == 0) {
-		res->end_positions++;
 		res->nodes++;
 		return;
 	}
-	
-	//const unsigned int initial_npos = 0;
-	//unsigned int npos = initial_npos;
+
+
 	const unsigned long long initial_nodes = res->nodes;
 
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
 	unsigned int npieces = popcount(pieces_copy);
 
-
-	// used for not getting itself in check by moving own piece or not blocking
-	//const bool initially_in_check = is_in_check(board, board->sidetomove);
-	//printf("initially_in_check = %u\n", initially_in_check);
 	const unsigned int initial_side = board->sidetomove;
 
 	board_s boardcopy;// = *board;
 	memcpy(&boardcopy, board, sizeof (board_s)); // for some reason, it's faster with memcpy
 
+	// go through every piece
 	for (unsigned int i = 0; i < npieces; i++) {
 		// generate moves
 		movelist_s moves = pseudo_legal_squares(board, pop_bitboard(&pieces_copy));
@@ -127,11 +131,18 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 
 			if (moves.moves[j].flags & FLAG_CAPTURE)
 				res->captures[(res->n_plies - depth)+1]++; // +1 becouse that move got itself to that depth so it will be counted as such
+			
+			// this statistic is expensive. only count it in debug builds
+			#ifndef NDEBUG
+			if (is_in_check(board, board->sidetomove))
+				res->checks[(res->n_plies - depth)+1]++;
+			#endif
 
-			//res->nodes++; // currently only legal positions are consididired as "searched"
+
 			search(board, depth-1, res);
+
 			SEARCH_SKIP_MOVE: // if move was illegal, go here
-			memcpy(board, &boardcopy, sizeof (board_s));
+			memcpy(board, &boardcopy, sizeof (board_s)); // restore board
 			//*board = boardcopy;
 		}
 
@@ -139,7 +150,6 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 	}
 
 	if (res->nodes == initial_nodes) {
-		res->end_positions++;
 		res->nodes++;
 		return; // this position doesn't have any legal moves
 	}

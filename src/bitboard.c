@@ -27,7 +27,7 @@ unsigned int pop_bit(BitBoard* const bb) {
 	assert(*bb > 0);
 	BitBoard b = *bb ^ (*bb - 1);
 	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
-	*bb &= (*bb - 1);
+	*bb &= (*bb - 1); // this seems to remove the last bit
 	return BitTable[(fold * 0x783a9b23) >> 26];
 }
 
@@ -46,8 +46,6 @@ BitBoard pop_bitboard(BitBoard* const bb) {
 // __builtin_ffs(int)
 // TODO: Test eligibility of this function
 unsigned int lowest_bitindex(const BitBoard bb) {
-	//BitBoard bb_copy = bb;
-	//return pop_bit(&bb_copy);
 	assert(bb > 0);
 	BitBoard b = bb ^ (bb - 1);
 	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));

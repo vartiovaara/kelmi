@@ -206,11 +206,11 @@ typedef struct board_s {
 typedef struct {
 	unsigned int n_plies; // Number of plies computed
 	unsigned long long* n_positions; // malloc -> Number of positions in nth ply
-	unsigned long long end_positions; // delete??
 	unsigned long long nodes;
 
 	// "advanced" information
 	unsigned long long* captures;
+	unsigned long long* checks;
 } pertf_result_s;
 
 
