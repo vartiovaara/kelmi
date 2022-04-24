@@ -12,7 +12,7 @@ Stuff about bitboards.
 #include "defs.h"
 
 
-// for pop_bit()
+// for pop_bit() and lowest_bitindex()
 const int BitTable[64] = {
 	63, 30, 3, 32, 25, 41, 22, 33, 15, 50, 42, 13, 11, 53, 19, 34, 61, 29, 2,
 	51, 21, 43, 45, 10, 18, 47, 1, 54, 9, 57, 0, 35, 62, 31, 40, 4, 49, 5, 52,
@@ -22,12 +22,12 @@ const int BitTable[64] = {
 
 
 // TODO: there is probably some kind of instruction for this
-// FIXME: Probably shits itself when bb is 0
 unsigned int pop_bit(BitBoard* const bb) {
 	assert(*bb > 0);
+	
 	BitBoard b = *bb ^ (*bb - 1);
 	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
-	*bb &= (*bb - 1); // this seems to remove the last bit
+	*bb &= *bb - 1;
 	return BitTable[(fold * 0x783a9b23) >> 26];
 }
 
@@ -47,20 +47,22 @@ BitBoard pop_bitboard(BitBoard* const bb) {
 // TODO: Test eligibility of this function
 unsigned int lowest_bitindex(const BitBoard bb) {
 	assert(bb > 0);
+	
 	BitBoard b = bb ^ (bb - 1);
 	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
-	//*bb &= (*bb - 1);
 	return BitTable[(fold * 0x783a9b23) >> 26];
+	//return __builtin_ffsl(bb)-1;
 }
 
 
 BitBoard lowest_bitboard(const BitBoard bb) {
 	assert(bb > 0);
+
 	return bb ^ (bb & (bb - 1));
 }
 
 
-int popcount(BitBoard x) {
+unsigned int popcount(const BitBoard x) {
 	// See: http://0x80.pl/articles/sse-popcount.html
 	// See: https://en.wikipedia.org/wiki/Hamming_weight#Efficient_implementation
 	// #if test which type is enough to hold 64 bits

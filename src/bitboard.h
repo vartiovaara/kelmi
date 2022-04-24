@@ -7,18 +7,20 @@
 
 // Returns index of the lowest bit and sets it to 0
 // Originally taken from Vice bitboards.c
-unsigned int pop_bit(BitBoard* const);
+// NOTE: Shits itself when bb is 0
+unsigned int pop_bit(BitBoard* const bb);
 
 // Returns the lowest bit and sets it to 0
-BitBoard pop_bitboard(BitBoard* const);
+BitBoard pop_bitboard(BitBoard* const bb);
 
 // Returns index of lowest bit
-unsigned int lowest_bitindex(const BitBoard);
+// NOTE: Shits itself when bb is 0
+unsigned int lowest_bitindex(const BitBoard bb);
 
 // Returns the lowest bit as a bitboard
-BitBoard lowest_bitboard(const BitBoard);
+BitBoard lowest_bitboard(const BitBoard bb);
 
-int popcount(BitBoard);
+unsigned int popcount(const BitBoard bb);
 
 
 #endif // BITBOARD_H
