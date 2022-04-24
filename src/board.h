@@ -55,4 +55,6 @@ void free_move_history(const board_s* board);
 // This function copies everything exept move history memory information.
 void restore_board(board_s* restrict to, board_s* restrict from);
 
+void write_move_history(const board_s* board, FILE* f);
+
 #endif // BOARD_H

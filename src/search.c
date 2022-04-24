@@ -27,7 +27,7 @@ const unsigned int expected_perft[] = {
 
 
 // Private functions
-void search(board_s* board, const unsigned int depth, pertf_result_s* res);
+void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE* f);
 
 
 void init_perft_result(pertf_result_s* res, unsigned int depth) {
@@ -55,10 +55,11 @@ void perft(board_s* board, const unsigned int depth) {
 	pertf_result_s res;
 	init_perft_result(&res, depth);
 
+	FILE* f = fopen("history.txt", "w+");
 
 	clock_t t = clock();
 	
-	search(board, depth, &res);
+	search(board, depth, &res, f);
 	
 	t = clock() - t;
 	double time_taken = ((double)t)/CLOCKS_PER_SEC;
@@ -89,13 +90,12 @@ void perft(board_s* board, const unsigned int depth) {
  * according to board_s.sidetomove.
  * Check perft_result_s
  */
-void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
+void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE* f) {
 	res->n_positions[res->n_plies - depth]++;
 
 	// is position a last one
 	if (depth == 0) {
-		res->nodes++;
-		return;
+		goto SEARCH_LAST_NODE;
 	}
 
 
@@ -146,7 +146,7 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 
 			append_to_move_history(board, &moves.moves[j]);
 
-			search(board, depth-1, res);
+			search(board, depth-1, res, f);
 
 			SEARCH_SKIP_MOVE: // if move was illegal, go here
 			restore_board(board, &boardcopy);
@@ -156,9 +156,21 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 
 		free(moves.moves);
 	}
-
+	
 	if (res->nodes == initial_nodes) {
-		res->nodes++;
-		return; // this position doesn't have any legal moves
+		goto SEARCH_LAST_NODE; // this position doesn't have any legal moves
 	}
+
+	return;
+
+	// Go here if no more moves are made
+	SEARCH_LAST_NODE:
+
+	res->nodes++;
+
+	if (!f)
+		return;
+	
+	// Write history to file
+	write_move_history(board, f);
 }
