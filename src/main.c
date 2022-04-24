@@ -58,5 +58,7 @@ int main(int argc, char** argv) {
 	}
 	free(moves.moves);*/
 	
+	free_move_history(&board);
+
 	return 0;
 }

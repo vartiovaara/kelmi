@@ -45,5 +45,14 @@ unsigned int get_piece_type(const board_s* board, const unsigned int side, const
 // Returns, what side the piece is
 unsigned int get_piece_side(const board_s* board, const BitBoard piecebb);
 
+void set_move_history_size(board_s* board, const size_t size);
+
+void append_to_move_history(board_s* board, const move_s* move);
+
+void free_move_history(const board_s* board);
+
+// Made some changes to "to" but now want to revert to old copy ("from")?
+// This function copies everything exept move history memory information.
+void restore_board(board_s* restrict to, board_s* restrict from);
 
 #endif // BOARD_H

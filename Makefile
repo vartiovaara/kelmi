@@ -2,7 +2,7 @@ CC = cc
 
 SRC = main.c algebraic.c attack.c bitboard.c board.c defs.h init.c lookup.c search.c magicmoves/magicmoves.c
 
-CFLAGS = -Wall -Wextra -pedantic -Og -mtune=generic -std=c17
+CFLAGS = -Wall -Wextra -pedantic -Og -g -mtune=generic -std=c17
 NDCFLAGS = -DNDEBUG -Wall -Wextra -pedantic -Ofast -march=native -mtune=native -std=c17
 
 OUTPUTNAME = kelmi

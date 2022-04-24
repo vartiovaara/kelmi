@@ -407,5 +407,43 @@ void performcastle(board_s* board, const unsigned int castle) {
 }
 
 
+void set_move_history_size(board_s* board, const size_t size) {
+	assert(size > 0);
+
+	move_s* new_block = (move_s*)realloc(board->movehistory.moves, sizeof(move_s) * size);
+
+	if (!new_block) {
+		printf("No memory to realloc move history! Aborting... \n");
+		abort();
+	}
+
+	board->movehistory.moves = new_block;
+	board->movehistory.n = size;
+}
+
+
+void append_to_move_history(board_s* board, const move_s* move) {
+	board->history_n++;
+
+	if (board->movehistory.n < board->history_n) {
+		set_move_history_size(board, board->history_n);
+	}
+
+	memcpy(&board->movehistory.moves[board->history_n-1], move, sizeof(move_s));
+}
+
+
+void free_move_history(const board_s* board) {
+	free(board->movehistory.moves);
+}
+
+
+void restore_board(board_s* restrict to, board_s* restrict from) {
+	movelist_s movehistory = to->movehistory;
+
+	memcpy(to, from, sizeof (board_s)); // restore board
+	to->movehistory = movehistory; // restore old movehistory
+}
+
 
 #endif // BOARD_C

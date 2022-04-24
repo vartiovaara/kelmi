@@ -144,11 +144,13 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 			if (moves.moves[j].flags & FLAG_ENPASSANT)
 				res->en_passant[(res->n_plies - depth)+1]++;
 
+			append_to_move_history(board, &moves.moves[j]);
 
 			search(board, depth-1, res);
 
 			SEARCH_SKIP_MOVE: // if move was illegal, go here
-			memcpy(board, &boardcopy, sizeof (board_s)); // restore board
+			restore_board(board, &boardcopy);
+			//memcpy(board, &boardcopy, sizeof (board_s)); // restore board
 			//*board = boardcopy;
 		}
 

@@ -196,8 +196,8 @@ typedef struct board_s {
 	uint8_t fiftym_counter; // 50-move rule counter
 	uint8_t fullmoves;
 
-	unsigned int ply; // aka n of moves in movehistory
-	movelist_s movehistory;
+	unsigned int history_n; // aka n of moves in movehistory
+	movelist_s movehistory; // movelist_s.n = n of moves allocated
 } board_s;
 
 // Defines perft results
