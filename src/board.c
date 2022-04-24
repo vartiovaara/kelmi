@@ -257,6 +257,18 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 		board->en_passant = (move->side==WHITE ? MV_S(move->to, 1) : MV_N(move->to, 1));
 	}
 
+	// Both flags set shouldn't be set
+	assert(popcount(move->flags & (FLAG_DOUBLEPUSH | FLAG_ENPASSANT)) < 2);
+
+	// Perform En passant
+	if (move->flags & FLAG_ENPASSANT) {
+		const BitBoard piece_to_remove = (move->side == WHITE ? MV_S(move->to, 1) : MV_N(move->to, 1));
+		
+		assert(piece_to_remove & board->pieces[OPPOSITE_SIDE(move->side)][PAWN]);
+
+		removepiece(board, piece_to_remove, OPPOSITE_SIDE(move->side), PAWN);
+	}
+
 	// Do castling
 	if (move->flags & FLAG_KCASTLE) {
 		unsigned int castle_flags = WKCASTLE;
@@ -267,9 +279,9 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 		pieces_moved = true;
 	}
 	else if (move->flags & FLAG_QCASTLE) {
-		unsigned int castle_flags = WQCASTLE;
-		if (board->sidetomove == BLACK)
-			castle_flags = BQCASTLE;
+		unsigned int castle_flags = (move->side == WHITE ? WQCASTLE : BQCASTLE);
+		//if (board->sidetomove == BLACK)
+		//	castle_flags = BQCASTLE;
 		
 		performcastle(board, castle_flags);
 		pieces_moved = true;

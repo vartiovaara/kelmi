@@ -33,13 +33,12 @@ BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, c
 
 
 
-bool is_in_check (const board_s* board, const unsigned int side) {
+bool is_in_check(const board_s* board, const unsigned int side) {
 	assert(side == WHITE || side == BLACK);
 	assert(popcount(board->pieces[side][KING]) == 1);
 
 	const unsigned int opposite_side = OPPOSITE_SIDE(side);
-	const BitBoard king_bb = lowest_bitboard(board->pieces[side][KING]);
-	const unsigned int king_pos = lowest_bitindex(king_bb);
+	const unsigned int king_pos = lowest_bitindex(board->pieces[side][KING]);
 
 	// first check knights, as they are cheap to check (only array accesses)
 	if (board->pieces[opposite_side][KNIGHT] & piecelookup(king_pos, KNIGHT, 0))
@@ -50,14 +49,14 @@ bool is_in_check (const board_s* board, const unsigned int side) {
 		return true;
 
 	// check files and diagonals
-	const BitBoard rb_mask = piecelookup(king_pos, QUEEN, 0);
-	const BitBoard rb_magic_squares = Qmagic(king_pos, rb_mask & board->every_piece);
+	const BitBoard rbq_mask = piecelookup(king_pos, QUEEN, 0);
+	const BitBoard rbq_magic_squares = Qmagic(king_pos, rbq_mask & board->every_piece);
 	
 	// opposite side's rook, bishop and queens
 	const BitBoard opposite_rbq = board->pieces[opposite_side][ROOK] |
 	                              board->pieces[opposite_side][BISHOP] |
 	                              board->pieces[opposite_side][QUEEN];
-	if (rb_magic_squares & opposite_rbq)
+	if (rbq_magic_squares & opposite_rbq)
 		return true;
 	
 	return false;
@@ -108,7 +107,7 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 		moves.moves[i].to = pop_bitboard(&to);
 		moves.moves[i].fromtype = piece_type;
 		moves.moves[i].side = side;
-		moves.moves[i].flags = 0;
+		moves.moves[i].flags = 0x0;
 		
 		// Setting capture flag
 		// TODO: set piece_captured
@@ -130,13 +129,18 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 				moves.moves[i].flags |= FLAG_QCASTLE;
 		}
 
-		// Setting pawn flag and double push flag
+		// Setting pawn flag
 		if (piece_type == PAWN) {
 			moves.moves[i].flags |= FLAG_PAWNMOVE;
 			
+			// Double push flag
 			if (moves.moves[i].to == MV_N(moves.moves[i].from, 2)
 			 || moves.moves[i].to == MV_S(moves.moves[i].from, 2)) {
 				 moves.moves[i].flags |= FLAG_DOUBLEPUSH;
+			}
+
+			if (moves.moves[i].to == board->en_passant) {
+				moves.moves[i].flags |= FLAG_ENPASSANT;
 			}
 		}
 	}
@@ -379,7 +383,6 @@ BitBoard pseudo_legal_squares_r(const board_s* board, const unsigned int side, c
 
 BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, const BitBoard piece) {
 	BitBoard squares = 0x0;
-	//BitBoard pos;
 	const unsigned int opposite_side = OPPOSITE_SIDE(side);
 
 	BitBoard first_forward;
@@ -407,11 +410,10 @@ BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, c
 			second_forward = first_forward;
 	}
 
-	// Captures
-	squares |= attacks & board->all_pieces[opposite_side];
+	// Captures (including en passant)
+	squares |= attacks & (board->all_pieces[opposite_side] | board->en_passant);
 
 	// First forward
-	//const BitBoard bw_pieces = board->all_pieces[WHITE] | board->all_pieces[BLACK];
 	if (!(first_forward & board->every_piece)) {
 		squares |= first_forward;
 		// Second forward

@@ -37,12 +37,14 @@ void init_perft_result(pertf_result_s* res, unsigned int depth) {
 	res->n_positions = (unsigned long long*)calloc(depth+1, sizeof res->n_positions);
 	res->captures = (unsigned long long*)calloc(depth+1, sizeof res->captures);
 	res->checks = (unsigned long long*)calloc(depth+1, sizeof res->checks);
+	res->en_passant = (unsigned long long*)calloc(depth+1, sizeof res->en_passant);
 }
 
 void free_perft_result(pertf_result_s* res) {
 	free(res->n_positions);
 	free(res->captures);
 	free(res->checks);
+	free(res->en_passant);
 }
 
 
@@ -73,6 +75,7 @@ void perft(board_s* board, const unsigned int depth) {
 		printf("Procentual error: %f%%\n", ((double)((long long)res.n_positions[i]-(long long)expected_perft[i])/(double)expected_perft[i])*(double)100);
 		printf("Captures: %lld\n", res.captures[i]);
 		printf("Checks: %lld\n", res.checks[i]);
+		printf("En passants: %lld\n", res.en_passant[i]);
 		printf("\n");
 	}
 
@@ -137,6 +140,9 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res) {
 			if (is_in_check(board, board->sidetomove))
 				res->checks[(res->n_plies - depth)+1]++;
 			#endif
+
+			if (moves.moves[j].flags & FLAG_ENPASSANT)
+				res->en_passant[(res->n_plies - depth)+1]++;
 
 
 			search(board, depth-1, res);

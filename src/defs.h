@@ -136,11 +136,12 @@ enum castling_e {
 };
 
 enum moveflags_e {
-	FLAG_PAWNMOVE   = 0x1,
-	FLAG_CAPTURE    = 0x2,
-	FLAG_KCASTLE    = 0x4,
-	FLAG_QCASTLE    = 0x8,
-	FLAG_DOUBLEPUSH = 0x8<<1 
+	FLAG_PAWNMOVE   = 0x1 << 0,
+	FLAG_CAPTURE    = 0x1 << 1,
+	FLAG_KCASTLE    = 0x1 << 2,
+	FLAG_QCASTLE    = 0x1 << 3,
+	FLAG_DOUBLEPUSH = 0x1 << 4,
+	FLAG_ENPASSANT  = 0x1 << 5
 };
 
 
@@ -158,7 +159,7 @@ enum moveflags_e {
  * Flags:
  * 1000 0000:
  * 0100 0000:
- * 0010 0000:
+ * 0010 0000: En passant
  * 0001 0000: Pawn Double push
  * 0000 1000: Queen Castle
  * 0000 0100: King Castle
@@ -196,9 +197,7 @@ typedef struct board_s {
 	uint8_t fullmoves;
 
 	unsigned int ply; // aka n of moves in movehistory
-
-	move_s* movehistory;
-	unsigned int mvhistory_size;
+	movelist_s movehistory;
 } board_s;
 
 // Defines perft results
@@ -211,6 +210,7 @@ typedef struct {
 	// "advanced" information
 	unsigned long long* captures;
 	unsigned long long* checks;
+	unsigned long long* en_passant;
 } pertf_result_s;
 
 
