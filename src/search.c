@@ -38,6 +38,8 @@ void init_perft_result(pertf_result_s* res, unsigned int depth) {
 	res->captures = (unsigned long long*)calloc(depth+1, sizeof res->captures);
 	res->checks = (unsigned long long*)calloc(depth+1, sizeof res->checks);
 	res->en_passant = (unsigned long long*)calloc(depth+1, sizeof res->en_passant);
+	res->checkmates = (unsigned long long*)calloc(depth+1, sizeof res->checkmates);
+	res->stalemates = (unsigned long long*)calloc(depth+1, sizeof res->stalemates);
 }
 
 void free_perft_result(pertf_result_s* res) {
@@ -45,6 +47,8 @@ void free_perft_result(pertf_result_s* res) {
 	free(res->captures);
 	free(res->checks);
 	free(res->en_passant);
+	free(res->checkmates);
+	free(res->stalemates);
 }
 
 
@@ -59,10 +63,12 @@ void perft(board_s* board, const unsigned int depth) {
 
 	clock_t t = clock();
 	
-	search(board, depth, &res, f);
+	search(board, depth, &res, NULL);
 	
 	t = clock() - t;
 	double time_taken = ((double)t)/CLOCKS_PER_SEC;
+
+	fclose(f);
 
 	printf("%llu nodes searched in %3fs\n", res.nodes, time_taken);
 	printf("%f Nps\n\n", (float)res.nodes/time_taken);
@@ -77,6 +83,8 @@ void perft(board_s* board, const unsigned int depth) {
 		printf("Captures: %lld\n", res.captures[i]);
 		printf("Checks: %lld\n", res.checks[i]);
 		printf("En passants: %lld\n", res.en_passant[i]);
+		printf("Checkmates: %lld\n", res.checkmates[i]);
+		printf("Stalemates: %lld\n", res.stalemates[i]);
 		printf("\n");
 	}
 
@@ -98,13 +106,20 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 		goto SEARCH_LAST_NODE;
 	}
 
+	// for distincting stalemate and checkmate
+	const bool initially_in_check = is_in_check(board, board->sidetomove);
 
-	const unsigned long long initial_nodes = res->nodes;
+	// for checking, if any moves were made
+	// NOTE: Index might overflow and shit the bed
+	const unsigned long long initial_nodes = res->n_positions[(res->n_plies - depth) + 1];
+
+	// for checking if position is a checkmate
+	unsigned long long skipped_because_of_checks = 0;
+
+	const unsigned int initial_side = board->sidetomove;
 
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
 	unsigned int npieces = popcount(pieces_copy);
-
-	const unsigned int initial_side = board->sidetomove;
 
 	board_s boardcopy;// = *board;
 	memcpy(&boardcopy, board, sizeof (board_s)); // for some reason, it's faster with memcpy
@@ -126,10 +141,12 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 			
 			makemove(board, &moves.moves[j]);
 
-			// check if that side got itself in check
-			if (is_in_check(board, initial_side))
+			// check if that side got itself in check (or couldn't get out of one)
+			if (is_in_check(board, initial_side)) {
+				skipped_because_of_checks++;
 				goto SEARCH_SKIP_MOVE;
-			
+			}
+
 			// MOVE WILL BE DONE
 
 			if (moves.moves[j].flags & FLAG_CAPTURE)
@@ -157,7 +174,16 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 		free(moves.moves);
 	}
 	
-	if (res->nodes == initial_nodes) {
+	// No moves were made?
+	if (res->n_positions[(res->n_plies - depth) + 1] == initial_nodes) {
+		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
+			res->n_positions[res->n_plies - depth]++;
+			res->checkmates[res->n_plies - depth]++;
+		}
+		else { //is a stalemate (wasn't in check and no legal moves)
+			res->n_positions[res->n_plies - depth]++;
+			res->stalemates[res->n_plies - depth]++;
+		}
 		goto SEARCH_LAST_NODE; // this position doesn't have any legal moves
 	}
 

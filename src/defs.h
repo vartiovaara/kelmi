@@ -211,6 +211,8 @@ typedef struct {
 	unsigned long long* captures;
 	unsigned long long* checks;
 	unsigned long long* en_passant;
+	unsigned long long* checkmates;
+	unsigned long long* stalemates;
 } pertf_result_s;
 
 
