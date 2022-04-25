@@ -55,7 +55,7 @@ void perft(board_s* board, const unsigned int depth) {
 	pertf_result_s res;
 	init_perft_result(&res, depth);
 
-	FILE* f = fopen("history.txt", "w+");
+	FILE* f = fopen("history", "w+");
 
 	clock_t t = clock();
 	

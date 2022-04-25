@@ -15,6 +15,9 @@
 # Ignore vscode shit
 .vscode
 
+
+### Start github c .gitignore template ###
+
 # Prerequisites
 *.d
 
