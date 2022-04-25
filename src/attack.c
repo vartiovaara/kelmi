@@ -329,7 +329,7 @@ BitBoard pseudo_legal_squares_b(const board_s* board, const unsigned int side, c
 
 BitBoard pseudo_legal_squares_r(const board_s* board, const unsigned int side, const BitBoard piece) {
 	const unsigned int piece_index = lowest_bitindex(piece);
-	const BitBoard squares = Rmagic(piece_index, piecelookup(piece_index, ROOK, 0) & board->every_piece));
+	const BitBoard squares = Rmagic(piece_index, piecelookup(piece_index, ROOK, 0) & board->every_piece);
 	return squares & ~board->all_pieces[side]; // don't go on own pieces
 	
 	/*
