@@ -448,13 +448,11 @@ void restore_board(board_s* restrict to, board_s* restrict from) {
 
 void write_move_history(const board_s* board, FILE* f) {
 	for (unsigned int i = 0; i < board->history_n; i++) {
-		char from[3];
+		char from[2];
 		bbtoalg(from, board->movehistory.moves[i].from);
-		from[2] = '\0';
 
-		char to[3];
+		char to[2];
 		bbtoalg(to, board->movehistory.moves[i].to);
-		to[2] = '\0';
 
 		fprintf(f, "%c%c%c%c ", from[0], from[1], to[0], to[1]);
 	}

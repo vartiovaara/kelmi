@@ -177,11 +177,11 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 	// No moves were made?
 	if (res->n_positions[(res->n_plies - depth) + 1] == initial_nodes) {
 		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
-			res->n_positions[res->n_plies - depth]++;
+			//res->n_positions[res->n_plies - depth]++;
 			res->checkmates[res->n_plies - depth]++;
 		}
 		else { //is a stalemate (wasn't in check and no legal moves)
-			res->n_positions[res->n_plies - depth]++;
+			//res->n_positions[res->n_plies - depth]++;
 			res->stalemates[res->n_plies - depth]++;
 		}
 		goto SEARCH_LAST_NODE; // this position doesn't have any legal moves
@@ -196,7 +196,7 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 
 	if (!f)
 		return;
-	
+
 	// Write history to file
 	write_move_history(board, f);
 }

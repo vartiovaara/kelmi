@@ -48,15 +48,16 @@ bool is_in_check(const board_s* board, const unsigned int side) {
 	if (board->pieces[opposite_side][PAWN] & piecelookup(king_pos, PAWN, side))
 		return true;
 
-	// check files and diagonals
-	const BitBoard rbq_mask = piecelookup(king_pos, QUEEN, 0);
-	const BitBoard rbq_magic_squares = Qmagic(king_pos, rbq_mask & board->every_piece);
+	// Check bishops and diagonal queen attacks
+	const BitBoard bishop_mask = piecelookup(king_pos, BISHOP, 0);
+	const BitBoard bishop_squares = Bmagic(king_pos, board->every_piece & bishop_mask);
+	if (bishop_squares & (board->pieces[opposite_side][BISHOP] | board->pieces[opposite_side][QUEEN]))
+		return true;
 	
-	// opposite side's rook, bishop and queens
-	const BitBoard opposite_rbq = board->pieces[opposite_side][ROOK] |
-	                              board->pieces[opposite_side][BISHOP] |
-	                              board->pieces[opposite_side][QUEEN];
-	if (rbq_magic_squares & opposite_rbq)
+	// Check rooks and horizontal queen attacks
+	const BitBoard rook_mask = piecelookup(king_pos, ROOK, 0);
+	const BitBoard rook_squares = Rmagic(king_pos, board->every_piece & rook_mask);
+	if (rook_squares & (board->pieces[opposite_side][ROOK] | board->pieces[opposite_side][QUEEN]))
 		return true;
 	
 	return false;
