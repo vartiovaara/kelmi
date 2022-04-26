@@ -2,3 +2,7 @@ Just a simple chess engine.
 
 07.03.2022:
 Castling doesn't check for attack between them.
+
+26.04.2022:
+Now it does. And flawless perft(7). But no promotion.
+Also no attack maps. Need to make those. 

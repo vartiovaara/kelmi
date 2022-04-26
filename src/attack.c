@@ -33,35 +33,43 @@ BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, c
 
 
 
+bool is_side_attacking_sq(const board_s* board, const BitBoard sq, const unsigned int side) {
+	const unsigned int pos = lowest_bitindex(sq);
+
+	// first check knights, as they are cheap to check (only array accesses)
+	if (board->pieces[side][KNIGHT] & piecelookup(pos, KNIGHT, 0))
+		return true;
+	
+	// then check pawns, as they are also cheap
+	const unsigned int opposite_side = OPPOSITE_SIDE(side);
+	if (board->pieces[side][PAWN] & piecelookup(pos, PAWN, opposite_side))
+		return true;
+
+	// Check bishops and diagonal queen attacks
+	const BitBoard bishop_mask = piecelookup(pos, BISHOP, 0);
+	const BitBoard bishop_squares = Bmagic(pos, board->every_piece & bishop_mask);
+	if (bishop_squares & (board->pieces[side][BISHOP] | board->pieces[side][QUEEN]))
+		return true;
+	
+	// Check rooks and horizontal queen attacks
+	const BitBoard rook_mask = piecelookup(pos, ROOK, 0);
+	const BitBoard rook_squares = Rmagic(pos, board->every_piece & rook_mask);
+	if (rook_squares & (board->pieces[side][ROOK] | board->pieces[side][QUEEN]))
+		return true;
+	
+	return false;
+}
+
+
 bool is_in_check(const board_s* board, const unsigned int side) {
 	assert(side == WHITE || side == BLACK);
 	assert(popcount(board->pieces[side][KING]) == 1);
 
 	const unsigned int opposite_side = OPPOSITE_SIDE(side);
-	const unsigned int king_pos = lowest_bitindex(board->pieces[side][KING]);
-
-	// first check knights, as they are cheap to check (only array accesses)
-	if (board->pieces[opposite_side][KNIGHT] & piecelookup(king_pos, KNIGHT, 0))
-		return true;
-	
-	// then check pawns, as they are also cheap
-	if (board->pieces[opposite_side][PAWN] & piecelookup(king_pos, PAWN, side))
-		return true;
-
-	// Check bishops and diagonal queen attacks
-	const BitBoard bishop_mask = piecelookup(king_pos, BISHOP, 0);
-	const BitBoard bishop_squares = Bmagic(king_pos, board->every_piece & bishop_mask);
-	if (bishop_squares & (board->pieces[opposite_side][BISHOP] | board->pieces[opposite_side][QUEEN]))
-		return true;
-	
-	// Check rooks and horizontal queen attacks
-	const BitBoard rook_mask = piecelookup(king_pos, ROOK, 0);
-	const BitBoard rook_squares = Rmagic(king_pos, board->every_piece & rook_mask);
-	if (rook_squares & (board->pieces[opposite_side][ROOK] | board->pieces[opposite_side][QUEEN]))
-		return true;
-	
-	return false;
+	return is_side_attacking_sq(board, lowest_bitboard(board->pieces[side][KING]), opposite_side);
 }
+
+
 
 
 movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {

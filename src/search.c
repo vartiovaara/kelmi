@@ -141,6 +141,24 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 		// go trough every move
 		for (unsigned int j = 0; j < moves.n; j++) {
 			res->nodes++;
+
+			// Check if castling is valid
+			if (moves.moves[j].flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
+				if (initially_in_check)
+					continue; // can not castle while in check
+				
+				BitBoard between_rk;
+				if (board->sidetomove == WHITE)
+					between_rk = (moves.moves[j].flags & FLAG_KCASTLE ? WK_CAST_CLEAR_MASK : WQ_CAST_CLEAR_MASK);
+				else
+					between_rk = (moves.moves[j].flags & FLAG_KCASTLE ? BK_CAST_CLEAR_MASK : BQ_CAST_CLEAR_MASK);
+				
+				//FIXME: This shit is slow as fuck. Make those attack maps pls.
+				while (between_rk) {
+					if (is_side_attacking_sq(board, pop_bitboard(&between_rk), OPPOSITE_SIDE(board->sidetomove)))
+						goto SEARCH_SKIP_MOVE;
+				}
+			}
 			
 			makemove(board, &moves.moves[j]);
 
@@ -149,6 +167,7 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 				skipped_because_of_checks++;
 				goto SEARCH_SKIP_MOVE;
 			}
+
 
 			// MOVE WILL BE DONE
 
