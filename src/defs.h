@@ -213,6 +213,7 @@ typedef struct {
 	unsigned long long* en_passant;
 	unsigned long long* checkmates;
 	unsigned long long* stalemates;
+	unsigned long long* castles;
 } pertf_result_s;
 
 

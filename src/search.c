@@ -40,6 +40,7 @@ void init_perft_result(pertf_result_s* res, unsigned int depth) {
 	res->en_passant = (unsigned long long*)calloc(depth+1, sizeof res->en_passant);
 	res->checkmates = (unsigned long long*)calloc(depth+1, sizeof res->checkmates);
 	res->stalemates = (unsigned long long*)calloc(depth+1, sizeof res->stalemates);
+	res->castles = (unsigned long long*)calloc(depth+1, sizeof res->castles);
 }
 
 void free_perft_result(pertf_result_s* res) {
@@ -49,6 +50,7 @@ void free_perft_result(pertf_result_s* res) {
 	free(res->en_passant);
 	free(res->checkmates);
 	free(res->stalemates);
+	free(res->castles);
 }
 
 
@@ -85,6 +87,7 @@ void perft(board_s* board, const unsigned int depth) {
 		printf("En passants: %lld\n", res.en_passant[i]);
 		printf("Checkmates: %lld\n", res.checkmates[i]);
 		printf("Stalemates: %lld\n", res.stalemates[i]);
+		printf("Castles: %lld\n", res.castles[i]);
 		printf("\n");
 	}
 
@@ -160,6 +163,9 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 
 			if (moves.moves[j].flags & FLAG_ENPASSANT)
 				res->en_passant[(res->n_plies - depth)+1]++;
+			
+			if (moves.moves[j].flags & (FLAG_KCASTLE | FLAG_QCASTLE))
+				res->castles[(res->n_plies - depth)+1]++;
 
 			append_to_move_history(board, &moves.moves[j]);
 
@@ -177,11 +183,9 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 	// No moves were made?
 	if (res->n_positions[(res->n_plies - depth) + 1] == initial_nodes) {
 		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
-			//res->n_positions[res->n_plies - depth]++;
 			res->checkmates[res->n_plies - depth]++;
 		}
 		else { //is a stalemate (wasn't in check and no legal moves)
-			//res->n_positions[res->n_plies - depth]++;
 			res->stalemates[res->n_plies - depth]++;
 		}
 		goto SEARCH_LAST_NODE; // this position doesn't have any legal moves
