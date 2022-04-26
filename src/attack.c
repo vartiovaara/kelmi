@@ -44,6 +44,10 @@ bool is_side_attacking_sq(const board_s* board, const BitBoard sq, const unsigne
 	const unsigned int opposite_side = OPPOSITE_SIDE(side);
 	if (board->pieces[side][PAWN] & piecelookup(pos, PAWN, opposite_side))
 		return true;
+	
+	// Kings are also cheap to check
+	if (board->pieces[side][KING] & piecelookup(pos, KING, 0))
+		return true;
 
 	// Check bishops and diagonal queen attacks
 	const BitBoard bishop_mask = piecelookup(pos, BISHOP, 0);
