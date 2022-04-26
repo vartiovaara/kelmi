@@ -163,7 +163,7 @@ enum moveflags_e {
  * 0001 0000: Pawn Double push
  * 0000 1000: Queen Castle
  * 0000 0100: King Castle
- * 0000 0010: Capture
+ * 0000 0010: Regular capture
  * 0000 0001: Pawn move
  */
 typedef struct move_s {

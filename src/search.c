@@ -152,7 +152,9 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 
 			// MOVE WILL BE DONE
 
-			if (moves.moves[j].flags & FLAG_CAPTURE)
+			// En passant will be considered a capture only in stats.
+			// See: https://www.chessprogramming.org/Perft_Results#Initial_Position
+			if (moves.moves[j].flags & (FLAG_CAPTURE | FLAG_ENPASSANT))
 				res->captures[(res->n_plies - depth)+1]++; // +1 becouse that move got itself to that depth so it will be counted as such
 			
 			// this statistic is expensive. only count it in debug builds
