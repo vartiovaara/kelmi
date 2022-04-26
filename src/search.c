@@ -14,7 +14,7 @@
 
 //https://oeis.org/A048987
 //https://www.chessprogramming.org/Perft_Results#Initial_Position
-const unsigned int expected_perft[] = {
+const unsigned long long expected_perft[] = {
 	1, // ply 0
 	20,
 	400,
@@ -22,7 +22,8 @@ const unsigned int expected_perft[] = {
 	197281,
 	4865609,
 	119060324,
-	3195901860 // ply 7
+	3195901860, // ply 7
+	84998978956
 };
 
 
@@ -78,7 +79,7 @@ void perft(board_s* board, const unsigned int depth) {
 	for (unsigned int i = 0; i <= res.n_plies; i++) {
 		//printf("Positions at depth %u: %llu \n", i, res.n_positions[i]);
 		printf("Depth %u:\n", i);
-		printf("Expected perft: %u\n", expected_perft[i]);
+		printf("Expected perft: %llu\n", expected_perft[i]);
 		printf("Calculated perft: %llu\n", res.n_positions[i]);
 		printf("Error: %lld\n", (long long)res.n_positions[i]-(long long)expected_perft[i]);
 		printf("Procentual error: %f%%\n", ((double)((long long)res.n_positions[i]-(long long)expected_perft[i])/(double)expected_perft[i])*(double)100);
