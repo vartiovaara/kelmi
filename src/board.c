@@ -483,7 +483,17 @@ void write_move_history(const board_s* board, FILE* f) {
 		char to[2];
 		bbtoalg(to, board->movehistory.moves[i].to);
 
-		fprintf(f, "%c%c%c%c ", from[0], from[1], to[0], to[1]);
+		char promote[2];
+		if (board->movehistory.moves[i].flags & FLAG_PROMOTE) {
+			promote[0] = piece_chars[board->movehistory.moves[i].promoteto];
+			promote[1] = ' ';
+		}
+		else {
+			promote[0] = ' ';
+			promote[1] = '\0';
+		}
+
+		fprintf(f, "%c%c%c%c%s", from[0], from[1], to[0], to[1], promote);
 	}
 	fputs("\n", f);
 }

@@ -98,7 +98,7 @@
 // Number of piece types
 #define N_PIECES 6
 
-// Number of pieces to promote to
+// Number of pieces to promote to (no king or pawn)
 #define N_PROM_PIECES (N_PIECES - 2)
 
 // See: https://chess.stackexchange.com/a/30006

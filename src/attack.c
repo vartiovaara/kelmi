@@ -124,8 +124,6 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 		exit(1);
 	}
 	const uint8_t promote_piece_codes[N_PROM_PIECES] = {QUEEN, ROOK, BISHOP, KNIGHT};
-	// -1 so that on first loop last_pop gets set and this gets set to 0
-	int n_loops_without_pop = -1;
 	BitBoard last_pop = 0x0;
 
 	// TODO: move ordering would be done here and taken into account in search
@@ -138,13 +136,13 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 		// Change the to square only every N_PROM_PIECES
 		if (promote) {
 			// +1 so that n_loops_without_pop can be 0 and indexes start at 0
-			if (((n_loops_without_pop + 1) % N_PROM_PIECES) == 0) {
+			if ((i % N_PROM_PIECES) == 0) {
 				last_pop = pop_bitboard(&to);
-				n_loops_without_pop = 0;
 			}
+			assert(last_pop);
 			moves.moves[i].to = last_pop;
 			moves.moves[i].flags |= FLAG_PROMOTE;
-			moves.moves[i].promoteto = promote_piece_codes[n_loops_without_pop];
+			moves.moves[i].promoteto = promote_piece_codes[i % N_PROM_PIECES];
 		}
 		else
 			moves.moves[i].to = pop_bitboard(&to);
@@ -185,37 +183,6 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 		}
 	}
 	return moves;
-	/*
-	PLS_PROMOTING_PIECE:
-	// Logic for pieces about to promote
-	moves.n *= N_PIECES - 2; // Don't promote to pawn or king
-	
-	moves.moves = malloc(sizeof(move_s) * moves.n);
-	if (!moves.moves) {
-		fprintf(stderr, "malloc failed at pseeudo_legal_squares()\n");
-		exit(1);
-	}
-	
-	const uint8_t promote_piece_codes[N_PIECES - 2] = {QUEEN, ROOK, BISHOP, KNIGHT};
-
-	for (unsigned int i = 1; to; i++) {
-		const BitBoard to_sq = pop_bitboard(&to);
-		uint8_t flags = FLAG_PAWNMOVE | FLAG_PROMOTE;
-		if (to_sq & board->every_piece)
-			flags |= FLAG_CAPTURE;
-		for(unsigned int j = 0; j < N_PIECES - 2; j++) {
-			const unsigned int index = i * j;
-			moves.moves[index].from = piecebb;
-			moves.moves[index].to = to_sq;
-			moves.moves[index].fromtype = piece_type;
-			moves.moves[index].side = side;
-			moves.moves[index].flags = flags;
-			
-			moves.moves[index].promoteto = promote_piece_codes[j];
-		}
-	}
-
-	return moves;*/
 }
 
 
