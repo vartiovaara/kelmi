@@ -42,6 +42,7 @@ void init_perft_result(pertf_result_s* res, unsigned int depth) {
 	res->checkmates = (unsigned long long*)calloc(depth+1, sizeof res->checkmates);
 	res->stalemates = (unsigned long long*)calloc(depth+1, sizeof res->stalemates);
 	res->castles = (unsigned long long*)calloc(depth+1, sizeof res->castles);
+	res->promotions = (unsigned long long*)calloc(depth+1, sizeof res->promotions);
 }
 
 void free_perft_result(pertf_result_s* res) {
@@ -52,6 +53,7 @@ void free_perft_result(pertf_result_s* res) {
 	free(res->checkmates);
 	free(res->stalemates);
 	free(res->castles);
+	free(res->promotions);
 }
 
 
@@ -89,6 +91,7 @@ void perft(board_s* board, const unsigned int depth) {
 		printf("Checkmates: %lld\n", res.checkmates[i]);
 		printf("Stalemates: %lld\n", res.stalemates[i]);
 		printf("Castles: %lld\n", res.castles[i]);
+		printf("Promotions: %lld\n", res.promotions[i]);
 		printf("\n");
 	}
 
@@ -188,6 +191,9 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 			
 			if (moves.moves[j].flags & (FLAG_KCASTLE | FLAG_QCASTLE))
 				res->castles[(res->n_plies - depth)+1]++;
+			
+			if (moves.moves[j].flags & FLAG_PROMOTE)
+				res->promotions[(res->n_plies - depth)+1]++;
 
 			append_to_move_history(board, &moves.moves[j]);
 

@@ -39,6 +39,10 @@
 #define TOP_DPUSH_MASK    0x00ff000000000000
 #define BOTTOM_DPUSH_MASK 0x000000000000ff00
 
+// About-to-promote masks
+#define W_PROMOTE_FROM_MASK 0x00ff000000000000
+#define B_PROMOTE_FROM_MASK 0x000000000000ff00
+
 // Defines the areas in which castling happens (king and rook and everything between)
 #define WQ_CASTLE_AREA 0x000000000000001f
 #define WK_CASTLE_AREA 0x00000000000000f0
@@ -94,6 +98,9 @@
 // Number of piece types
 #define N_PIECES 6
 
+// Number of pieces to promote to
+#define N_PROM_PIECES (N_PIECES - 2)
+
 // See: https://chess.stackexchange.com/a/30006
 #define MAX_FEN_LEN 88 // includes trailing \0
 
@@ -101,6 +108,7 @@
 //#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
 //#define DEFAULT_FEN "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
 //#define DEFAULT_FEN "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
+//#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
 
 
 /*
@@ -141,7 +149,8 @@ enum moveflags_e {
 	FLAG_KCASTLE    = 0x1 << 2,
 	FLAG_QCASTLE    = 0x1 << 3,
 	FLAG_DOUBLEPUSH = 0x1 << 4,
-	FLAG_ENPASSANT  = 0x1 << 5
+	FLAG_ENPASSANT  = 0x1 << 5,
+	FLAG_PROMOTE    = 0x1 << 6
 };
 
 
@@ -158,7 +167,7 @@ enum moveflags_e {
  * Flags will also be in enum moveflags_e
  * Flags:
  * 1000 0000:
- * 0100 0000:
+ * 0100 0000: Promote
  * 0010 0000: En passant
  * 0001 0000: Pawn Double push
  * 0000 1000: Queen Castle
@@ -214,6 +223,7 @@ typedef struct {
 	unsigned long long* checkmates;
 	unsigned long long* stalemates;
 	unsigned long long* castles;
+	unsigned long long* promotions;
 } pertf_result_s;
 
 

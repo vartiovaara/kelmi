@@ -6,3 +6,8 @@ Castling doesn't check for attack between them.
 26.04.2022:
 Now it does. And flawless perft(7). But no promotion.
 Also no attack maps. Need to make those. 
+
+27.04.2022:
+Promotion implemented and squanched some bugs.
+Perft with positions from https://www.chessprogramming.org/Perft_Results
+have inconsistensies. Need to implement perft result splitting.

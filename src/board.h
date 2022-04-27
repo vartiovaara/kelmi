@@ -24,6 +24,9 @@ void movepiece(board_s* board, const unsigned int type, const BitBoard from, con
 
 void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type);
 
+// Adds a piece for a side and type
+void addpiece(board_s*, const BitBoard pos, const unsigned int side, const unsigned int type);
+
 // Performs a move. Do not use with wrong side piece.
 // NOTE: Currently relies heavily on board->sidetomove in logic
 // TODO: Maybe add a side variable for a move

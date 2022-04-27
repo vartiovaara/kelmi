@@ -154,7 +154,7 @@ board_s boardfromfen(const char* fen_str) {
 		board.sidetomove = WHITE;
 	else
 		board.sidetomove = BLACK;
-	
+
 	// Parse castling ability
 	if (strchr(castling, 'K'))
 		board.castling |= WKCASTLE;
@@ -233,10 +233,22 @@ void removepiece(board_s* board, const BitBoard pos, const unsigned int side, co
 }
 
 
+void addpiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type) {
+	assert(popcount(pos) == 1);
+	assert(side == WHITE || side == BLACK);
+	assert(type < N_PIECES);
+
+	board->pieces[side][type] |= pos;
+	board->all_pieces[side] |= pos;
+	board->every_piece |= pos;
+}
+
+
 // TODO: Finish this function
 void makemove(board_s* restrict board, const move_s* restrict move) {
 	assert(popcount(move->from) == 1);
 	assert(popcount(move->to) == 1);
+	//assert(move->from)
 	assert(move->from & board->all_pieces[board->sidetomove]); // can trigger if wrong side tries to perform a move
 
 	bool pieces_moved = false;
@@ -250,6 +262,15 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 		const unsigned int captured_side = get_piece_side(board, move->to);
 		const unsigned int captured_type = get_piece_type(board, captured_side, move->to);
 		removepiece(board, move->to, captured_side, captured_type);
+	}
+
+	// If move was a promotion, remove it and add the relevant piece to its place
+	if (move->flags & FLAG_PROMOTE) {
+		assert(move->fromtype == PAWN);
+
+		removepiece(board, move->from, move->side, PAWN);
+		addpiece(board, move->to, move->side, move->promoteto);
+		pieces_moved = true;
 	}
 
 	// Set en passant target square
@@ -302,6 +323,14 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 			if (move->from & LEFT_MASK)
 				board->castling &= ~BQCASTLE;
 		}
+	}
+
+	// Revoking of castling rights by king move
+	if (move->fromtype == KING && board->castling) {
+		if (move->side == WHITE)
+			board->castling &= ~(WKCASTLE | WQCASTLE);
+		else
+			board->castling &= ~(BKCASTLE | BQCASTLE);
 	}
 
 	// some moves are already handled (like castling)
