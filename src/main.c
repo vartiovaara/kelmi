@@ -2,16 +2,19 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <assert.h>
+#include <string.h>
 
 #include "init.h"
 #include "search.h"
 #include "board.h"
+#include "interface.h"
 
 #include "defs.h"
 
 
 
 int main(int argc, char** argv) {
+	/*
 	if(argc != 2) {
 		fprintf(stderr, "Wrong number of arguments!\n");
 		return 1;
@@ -19,45 +22,46 @@ int main(int argc, char** argv) {
 	if(argv[1][0] < 48 || argv[1][0] > 57) {
 		fprintf(stderr, "just give me a number wtf.\n");
 		return 1;
-	}
+	}*/
 	
 	init_all();
 	board_s board = boardfromfen(DEFAULT_FEN);
 	//printboard(&board);
+	
+	char input[INPUT_BUFFER_SIZE];
+	for (;;) {
+		fgets(input, INPUT_BUFFER_SIZE, stdin);
+		size_t len = strlen(input);
+		input[--len] = '\0'; // fget() reads the newline too so replace it with null
+		//printf("got: %s with len: %lu \n", input, len);
+
+		if (!strncmp(input, "perft ", 6)) {
+			if (len != 7)
+				continue;
+			if(input[6] < 48 || input[6] > 57) {
+				fprintf(stderr, "just give me a number wtf.\n");
+				continue;
+			}
+			perft(&board, input[6]-48);
+		}
+		if (!strcmp(input, "xboard")) {
+			xboard(&board);
+			goto MAIN_NORMAL_EXIT;
+		}
+		if (!strcmp(input, "uci")) {
+			printf("UCI not implemented yet.\n");
+			continue;
+		}
+		if (!strcmp(input, "exit") || !strcmp(input, "quit"))
+			goto MAIN_NORMAL_EXIT;
+	}
 
 	//printbitboard(board.every_piece);
 
-	perft(&board, argv[1][0]-48);
+	//perft(&board, argv[1][0]-48);
 
-	//printf("%u\n", search(&board, 6));
+	MAIN_NORMAL_EXIT:
 
-	//printbitboard(piecelookup(lowest_bitindex(board.all_pieces[WHITE]), ROOK, 0));
-	
-	/*const uint64_t piece_index = lowest_bitindex(board.pieces[WHITE][ROOK]);
-	const uint64_t moves = Rmagic(
-		piece_index,
-		piecelookup(piece_index, ROOK, 0) | (board.all_pieces[WHITE] | board.all_pieces[BLACK]));
-	printbitboard(moves);
-	printbitboard(moves & ~board.all_pieces[WHITE]);*/
-
-	/*
-	board.sidetomove = BLACK;
-	movelist_s moves = pseudo_legal_squares(&board, lowest_bitboard(board.pieces[BLACK][ROOK]));
-	printboard(&board);
-	printf("From:\n");
-	printbitboard(moves.moves[0].from);
-	//printbitboard(moves.moves[0].from);
-	board_s boardcopy = board;
-	printf("To:\n");
-	for (unsigned int i = 0; i < moves.n; i++) {
-		printbitboard(moves.moves[i].to);
-		makemove(&board, &moves.moves[i]);
-		printboard(&board);
-		board = boardcopy;
-		//printbitboard(moves.moves[i].to);
-	}
-	free(moves.moves);*/
-	
 	free_move_history(&board);
 
 	return 0;
