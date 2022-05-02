@@ -13,6 +13,9 @@
  * Defines
  */
 
+#define ENGINE_NAME "Kelmi"
+#define ENGINE_AUTHOR "Pyry Vartiovaara"
+
 // Macros
 #define SQTOBB(sq) ((BitBoard)0x1<<(sq))
 #define OPPOSITE_SIDE(side) ((side == WHITE) ? BLACK : WHITE)
@@ -227,6 +230,29 @@ typedef struct {
 	unsigned long long* castles;
 	unsigned long long* promotions;
 } pertf_result_s;
+
+// Holds data from a uci instance
+// See: http://wbec-ridderkerk.nl/html/UCIProtocol.html
+typedef struct {
+	board_s* board;
+
+	bool doing_anything;
+
+	unsigned int side_to_play;
+
+	// See "go" command from: http://wbec-ridderkerk.nl/html/UCIProtocol.html
+	bool ponder; // is pondering
+	bool search; // is searching
+	bool infinite; // search until the "stop" command
+	unsigned long wtime; // msec white has left on clock
+	unsigned long btime; // msec black has left on clock
+	unsigned long winc; // white increment per move in msec
+	unsigned long binc; // black increment per move in msec
+	unsigned int mate; // search for a mate in x moves
+	unsigned int movetime; // search exactly x mseconds
+
+} uci_instance_s;
+
 
 
 #endif // DEFS_H
