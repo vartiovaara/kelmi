@@ -168,6 +168,7 @@ enum moveflags_e {
  * Castling will be represented by moving
  * king 2 sq left or right.
  * TODO: Implement flags.
+ * TODO: Implement piece captured for undoing moves
  * 
  * Flags will also be in enum moveflags_e
  * Flags:

@@ -74,6 +74,41 @@ bool is_in_check(const board_s* board, const unsigned int side) {
 }
 
 
+void set_move_flags(move_s* move, const board_s* board) {
+	// Setting capture flag
+	if (move->to & board->every_piece) { // move was a capture
+		assert(!(board->pieces[OPPOSITE_SIDE(move->side)][KING] & move->to));
+		assert(move->to & board->all_pieces[OPPOSITE_SIDE(move->side)]);
+
+		move->flags |= FLAG_CAPTURE;
+	}
+
+	// Setting castling flag
+	if (move->fromtype == KING) {
+		// TODO: could be anothed #define
+		const BitBoard kcastle = MV_E(move->from, 2);
+		const BitBoard qcastle = MV_W(move->from, 2);
+		if (move->to & kcastle)
+			move->flags |= FLAG_KCASTLE;
+		else if (move->to & qcastle)
+			move->flags |= FLAG_QCASTLE;
+	}
+
+	// Setting pawn flag
+	if (move->fromtype == PAWN) {
+		move->flags |= FLAG_PAWNMOVE;
+		
+		// Double push flag
+		if (move->to == MV_N(move->from, 2)
+			|| move->to == MV_S(move->from, 2)) {
+				move->flags |= FLAG_DOUBLEPUSH;
+		}
+
+		if (move->to == board->en_passant) {
+			move->flags |= FLAG_ENPASSANT;
+		}
+	}
+}
 
 
 movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
@@ -147,40 +182,8 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 		else
 			moves.moves[i].to = pop_bitboard(&to);
 		
-		// Setting capture flag
-		// TODO: set piece_captured
-		if (moves.moves[i].to & board->every_piece) { // move was a capture
-			assert(!(board->pieces[OPPOSITE_SIDE(side)][KING] & moves.moves[i].to));
-			assert(moves.moves[i].to & board->all_pieces[OPPOSITE_SIDE(side)]);
-
-			moves.moves[i].flags |= FLAG_CAPTURE;
-		}
-
-		// Setting castling flag
-		if (piece_type == KING) {
-			// TODO: could be anothed #define
-			const BitBoard kcastle = MV_E(moves.moves[i].from, 2);
-			const BitBoard qcastle = MV_W(moves.moves[i].from, 2);
-			if (moves.moves[i].to & kcastle)
-				moves.moves[i].flags |= FLAG_KCASTLE;
-			else if (moves.moves[i].to & qcastle)
-				moves.moves[i].flags |= FLAG_QCASTLE;
-		}
-
-		// Setting pawn flag
-		if (piece_type == PAWN) {
-			moves.moves[i].flags |= FLAG_PAWNMOVE;
-			
-			// Double push flag
-			if (moves.moves[i].to == MV_N(moves.moves[i].from, 2)
-			 || moves.moves[i].to == MV_S(moves.moves[i].from, 2)) {
-				 moves.moves[i].flags |= FLAG_DOUBLEPUSH;
-			}
-
-			if (moves.moves[i].to == board->en_passant) {
-				moves.moves[i].flags |= FLAG_ENPASSANT;
-			}
-		}
+		// set flags
+		set_move_flags(moves.moves + i, board);
 	}
 	return moves;
 }
