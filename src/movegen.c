@@ -7,7 +7,7 @@ Attack stuff.
 #include <stdbool.h>
 #include <assert.h>
 
-#include "attack.h"
+#include "movegen.h"
 
 #include "bitboard.h"
 #include "lookup.h"

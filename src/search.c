@@ -5,7 +5,7 @@
 
 #include "search.h"
 
-#include "attack.h"
+#include "movegen.h"
 #include "bitboard.h"
 #include "board.h"
 
