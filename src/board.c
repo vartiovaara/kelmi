@@ -75,6 +75,37 @@ void printbitboard(const BitBoard bb) {
 }
 
 
+unsigned int piece_from_char(const unsigned char c) {
+	unsigned int piece;
+
+	switch (c) {
+		case 'k':
+			piece = KING;
+			break;
+		case 'q':
+			piece = QUEEN;
+			break;
+		case 'r':
+			piece = ROOK;
+			break;
+		case 'b':
+			piece = BISHOP;
+			break;
+		case 'n':
+			piece = KNIGHT;
+			break;
+		case 'p':
+			piece = PAWN;
+			break;
+		default:
+			fprintf(stderr, "Errer in piece_form_char(): piece char wrong. Got: %c\n", c);
+			abort();
+	}
+
+	return piece;
+}
+
+
 board_s boardfromfen(const char* fen_str) {
 	// TODO: have a FEN validation function as the
 	// behaviour of this function is undefined with invalid FENs

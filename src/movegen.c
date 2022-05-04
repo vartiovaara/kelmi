@@ -170,7 +170,6 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 		
 		// Change the to square only every N_PROM_PIECES
 		if (promote) {
-			// +1 so that n_loops_without_pop can be 0 and indexes start at 0
 			if ((i % N_PROM_PIECES) == 0) {
 				last_pop = pop_bitboard(&to);
 			}

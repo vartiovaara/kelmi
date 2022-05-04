@@ -10,6 +10,13 @@
 
 #include "defs.h"
 
+
+
+// Searches for key from the end of s.
+// returns -1 if key not found
+// FIXME: Maybe works, maybe not. may not work with repeating keys
+int search_end_of_string(char* s, char* key);
+
 // functions for logging UCI sessions
 size_t uci_read(FILE* f, char* input, size_t n);
 

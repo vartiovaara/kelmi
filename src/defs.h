@@ -252,7 +252,7 @@ typedef struct {
 	unsigned int mate; // search for a mate in x moves
 	unsigned int movetime; // search exactly x mseconds
 
-} uci_instance_s;
+} uci_context_s;
 
 
 
