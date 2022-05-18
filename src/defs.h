@@ -158,6 +158,27 @@ enum moveflags_e {
 	FLAG_PROMOTE    = 0x1 << 6
 };
 
+/*
+ * UCI_IDLE: Doing nothing, waiting for input or opponent to make move.
+ * UCI_SEARCH: Search with more detail in enum uci_searchtype_e
+ * UCI_PONDER: Ponder (maybe sometime will be used)
+ */
+enum uci_action_e {
+	UCI_IDLE,
+	UCI_SEARCH,
+	UCI_PONDER
+};
+
+/*
+ * UCI_SEARCH_REGULAR: Normal search with considerations for move time.
+ * UCI_SEARCH_INFINITE: Normal search, but only stopped by "stop" command.
+ * UCI_SEARCH
+ */
+enum uci_searchtype_e {
+	UCI_SEARCH_REGULAR,
+	UCI_SEARCH_INFINITE,
+};
+
 
 /*
  * Structs
@@ -234,25 +255,23 @@ typedef struct {
 
 // Holds data from a uci instance
 // See: http://wbec-ridderkerk.nl/html/UCIProtocol.html
+// TODO: Will hold future settings that gui can set and all that stuff
 typedef struct {
-	board_s* board;
+	enum uci_action_e action;
 
-	bool doing_anything;
+	// defines the type of search ocurring
+	enum uci_searchtype_e searchtype;
 
-	unsigned int side_to_play;
-
+	// Go command variables
 	// See "go" command from: http://wbec-ridderkerk.nl/html/UCIProtocol.html
-	bool ponder; // is pondering
-	bool search; // is searching
-	bool infinite; // search until the "stop" command
-	unsigned long wtime; // msec white has left on clock
-	unsigned long btime; // msec black has left on clock
-	unsigned long winc; // white increment per move in msec
-	unsigned long binc; // black increment per move in msec
-	unsigned int mate; // search for a mate in x moves
-	unsigned int movetime; // search exactly x mseconds
+	long wtime; // msec white has left on clock
+	long btime; // msec black has left on clock
+	long winc; // white increment per move in msec
+	long binc; // black increment per move in msec
+	int movestogo; // there are x moves to the next time control
 
-} uci_context_s;
+	bool sudden_death;
+} uci_s;
 
 
 

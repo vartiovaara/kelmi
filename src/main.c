@@ -7,6 +7,7 @@
 
 #include "init.h"
 #include "search.h"
+#include "perft.h"
 #include "board.h"
 #include "uci.h"
 

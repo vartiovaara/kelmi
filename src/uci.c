@@ -11,17 +11,19 @@
 #include "board.h"
 #include "algebraic.h"
 #include "movegen.h"
+#include "search.h"
 
 
 // Private functions
 
-void parse_go_command(uci_context_s* status, char* command);
+// returns non-zero value on failure
+int parse_go_command(uci_s* uci, board_s* board, char* input);
 
 // returns non-zero value on failure
-int parse_position_command(board_s* board, char* command, size_t n);
+int parse_position_command(board_s* board, char* input, size_t n);
 
 
-
+// may work, may not
 int search_end_of_string(char* s, char* key) {
 	size_t s_len = strlen(s);
 	size_t key_len = strlen(key);
@@ -31,6 +33,8 @@ int search_end_of_string(char* s, char* key) {
 	for (int i = s_len-1; i >= 0; i--) {
 		if (s[i] != key[key_len - (curr_correct + 1)]) {
 			curr_correct = 0;
+			// may be needed, may be not
+			//i += curr_correct - 1;
 		}
 
 		if (s[i] == key[key_len - (curr_correct + 1)]) {
@@ -44,7 +48,124 @@ int search_end_of_string(char* s, char* key) {
 	return -1;
 }
 
+/*
+* go
+	start calculating on the current position set up with the "position" command.
+	There are a number of commands that can follow this command, all will be sent in the same string.
+	If one command is not send its value should be interpreted as it would not influence the search.
+	* searchmoves  .... 
+		restrict search to this moves only
+		Example: After "position startpos" and "go infinite searchmoves e2e4 d2d4"
+		the engine should only search the two moves e2e4 and d2d4 in the initial position.
+	* ponder
+		start searching in pondering mode.
+		Do not exit the search in ponder mode, even if it's mate!
+		This means that the last move sent in in the position string is the ponder move.
+		The engine can do what it wants to do, but after a "ponderhit" command
+		it should execute the suggested move to ponder on. This means that the ponder move sent by
+		the GUI can be interpreted as a recommendation about which move to ponder. However, if the
+		engine decides to ponder on a different move, it should not display any mainlines as they are
+		likely to be misinterpreted by the GUI because the GUI expects the engine to ponder
+	   on the suggested move.
+	* wtime 
+		white has x msec left on the clock
+	* btime 
+		black has x msec left on the clock
+	* winc 
+		white increment per move in mseconds if x > 0
+	* binc 
+		black increment per move in mseconds if x > 0
+	* movestogo 
+      there are x moves to the next time control,
+		this will only be sent if x > 0,
+		if you don't get this and get the wtime and btime it's sudden death
+	* depth 
+		search x plies only.
+	* nodes 
+	   search x nodes only,
+	* mate 
+		search for a mate in x moves
+	* movetime 
+		search exactly x mseconds
+	* infinite
+		search until the "stop" command. Do not exit the search without being told so in this mode!
+*/
+// TODO: searchmoves, ponder, wtime, btime, binc, movestogo, depth, nodes, mate, movetime, infinite
+int parse_go_command(uci_s* uci, board_s* board, char* input) {
+	//enum uci_action_e action = UCI_IDLE;
+	//enum uci_searchtype_e searchtype = UCI_SEARCH_REGULAR;
+	uci->action = UCI_IDLE;
+	uci->searchtype = UCI_SEARCH_REGULAR;
 
+	// if these are not >0 then interpeted as unlimited
+	uci->wtime = -1;
+	uci->btime = -1;
+	//long wtime = -1;
+	//long btime = -1;
+
+	uci->winc = 0;
+	uci->binc = 0;
+	//long winc = 0;
+	//long binc = 0;
+
+	// if this is not set but wtime and btime is set, it is sudden death
+	uci->movestogo = -1;
+	//long movestogo = -1;
+
+	uci->sudden_death = false;
+
+	char* token = strtok(input, " ");
+	for (;;) {
+		token = strtok(NULL, " ");
+
+		if (*token == '\0')
+			break;
+		else if (!strcmp(token, "wtime")) {
+			token = strtok(NULL, " ");
+			uci->wtime = strtol(token, NULL, 10);
+		}
+		else if (!strcmp(token, "btime")) {
+			token = strtok(NULL, " ");
+			uci->btime = strtol(token, NULL, 10);
+		}
+		else if (!strcmp(token, "winc")) {
+			token = strtok(NULL, " ");
+			uci->winc = strtol(token, NULL, 10);
+		}
+		else if (!strcmp(token, "binc")) {
+			token = strtok(NULL, " ");
+			uci->binc = strtol(token, NULL, 10);
+		}
+		else if (!strcmp(token, "movestogo")) {
+			token = strtok(NULL, " ");
+			uci->movestogo = strtol(token, NULL, 10);
+		}
+	}
+
+	uci->action = UCI_SEARCH;
+
+	//const long time = (board->sidetomove == WHITE ? uci->wtime : uci->btime);
+	
+	if (uci->wtime < 0 && uci->btime < 0) {
+		uci->searchtype = UCI_SEARCH_INFINITE;
+	}
+	else { // wtime and btime was set
+		uci->searchtype = UCI_SEARCH_REGULAR;
+
+		if (uci->movestogo == -1) {
+			uci->sudden_death = true;
+		}
+	}
+
+
+	move_s bestmove;
+	uci_think(uci, board, &bestmove);
+
+	return 0;
+}
+
+
+// FIXME: oh god why oh no
 int parse_position_command(board_s* board, char* input, size_t n) {
 	char input_copy[n + 1]; // +1 as to include \0
 
@@ -138,7 +259,9 @@ void uci(FILE* f) {
 	board_s board;
 	resetboard(&board);
 
-	uci_context_s context;
+	uci_s uci;
+
+	uci.action = UCI_IDLE;
 
 	for (;;) {
 		size_t len = uci_read(f, input, INPUT_BUFFER_SIZE);
@@ -149,29 +272,14 @@ void uci(FILE* f) {
 		if (!strcmp(input, "ucinewgame")) {
 			free_move_history(&board);
 			resetboard(&board);
-			continue;
 		}
-		if (!strncmp(input, "position", 8)) {
+		else if (!strncmp(input, "position", 8)) {
 			parse_position_command(&board, input, len);
-			continue;
 		}
-		if (!strncmp(input, "go", 2)){
-			if (len < 7) // shortest is "go winc/binc/mate"
-				return;
-
-			char** fields = NULL;
-			size_t fields_n = divide_string(fields, input + 3, " ");
-			
-			if (fields_n < 1)
-				return;
-
-			//TODO: dawf
-			for (size_t i = 0; i < fields_n; i++) {
-				if (!strcmp(fields[i], ""))
-					;
-			}
+		else if (!strncmp(input, "go", 2)){
+			parse_go_command(&uci, &board, input);
 		}
-		if (!strcmp(input, "quit")) {
+		else if (!strcmp(input, "quit")) {
 			return;
 		}
 	}
