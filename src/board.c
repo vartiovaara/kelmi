@@ -21,15 +21,6 @@ Stuff about boards and bitboards.
 #include "defs.h"
 
 
-// used for printing the board.
-const char piece_chars[N_PIECES] = {
-	[KING] = 'k',
-	[QUEEN] = 'q',
-	[BISHOP] = 'b',
-	[KNIGHT] = 'n',
-	[ROOK] = 'r',
-	[PAWN] = 'p'
-};
 
 
 void printboard(const board_s* board) {
@@ -38,11 +29,11 @@ void printboard(const board_s* board) {
 		char ch = NO_PIECE_CHAR;
 		for (int piece = 0; piece < N_PIECES; piece++) {
 			if (pos & board->pieces[WHITE][piece]) {
-				ch = toupper(piece_chars[piece]);
+				ch = toupper(piecetochar(piece));
 				break;
 			}
 			else if (pos & board->pieces[BLACK][piece]) {
-				ch = tolower(piece_chars[piece]);
+				ch = tolower(piecetochar(piece));
 				break;
 			}
 		}
@@ -516,7 +507,7 @@ void write_move_history(const board_s* board, FILE* f) {
 
 		char promote[2];
 		if (board->movehistory.moves[i].flags & FLAG_PROMOTE) {
-			promote[0] = piece_chars[board->movehistory.moves[i].promoteto];
+			promote[0] = piecetochar(board->movehistory.moves[i].promoteto);
 			promote[1] = ' ';
 		}
 		else {

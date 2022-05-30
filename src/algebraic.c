@@ -11,6 +11,20 @@ Stuff with algabreic move representation.
 #include "defs.h"
 
 
+const char piece_chars[N_PIECES] = {
+	[KING] = 'k',
+	[QUEEN] = 'q',
+	[BISHOP] = 'b',
+	[KNIGHT] = 'n',
+	[ROOK] = 'r',
+	[PAWN] = 'p'
+};
+
+
+char piecetochar(const unsigned int piece) {
+	return piece_chars[piece];
+}
+
 BitBoard algsqtobb(const char* alg) {
 	return SQTOBB(algsqtoint(alg));
 }

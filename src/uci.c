@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <math.h>
 
 #include "uci.h"
 
@@ -12,12 +13,13 @@
 #include "algebraic.h"
 #include "movegen.h"
 #include "search.h"
-
+#include "algebraic.h"
+#include "eval.h"
 
 // Private functions
 
 // returns non-zero value on failure
-int parse_go_command(uci_s* uci, board_s* board, char* input);
+int parse_go_command(uci_s* uci, board_s* board, char* input, FILE* f);
 
 // returns non-zero value on failure
 int parse_position_command(board_s* board, char* input, size_t n);
@@ -91,7 +93,7 @@ int search_end_of_string(char* s, char* key) {
 		search until the "stop" command. Do not exit the search without being told so in this mode!
 */
 // TODO: searchmoves, ponder, wtime, btime, binc, movestogo, depth, nodes, mate, movetime, infinite
-int parse_go_command(uci_s* uci, board_s* board, char* input) {
+int parse_go_command(uci_s* uci, board_s* board, char* input, FILE* f) {
 	//enum uci_action_e action = UCI_IDLE;
 	//enum uci_searchtype_e searchtype = UCI_SEARCH_REGULAR;
 	uci->action = UCI_IDLE;
@@ -118,7 +120,7 @@ int parse_go_command(uci_s* uci, board_s* board, char* input) {
 	for (;;) {
 		token = strtok(NULL, " ");
 
-		if (*token == '\0')
+		if (!token)
 			break;
 		else if (!strcmp(token, "wtime")) {
 			token = strtok(NULL, " ");
@@ -159,7 +161,33 @@ int parse_go_command(uci_s* uci, board_s* board, char* input) {
 
 
 	move_s bestmove;
-	uci_think(uci, board, &bestmove);
+
+	//move_s bestmoveJ
+
+	float bestmove_eval = uci_think(uci, board, &bestmove);
+
+	/*if (bestmove_eval == NAN
+		|| bestmove_eval == (is_eval_better(INFINITY, -INFINITY, board->sidetomove) ? -INFINITY : INFINITY))
+		*/
+
+	
+	char from[2];
+	bbtoalg(from, bestmove.from);
+
+	char to[2];
+	bbtoalg(to, bestmove.to);
+
+	char promote[2];
+	if (bestmove.flags & FLAG_PROMOTE) {
+		promote[0] = piecetochar(bestmove.promoteto);
+		promote[1] = ' ';
+	}
+	else {
+		promote[0] = ' ';
+		promote[1] = '\0';
+	}
+	//uci_write(f, "info currmove %c%c%c%c%s", from[0], from[1], to[0], to[1], promote);
+	uci_write(f, "bestmove %c%c%c%c%s\n", from[0], from[1], to[0], to[1], promote);
 
 	return 0;
 }
@@ -277,7 +305,7 @@ void uci(FILE* f) {
 			parse_position_command(&board, input, len);
 		}
 		else if (!strncmp(input, "go", 2)){
-			parse_go_command(&uci, &board, input);
+			parse_go_command(&uci, &board, input, f);
 		}
 		else if (!strcmp(input, "quit")) {
 			return;
