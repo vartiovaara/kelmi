@@ -16,6 +16,21 @@
 #define ENGINE_NAME "Kelmi"
 #define ENGINE_AUTHOR "Pyry Vartiovaara"
 
+#define HELP_MESSAGE \
+"Commands: \n\
+   playw - Start playing a game against computer as white. \n\
+   playb - Start playing a game against computer as black \n\
+   perft n - Start perft with n plies \n\
+   uci - Start uci. \n\
+Commands while playing: \n\
+   p - Print the board. \n\
+General commands: \n\
+   help - Print this help \n\
+   quit - Exit this prompt. \n\
+To make a move, give it in uci format."
+
+
+
 // Macros
 #define SQTOBB(sq) ((BitBoard)0x1<<(sq))
 #define OPPOSITE_SIDE(side) ((side == WHITE) ? BLACK : WHITE)
@@ -108,6 +123,8 @@
 #define MAX_FEN_LEN 88 // includes trailing \0
 
 #define INPUT_BUFFER_SIZE 256
+
+#define UCI_INPUT_BUFFER_SIZE 2048
 
 #define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 //#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"

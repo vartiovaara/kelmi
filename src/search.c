@@ -18,7 +18,7 @@
 
 
 // Private functions
-float regular_search(board_s* restrict board, move_s* restrict bestmove, const unsigned int depth);
+float regular_search(board_s* restrict board, move_s* restrict bestmove, const bool is_first_ply, const unsigned int depth);
 
 
 
@@ -29,7 +29,7 @@ float uci_think(const uci_s* uci, board_s* board, move_s* bestmove) {
 		goto THINK_PONDER;
 	
 	// Normal search
-	return regular_search(board, bestmove, 3);
+	return regular_search(board, bestmove, true, 3);
 
 	THINK_PONDER:
 	// TODO
@@ -40,7 +40,7 @@ float uci_think(const uci_s* uci, board_s* board, move_s* bestmove) {
 
 
 
-float regular_search(board_s* restrict board, move_s* restrict bestmove, const unsigned int depth) {	
+float regular_search(board_s* restrict board, move_s* restrict bestmove, const bool is_first_ply, const unsigned int depth) {	
 	if (depth == 0)
 		return eval(board);
 
@@ -51,7 +51,6 @@ float regular_search(board_s* restrict board, move_s* restrict bestmove, const u
 
 	// Stores the best move for board->sidetomove
 	float bestmove_eval = (board->sidetomove == WHITE ? -INFINITY : INFINITY); // set to worst possible
-	move_s bestmove_move;
 
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
 	unsigned int n_pieces = popcount(pieces_copy);
@@ -99,34 +98,20 @@ float regular_search(board_s* restrict board, move_s* restrict bestmove, const u
 				goto REGULAR_SEARCH_SKIP_MOVE;
 			}
 
+			n_legal_moves_done++;
+
 			// --- MOVE WAS LEGAL AND IS DONE ---
 
 			append_to_move_history(board, &moves.moves[j]);
 
-			float eval = regular_search(board, bestmove, depth-1);
+			float eval = regular_search(board, bestmove, false, depth-1);
 			//printf("info string %f\n", eval);
 
 			// if move was better, store it instead
 			if (is_eval_better(eval, bestmove_eval, OPPOSITE_SIDE(board->sidetomove))) {
 				bestmove_eval = eval;
-				memcpy(&bestmove_move, &moves.moves[j], sizeof (move_s));
-				/*
-				char from[2];
-				bbtoalg(from, bestmove->from);
-
-				char to[2];
-				bbtoalg(to, bestmove->to);
-
-				char promote[2];
-				if (bestmove->flags & FLAG_PROMOTE) {
-					promote[0] = piecetochar(bestmove->promoteto);
-					promote[1] = ' ';
-				}
-				else {
-					promote[0] = ' ';
-					promote[1] = '\0';
-				}
-				printf("info string %c%c%c%c%s\n", from[0], from[1], to[0], to[1], promote);*/
+				if (is_first_ply)
+					memcpy(bestmove, &moves.moves[j], sizeof (move_s));
 			}
 
 			REGULAR_SEARCH_SKIP_MOVE:
@@ -146,8 +131,6 @@ float regular_search(board_s* restrict board, move_s* restrict bestmove, const u
 		}
 	}
 	
-	memcpy(bestmove, &bestmove_move, sizeof (move_s));
-
 	return bestmove_eval;
 }
 

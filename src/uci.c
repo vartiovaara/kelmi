@@ -187,6 +187,7 @@ int parse_go_command(uci_s* uci, board_s* board, char* input, FILE* f) {
 		promote[1] = '\0';
 	}
 	//uci_write(f, "info currmove %c%c%c%c%s", from[0], from[1], to[0], to[1], promote);
+	uci_write(f, "info score cp %f\n", bestmove_eval);
 	uci_write(f, "bestmove %c%c%c%c%s\n", from[0], from[1], to[0], to[1], promote);
 
 	return 0;
@@ -195,6 +196,8 @@ int parse_go_command(uci_s* uci, board_s* board, char* input, FILE* f) {
 
 // FIXME: oh god why oh no
 int parse_position_command(board_s* board, char* input, size_t n) {
+	resetboard(board);
+
 	char input_copy[n + 1]; // +1 as to include \0
 
 	strncpy(input_copy, input, n + 1);
@@ -276,8 +279,8 @@ void uci(FILE* f) {
 	uci_write(f, "uciok\n");
 
 	// get "isready" from gui
-	char input[INPUT_BUFFER_SIZE];
-	uci_read(f, input, INPUT_BUFFER_SIZE);
+	char input[UCI_INPUT_BUFFER_SIZE];
+	uci_read(f, input, UCI_INPUT_BUFFER_SIZE);
 
 	if(strcmp(input, "isready"))
 		return;
@@ -292,7 +295,7 @@ void uci(FILE* f) {
 	uci.action = UCI_IDLE;
 
 	for (;;) {
-		size_t len = uci_read(f, input, INPUT_BUFFER_SIZE);
+		size_t len = uci_read(f, input, UCI_INPUT_BUFFER_SIZE);
 
 		if (!len)
 			continue;
