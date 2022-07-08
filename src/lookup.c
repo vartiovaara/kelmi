@@ -9,6 +9,8 @@
 
 
 // The queen lookup will just be (rook | bishop)
+BitBoard rows[8];
+BitBoard columns[8];
 BitBoard kinglookup[64];
 BitBoard rooklookup[64];
 BitBoard bishoplookup[64];
@@ -16,17 +18,21 @@ BitBoard knightlookup[64];
 BitBoard pawnlookup[2][64]; // black and white pawns [side][sq_n]
 
 // pointers to according lookups
-// needs to be void* becouse pawnlookup has different size
 BitBoard* lookup[N_PIECES]; //[piece_e]
 
 
+
 // Private functions
+void compute_row_lookup();
+void compute_column_lookup();
+
 void compute_king_lookup();
 void compute_rook_lookup();
 void compute_bishop_lookup();
 void compute_knight_lookup();
 void compute_white_pawn_lookup();
 void compute_black_pawn_lookup();
+
 
 
 // side can be anything when using anything other than pawn
@@ -45,7 +51,21 @@ BitBoard piecelookup(unsigned int pos, unsigned int piece, unsigned int side) {
 	return lookup[piece][pos];
 }
 
+
+BitBoard rowlookup(unsigned int pos) {
+	return rows[pos / 8];
+}
+
+
+BitBoard columnlookup(unsigned int pos) {
+	return columns[pos % 8];
+}
+
+
+
 void reset_lookups() {
+	memset(&rows, 0, sizeof rows);
+	memset(&columns, 0, sizeof columns);
 	memset(&kinglookup, 0, sizeof kinglookup);
 	memset(&rooklookup, 0, sizeof rooklookup);
 	memset(&bishoplookup, 0, sizeof bishoplookup);
@@ -55,6 +75,8 @@ void reset_lookups() {
 }
 
 void compute_lookups() {
+	compute_row_lookup();
+	compute_column_lookup();
 	compute_king_lookup();
 	compute_rook_lookup();
 	compute_bishop_lookup();
@@ -72,9 +94,36 @@ void set_lookup_pointers() {
 	lookup[PAWN] = NULL; // has a separate array
 }
 
+
+// TODO: Confirm validity
+void compute_row_lookup() {
+	for (unsigned int i = 0; i < 8; i++) {
+		const BitBoard pos = SQTOBB(i*8);
+
+		// moves
+		for (int x = 0; x < 8; x++) {
+			rows[i] |= pos<<x;
+		}
+	}
+}
+
+
+// TODO: Confirm validity
+void compute_column_lookup() {
+	for (unsigned int i = 0; i < 8; i++) {
+		const BitBoard pos = SQTOBB(i);
+
+		// moves
+		for (int x = 0; x < 8; x++) {
+			columns[i] |= pos<<(x*8);
+		}
+	}
+}
+
+
 void compute_king_lookup() {
 	for (unsigned int i = 0; i < 64; i++) {
-		const BitBoard pos = SQTOBB(i); // cuck thing to do
+		const BitBoard pos = SQTOBB(i);
 		 // north
 		if (!(pos & TOP_MASK)) {
 			kinglookup[i] |= pos<<8;

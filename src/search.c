@@ -29,7 +29,7 @@ float uci_think(const uci_s* uci, board_s* board, move_s* bestmove) {
 		goto THINK_PONDER;
 	
 	// Normal search
-	return regular_search(board, bestmove, true, 3);
+	return regular_search(board, bestmove, true, 5);
 
 	THINK_PONDER:
 	// TODO

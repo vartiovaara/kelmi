@@ -110,7 +110,17 @@ To make a move, give it in uci format."
 #define MV_SW(sq, n) MV_S(MV_W(sq, n), n)
 #define MV_NW(sq, n) MV_N(MV_W(sq, n), n)
 
-// Empty square char
+// Eval values
+#define EVAL_PAWN_MATERIAL_VALUE 1.0f
+#define EVAL_KNIGHT_MATERIAL_VALUE 3.05f
+#define EVAL_BISHOP_MATERIAL_VALUE 3.33f
+#define EVAL_ROOK_MATERIAL_VALUE 5.63f
+#define EVAL_QUEEN_MATERIAL_VALUE 9.5f
+#define EVAL_BPAIR_VALUE 0.5f
+#define EVAL_STACKED_PAWNS_PUNISHMENT 0.4f
+
+// Empty square char#include "lookup.h"
+
 #define NO_PIECE_CHAR ('.')
 
 // Number of piece types
@@ -124,7 +134,7 @@ To make a move, give it in uci format."
 
 #define INPUT_BUFFER_SIZE 256
 
-#define UCI_INPUT_BUFFER_SIZE 2048
+#define UCI_INPUT_BUFFER_SIZE 4096
 
 #define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 //#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"

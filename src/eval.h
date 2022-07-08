@@ -12,6 +12,6 @@ float better_eval(float a, float b, unsigned int side);
 bool is_eval_better(float a, float b, unsigned int side);
 
 // evaluates the board 
-float eval(board_s* board);
+float eval(const board_s* board);
 
 #endif // EVAL_H

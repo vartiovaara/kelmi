@@ -55,8 +55,16 @@ int main(void) {
 	puts(HELP_MESSAGE);
 	
 	init_all();
+	
 	//board_s board = boardfromfen(DEFAULT_FEN);
 	//printboard(&board);
+
+	/*
+	for (int i = 0; i < 8; i++) {
+		printbitboard(rowlookup(i*8));
+		printbitboard(columnlookup(i));
+	}*/
+	
 	
 	char input[INPUT_BUFFER_SIZE];
 	for (;;) {
@@ -110,7 +118,7 @@ int main(void) {
 	//perft(&board, argv[1][0]-48);
 
 	MAIN_NORMAL_EXIT:
-
+	
 
 	return 0;
 }
