@@ -14,22 +14,22 @@
  */
 
 // evaluation functions
-float eval_compare_material_amount(const board_s* board);
-float eval_stacked_pawns(const board_s* board);
+eval_t eval_compare_material_amount(const board_s* board);
+eval_t eval_stacked_pawns(const board_s* board);
 
 
 
 
-float better_eval(float a, float b, unsigned int side) {
+eval_t better_eval(eval_t a, eval_t b, unsigned int side) {
 	return (is_eval_better(a, b, side) ? a : b);
 }
 
-bool is_eval_better(float a, float b, unsigned int side) {
+bool is_eval_better(eval_t a, eval_t b, unsigned int side) {
 	return ((side == WHITE) ? a > b : a < b);
 }
 
-float eval(const board_s* board) {
-	float eval = 0.0f;
+eval_t eval(const board_s* board) {
+	eval_t eval = 0;
 
 	eval += eval_compare_material_amount(board);
 	eval += eval_stacked_pawns(board);
@@ -42,26 +42,26 @@ float eval(const board_s* board) {
 
 
 // Evaluation function definitions
-float eval_compare_material_amount(const board_s* board) {
-	float res = 0.0f;
+eval_t eval_compare_material_amount(const board_s* board) {
+	eval_t res = 0;
 
 	// Compare pawns
 	const unsigned int n_pawns_w = popcount(board->pieces[WHITE][PAWN]);
 	const unsigned int n_pawns_b = popcount(board->pieces[BLACK][PAWN]);
-	res += (float)(n_pawns_w - n_pawns_b) * EVAL_PAWN_MATERIAL_VALUE;
+	res += (n_pawns_w - n_pawns_b) * EVAL_PAWN_MATERIAL_VALUE;
 
 	// Compare knights
 	//unsigned int n_pawns_w = popcount(board->pieces[WHITE][PAWN]);
 	//unsigned int n_pawns_b = popcount(board->pieces[BLACK][PAWN]);
 	//res += (float)(n_pawns_w - n_pawns_b);
 	res += 
-		(float)(popcount(board->pieces[WHITE][KNIGHT])
-			 - popcount(board->pieces[BLACK][KNIGHT])) * EVAL_KNIGHT_MATERIAL_VALUE;
+		(popcount(board->pieces[WHITE][KNIGHT])
+		- popcount(board->pieces[BLACK][KNIGHT])) * EVAL_KNIGHT_MATERIAL_VALUE;
 
 	// Compare bishops
 	const unsigned int n_bishops_w = popcount(board->pieces[WHITE][BISHOP]);
 	const unsigned int n_bishops_b = popcount(board->pieces[BLACK][BISHOP]);
-	res += (float)(n_bishops_w - n_bishops_b) * EVAL_BISHOP_MATERIAL_VALUE;
+	res += (n_bishops_w - n_bishops_b) * EVAL_BISHOP_MATERIAL_VALUE;
 	// Add in bishop pairs (half a pawn more)
 	if (n_bishops_w > 1)
 		res += EVAL_BPAIR_VALUE;
@@ -71,18 +71,18 @@ float eval_compare_material_amount(const board_s* board) {
 	// Compare rooks
 	const unsigned int n_rooks_w = popcount(board->pieces[WHITE][ROOK]);
 	const unsigned int n_rooks_b = popcount(board->pieces[BLACK][ROOK]);
-	res += (float)(n_rooks_w - n_rooks_b) * EVAL_ROOK_MATERIAL_VALUE;
+	res += (n_rooks_w - n_rooks_b) * EVAL_ROOK_MATERIAL_VALUE;
 
 	// Compare queens
 	const unsigned int n_queens_w = popcount(board->pieces[WHITE][QUEEN]);
 	const unsigned int n_queens_b = popcount(board->pieces[BLACK][QUEEN]);
-	res += (float)(n_queens_w - n_queens_b) * EVAL_QUEEN_MATERIAL_VALUE;
+	res += (n_queens_w - n_queens_b) * EVAL_QUEEN_MATERIAL_VALUE;
 
 	return res;
 }
 
-float eval_stacked_pawns(const board_s* board) {
-	float res = 0.0f;
+eval_t eval_stacked_pawns(const board_s* board) {
+	eval_t res = 0;
 
 	// TODO: Maybe there is a more efficient way of doing this
 

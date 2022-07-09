@@ -164,7 +164,7 @@ int parse_go_command(uci_s* uci, board_s* board, char* input, FILE* f) {
 
 	//move_s bestmoveJ
 
-	float bestmove_eval = uci_think(uci, board, &bestmove);
+	eval_t bestmove_eval = uci_think(uci, board, &bestmove);
 
 	/*if (bestmove_eval == NAN
 		|| bestmove_eval == (is_eval_better(INFINITY, -INFINITY, board->sidetomove) ? -INFINITY : INFINITY))
@@ -187,7 +187,7 @@ int parse_go_command(uci_s* uci, board_s* board, char* input, FILE* f) {
 		promote[1] = '\0';
 	}
 	//uci_write(f, "info currmove %c%c%c%c%s", from[0], from[1], to[0], to[1], promote);
-	uci_write(f, "info score cp %f\n", bestmove_eval);
+	uci_write(f, "info score cp %i\n", bestmove_eval);
 	uci_write(f, "bestmove %c%c%c%c%s\n", from[0], from[1], to[0], to[1], promote);
 
 	return 0;

@@ -18,29 +18,29 @@
 
 
 // Private functions
-float regular_search(board_s* restrict board, move_s* restrict bestmove, const bool is_first_ply, const unsigned int depth);
+eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const bool is_first_ply, const unsigned int depth);
 
 
 
-float uci_think(const uci_s* uci, board_s* board, move_s* bestmove) {
+eval_t uci_think(const uci_s* uci, board_s* board, move_s* bestmove) {
 	assert(uci->action != UCI_IDLE);
 
-	if (uci->action == UCI_PONDER)
-		goto THINK_PONDER;
+	//if (uci->action == UCI_PONDER)
+	//	goto THINK_PONDER;
 	
 	// Normal search
 	return regular_search(board, bestmove, true, 5);
 
-	THINK_PONDER:
+	//THINK_PONDER:
 	// TODO
-	fputs("Pondering not supported!", stderr);
+	//fputs("Pondering not supported!", stderr);
 
-	return NAN;
+	//return NAN;
 }
 
 
 
-float regular_search(board_s* restrict board, move_s* restrict bestmove, const bool is_first_ply, const unsigned int depth) {	
+eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const bool is_first_ply, const unsigned int depth) {
 	if (depth == 0)
 		return eval(board);
 
@@ -50,7 +50,7 @@ float regular_search(board_s* restrict board, move_s* restrict bestmove, const b
 	unsigned int n_legal_moves_done = 0;
 
 	// Stores the best move for board->sidetomove
-	float bestmove_eval = (board->sidetomove == WHITE ? -INFINITY : INFINITY); // set to worst possible
+	eval_t bestmove_eval = (board->sidetomove == WHITE ? EVAL_MIN : EVAL_MAX); // set to worst possible
 
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
 	unsigned int n_pieces = popcount(pieces_copy);
@@ -104,7 +104,7 @@ float regular_search(board_s* restrict board, move_s* restrict bestmove, const b
 
 			append_to_move_history(board, &moves.moves[j]);
 
-			float eval = regular_search(board, bestmove, false, depth-1);
+			eval_t eval = regular_search(board, bestmove, false, depth-1);
 			//printf("info string %f\n", eval);
 
 			// if move was better, store it instead
@@ -124,10 +124,10 @@ float regular_search(board_s* restrict board, move_s* restrict bestmove, const b
 	if (!n_legal_moves_done) {
 		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
 			// store the worst value possible for checkmate
-			return (is_eval_better(INFINITY, -INFINITY, board->sidetomove) ? -INFINITY : INFINITY);
+			return (is_eval_better(EVAL_MAX, EVAL_MIN, board->sidetomove) ? EVAL_MIN : EVAL_MAX);
 		}
 		else { // is a stalemate (wasn't in check and no legal moves)
-			return NAN;
+			return 0;
 		}
 	}
 	

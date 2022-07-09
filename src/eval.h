@@ -6,12 +6,12 @@
 #include "defs.h"
 
 // returns, whitch of the floats are better for side
-float better_eval(float a, float b, unsigned int side);
+eval_t better_eval(eval_t a, eval_t b, unsigned int side);
 
 // returns if a is better than b for side
-bool is_eval_better(float a, float b, unsigned int side);
+bool is_eval_better(eval_t a, eval_t b, unsigned int side);
 
 // evaluates the board 
-float eval(const board_s* board);
+eval_t eval(const board_s* board);
 
 #endif // EVAL_H

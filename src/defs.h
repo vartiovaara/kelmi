@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <limits.h>
 
 
 /*
@@ -110,14 +111,18 @@ To make a move, give it in uci format."
 #define MV_SW(sq, n) MV_S(MV_W(sq, n), n)
 #define MV_NW(sq, n) MV_N(MV_W(sq, n), n)
 
+// Eval type max and min
+#define EVAL_MAX INT_MAX
+#define EVAL_MIN INT_MIN
+
 // Eval values
-#define EVAL_PAWN_MATERIAL_VALUE 1.0f
-#define EVAL_KNIGHT_MATERIAL_VALUE 3.05f
-#define EVAL_BISHOP_MATERIAL_VALUE 3.33f
-#define EVAL_ROOK_MATERIAL_VALUE 5.63f
-#define EVAL_QUEEN_MATERIAL_VALUE 9.5f
-#define EVAL_BPAIR_VALUE 0.5f
-#define EVAL_STACKED_PAWNS_PUNISHMENT 0.4f
+#define EVAL_PAWN_MATERIAL_VALUE 100
+#define EVAL_KNIGHT_MATERIAL_VALUE 305
+#define EVAL_BISHOP_MATERIAL_VALUE 333
+#define EVAL_ROOK_MATERIAL_VALUE 563
+#define EVAL_QUEEN_MATERIAL_VALUE 950
+#define EVAL_BPAIR_VALUE 70
+#define EVAL_STACKED_PAWNS_PUNISHMENT 40
 
 // Empty square char#include "lookup.h"
 
@@ -148,6 +153,7 @@ To make a move, give it in uci format."
  */
 
 typedef uint64_t BitBoard;
+typedef int eval_t; // IF THIS IS CHANGED; CHANGE THE MAX AND MIN DEFS TOO
 
 
 /*
