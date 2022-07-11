@@ -18,7 +18,7 @@
 
 
 // Private functions
-eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const bool is_first_ply, const unsigned int depth);
+eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const unsigned int depth, eval_t alpha, eval_t beta);
 
 
 
@@ -28,8 +28,8 @@ eval_t uci_think(const uci_s* uci, board_s* board, move_s* bestmove) {
 	//if (uci->action == UCI_PONDER)
 	//	goto THINK_PONDER;
 	
-	// Normal search
-	return regular_search(board, bestmove, true, 5);
+	// Normal search (alpha is maximizing and beta minimizing)
+	return regular_search(board, bestmove, 7, EVAL_MIN, EVAL_MAX);
 
 	//THINK_PONDER:
 	// TODO
@@ -40,9 +40,11 @@ eval_t uci_think(const uci_s* uci, board_s* board, move_s* bestmove) {
 
 
 
-eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const bool is_first_ply, const unsigned int depth) {
+eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const unsigned int depth, eval_t alpha, eval_t beta) {
 	if (depth == 0)
 		return eval(board);
+
+	const unsigned int initial_side = board->sidetomove;
 
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
 
@@ -56,7 +58,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const 
 	unsigned int n_pieces = popcount(pieces_copy);
 
 	// for checking if position is a checkmate
-	unsigned long long skipped_because_of_checks = 0;
+	unsigned int skipped_because_of_checks = 0;
 
 	board_s boardcopy;
 	memcpy(&boardcopy, board, sizeof (board_s));
@@ -93,7 +95,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const 
 			makemove(board, &moves.moves[j]);
 
 			// check if that side got itself in check (or couldn't get out of one)
-			if (is_in_check(board, OPPOSITE_SIDE(board->sidetomove))) {
+			if (is_in_check(board, initial_side)) {
 				skipped_because_of_checks++;
 				goto REGULAR_SEARCH_SKIP_MOVE;
 			}
@@ -104,20 +106,35 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const 
 
 			append_to_move_history(board, &moves.moves[j]);
 
-			eval_t eval = regular_search(board, bestmove, false, depth-1);
+			eval_t eval = regular_search(board, NULL, depth-1, alpha, beta);
 			//printf("info string %f\n", eval);
 
 			// if move was better, store it instead
-			if (is_eval_better(eval, bestmove_eval, OPPOSITE_SIDE(board->sidetomove))) {
+			if (is_eval_better(eval, bestmove_eval, initial_side)) {
 				bestmove_eval = eval;
-				if (is_first_ply)
+				if (bestmove)
 					memcpy(bestmove, &moves.moves[j], sizeof (move_s));
 			}
+
+			// alpha is maximizing and beta is minimizing
+			if (initial_side == WHITE)
+				alpha = better_eval(alpha, eval, WHITE);
+			else
+				beta = better_eval(beta, eval, BLACK);
+			
+			if (beta <= alpha)
+				goto REGULAR_SEARCH_BREAK_SEARCH;
+
 
 			REGULAR_SEARCH_SKIP_MOVE:
 			restore_board(board, &boardcopy);
 		}
 		free(moves.moves);
+		continue;
+		
+		REGULAR_SEARCH_BREAK_SEARCH:
+		free(moves.moves);
+		break;
 	}
 
 	// No moves were made??
