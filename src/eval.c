@@ -4,8 +4,91 @@
 #include "eval.h"
 #include "bitboard.h"
 #include "lookup.h"
+#include "movegen.h"
 
 #include "defs.h"
+
+
+
+/*
+ * Private data.
+ */
+
+
+/*
+	  A   B    C    D    E    F    G     H*/
+/*const eval_t psqt_pawn[64] = {
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	  5,   0,  11,  10,  10,  11,   0,   5,
+	  4,   0,  13,  14,  15,  12,   0,  10,
+	  0,   0,   5,   5,   5,   5,   0,   0,
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	100, 100, 100, 100, 100, 100, 100, 100
+};*/
+
+
+eval_t psqt_pawn[64] = {
+	100, 100, 100, 100, 100, 100, 100, 100,
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	  5,   5,   5,   5,   5,   5,   5,   5,
+	  3,  10,  13,  15,  16,  12,   0,   8,
+	  4,   9,  11,  10,  10,  11,   0,   3,
+	  0,   0,   0,   0,   0,   0,   9,   0,
+	  0,   0,   0,   0,   0,   0,   0,   0
+};
+
+
+eval_t psqt_knight[64] = {
+	-20, -10,  -10,  -10,  -10,  -10,  -10,  -20,
+	-10,  -5,   -5,   -5,   -5,   -5,   -5,  -10,
+	-10,  -5,   15,   15,   15,   15,   -5,  -10,
+	-10,  -5,   15,   15,   15,   15,   -5,  -10,
+	-10,  -5,   15,   15,   15,   15,   -5,  -10,
+	-10,  -5,   10,   15,   15,   15,   -5,  -10,
+	-10,  -5,   -5,   -5,   -5,   -5,   -5,  -10,
+	-20,   0,  -10,  -10,  -10,  -10,    0,  -20
+};
+
+eval_t psqt_bishop[64] = {
+	-29,   4, -82, -37, -25, -42,   7,  -8,
+	-26,  16, -18, -13,  30,  59,  18, -47,
+	-16,  37,  43,  40,  35,  50,  37,  -2,
+	 -4,   5,  19,  50,  37,  37,   7,  -2,
+	 -6,  13,  13,  26,  34,  12,  10,   4,
+	  0,  15,  15,  15,  14,  27,  18,  10,
+	  4,  15,  16,   0,   7,  21,  33,   1,
+	-33,  -3, -14, -21, -13, -12, -39, -21,
+};
+
+eval_t psqt_rook[64] = {
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	15,  15,  15,  20,  20,  15,  15,  15,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,  10,  10,  10,   0,   0
+};
+
+
+
+/*
+const eval_t psqt_blank[64] = {
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	  0,   0,   0,   0,   0,   0,   0,   0,
+	  0,   0,   0,   0,   0,   0,   0,   0
+};
+*/
+
 
 
 
@@ -16,6 +99,9 @@
 // evaluation functions
 eval_t eval_compare_material_amount(const board_s* board);
 eval_t eval_stacked_pawns(const board_s* board);
+eval_t eval_psqt(const board_s* board);
+eval_t eval_rook_open_file(const board_s* board);
+eval_t eval_movable_squares(const board_s* board);
 
 
 
@@ -33,6 +119,7 @@ eval_t eval(const board_s* board) {
 
 	eval += eval_compare_material_amount(board);
 	eval += eval_stacked_pawns(board);
+	eval += eval_psqt(board);
 
 	return eval;
 	
@@ -78,6 +165,12 @@ eval_t eval_compare_material_amount(const board_s* board) {
 	const unsigned int n_queens_b = popcount(board->pieces[BLACK][QUEEN]);
 	res += (n_queens_w - n_queens_b) * EVAL_QUEEN_MATERIAL_VALUE;
 
+	// Maybe not needed???
+	// Compare kings
+	const unsigned int n_kings_w = popcount(board->pieces[WHITE][KING]);
+	const unsigned int n_kings_b = popcount(board->pieces[BLACK][KING]);
+	res += (n_kings_w - n_kings_b) * EVAL_MAX;
+
 	return res;
 }
 
@@ -91,9 +184,8 @@ eval_t eval_stacked_pawns(const board_s* board) {
 	BitBoard pawns_w_copy = pawns_w;
 	while (pawns_w_copy) {
 		BitBoard pawn = pop_bitboard(&pawns_w_copy);
-		if (popcount(pawns_w & columnlookup(lowest_bitindex(pawn))) > 1) {
+		if (popcount(pawns_w & columnlookup(lowest_bitindex(pawn))) > 1)
 			res -= EVAL_STACKED_PAWNS_PUNISHMENT;
-		}
 	}
 
 	// black
@@ -101,9 +193,117 @@ eval_t eval_stacked_pawns(const board_s* board) {
 	BitBoard pawns_b_copy = pawns_b;
 	while (pawns_b_copy) {
 		BitBoard pawn = pop_bitboard(&pawns_b_copy);
-		if (popcount(pawns_b & columnlookup(lowest_bitindex(pawn))) > 1) {
+		if (popcount(pawns_b & columnlookup(lowest_bitindex(pawn))) > 1)
 			res += EVAL_STACKED_PAWNS_PUNISHMENT;
+	}
+
+	return res;
+}
+
+eval_t eval_psqt(const board_s* board) {
+	eval_t res = 0;
+
+	// Remember that the tables are from black. access mirrored for white
+	
+	// Pawns
+	BitBoard pawns_w = flip_vertical(board->pieces[WHITE][PAWN]);
+	while (pawns_w) {
+		res += psqt_pawn[pop_bit(&pawns_w)];
+	}
+
+	BitBoard pawns_b = board->pieces[BLACK][PAWN];
+	while (pawns_b) {
+		res -= psqt_pawn[pop_bit(&pawns_b)];
+	}
+
+	// Knights
+	BitBoard knights_w = flip_vertical(board->pieces[WHITE][KNIGHT]);
+	while (knights_w) {
+		res += psqt_knight[pop_bit(&knights_w)];
+	}
+
+	BitBoard knights_b = board->pieces[BLACK][KNIGHT];
+	while (knights_b) {
+		res -= psqt_knight[pop_bit(&knights_b)];
+	}
+
+	// Bishops
+	BitBoard bishops_w = flip_vertical(board->pieces[WHITE][BISHOP]);
+	while (bishops_w) {
+		res += psqt_bishop[pop_bit(&bishops_w)];
+	}
+
+	BitBoard bishops_b = board->pieces[BLACK][BISHOP];
+	while (bishops_b) {
+		res -= psqt_bishop[pop_bit(&bishops_b)];
+	}
+
+	// Rooks
+	BitBoard rooks_w = flip_vertical(board->pieces[WHITE][ROOK]);
+	while (rooks_w) {
+		res += psqt_rook[pop_bit(&rooks_w)];
+	}
+
+	BitBoard rooks_b = board->pieces[BLACK][ROOK];
+	while (rooks_b) {
+		res -= psqt_rook[pop_bit(&rooks_b)];
+	}
+
+	return res;
+}
+
+eval_t eval_rook_open_file(const board_s* board) {
+	eval_t res = 0;
+
+	// white
+	BitBoard rooks_w = board->pieces[WHITE][ROOK];
+	while (rooks_w) {
+		const BitBoard rook = pop_bitboard(&rooks_w);
+		const BitBoard rook_file_pieces = board->all_pieces[WHITE] & columnlookup(lowest_bitindex(rook));
+		if (popcount(rook_file_pieces) != 1) {
+			// check if there are pieces above the rook
+			if (!((rook_file_pieces & ~rook) > rook))
+				res += EVAL_ROOK_OPEN_FILE;
 		}
+		else
+			res += EVAL_ROOK_OPEN_FILE;
+	}
+
+	// black
+	BitBoard rooks_b = board->pieces[BLACK][ROOK];
+	while (rooks_b) {
+		const BitBoard rook = pop_bitboard(&rooks_b);
+		const BitBoard rook_file_pieces = board->all_pieces[BLACK] & columnlookup(lowest_bitindex(rook));
+		if (popcount(rook_file_pieces) != 1) {
+			// check if there are pieces below the rook
+			if (!((rook_file_pieces & ~rook) < rook))
+				res -= EVAL_ROOK_OPEN_FILE;
+		}
+		else
+			res -= EVAL_ROOK_OPEN_FILE;
+	}
+
+	return res;
+}
+
+// TODO: Make those fucking attack maps
+eval_t eval_movable_squares(const board_s* board) {
+	eval_t res = 0;
+
+	BitBoard w_pieces = board->all_pieces[WHITE];
+	while (w_pieces) {
+		const BitBoard piece = pop_bitboard(&w_pieces);
+		movelist_s moves = pseudo_legal_squares(board, piece);
+		res += moves.n * EVAL_MOVABLE_SQUARES_MULT;
+		free(moves.moves);
+	}
+
+	BitBoard b_pieces = board->all_pieces[BLACK];
+	while (b_pieces) {
+		const BitBoard piece = pop_bitboard(&b_pieces);
+		movelist_s moves = pseudo_legal_squares(board, piece);
+		res -= moves.n * EVAL_MOVABLE_SQUARES_MULT;
+		free(moves.moves);
 	}
 
 	return res;

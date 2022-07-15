@@ -11,6 +11,58 @@ Stuff about bitboards.
 
 #include "defs.h"
 
+// Following code was obtained from here:
+// https://stackoverflow.com/a/46137633/17151125
+
+#ifdef _MSC_VER
+
+#include <stdlib.h>
+#define bswap_32(x) _byteswap_ulong(x)
+#define bswap_64(x) _byteswap_uint64(x)
+
+#elif defined(__APPLE__)
+
+// Mac OS X / Darwin features
+#include <libkern/OSByteOrder.h>
+#define bswap_32(x) OSSwapInt32(x)
+#define bswap_64(x) OSSwapInt64(x)
+
+#elif defined(__sun) || defined(sun)
+
+#include <sys/byteorder.h>
+#define bswap_32(x) BSWAP_32(x)
+#define bswap_64(x) BSWAP_64(x)
+
+#elif defined(__FreeBSD__)
+
+#include <sys/endian.h>
+#define bswap_32(x) bswap32(x)
+#define bswap_64(x) bswap64(x)
+
+#elif defined(__OpenBSD__)
+
+#include <sys/types.h>
+#define bswap_32(x) swap32(x)
+#define bswap_64(x) swap64(x)
+
+#elif defined(__NetBSD__)
+
+#include <sys/types.h>
+#include <machine/bswap.h>
+#if defined(__BSWAP_RENAME) && !defined(__bswap_32)
+#define bswap_32(x) bswap32(x)
+#define bswap_64(x) bswap64(x)
+#endif
+
+#else
+
+#include <byteswap.h>
+
+#endif
+// --- Stop stack overflow code ---
+
+
+
 
 // for pop_bit() and lowest_bitindex()
 const int BitTable[64] = {
@@ -75,3 +127,9 @@ unsigned int popcount(const BitBoard x) {
 	return __builtin_popcountll(x);
 	#endif
 }
+
+BitBoard flip_vertical(const BitBoard bb) {
+	// Doesn't work for non x86-64 machines??? maybe??
+	return bswap_64(bb);
+}
+

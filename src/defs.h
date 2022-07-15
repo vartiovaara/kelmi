@@ -121,11 +121,12 @@ To make a move, give it in uci format."
 #define EVAL_BISHOP_MATERIAL_VALUE 333
 #define EVAL_ROOK_MATERIAL_VALUE 563
 #define EVAL_QUEEN_MATERIAL_VALUE 950
-#define EVAL_BPAIR_VALUE 70
-#define EVAL_STACKED_PAWNS_PUNISHMENT 40
+#define EVAL_BPAIR_VALUE 80
+#define EVAL_STACKED_PAWNS_PUNISHMENT 18 // applied for every stacked pawn
+#define EVAL_ROOK_OPEN_FILE 90
+#define EVAL_MOVABLE_SQUARES_MULT 2
 
-// Empty square char#include "lookup.h"
-
+// Empty square char
 #define NO_PIECE_CHAR ('.')
 
 // Number of piece types

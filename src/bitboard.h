@@ -22,5 +22,7 @@ BitBoard lowest_bitboard(const BitBoard bb);
 
 unsigned int popcount(const BitBoard bb);
 
+BitBoard flip_vertical(const BitBoard bb);
+
 
 #endif // BITBOARD_H
