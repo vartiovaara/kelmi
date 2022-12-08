@@ -87,6 +87,17 @@ int main(void) {
 			perft(&board, input[6]-48);
 			free_move_history(&board);
 		}
+		else if (!strncmp(input, "pruned_perft ", 13)) {
+			if (len < 14)
+				continue;
+			if(input[13] < 48 || input[13] > 57) {
+				fprintf(stderr, "just give me a number wtf.\n");
+				continue;
+			}
+			board_s board = boardfromfen(DEFAULT_FEN);
+			pruned_perft(&board, strtoul(input+13, NULL, 10));
+			free_move_history(&board);
+		}
 		else if (!strcmp(input, "xboard")) {
 			printf("XBoard not supported.\n");
 			goto MAIN_NORMAL_EXIT;

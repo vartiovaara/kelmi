@@ -102,6 +102,36 @@ void perft(board_s* board, const unsigned int depth) {
 	free_perft_result(&res);
 }
 
+
+void pruned_perft(board_s* board, const unsigned int depth) {
+	printf("Starting pruned perft with depth %u...\n\n", depth);
+
+	search_stats_s stats;
+
+	clock_t t = clock();
+	
+	search_with_stats(board, NULL, depth, &stats);
+	
+	t = clock() - t;
+	double time_taken = ((double)t)/CLOCKS_PER_SEC;
+
+
+	printf("%llu nodes searched in %3fs\n", stats.nodes, time_taken);
+	printf("%f Nps\n\n", (float)stats.nodes/time_taken);
+
+	for (unsigned int i = 0; i <= stats.n_plies; i++) {
+		printf("Depth %u:\n", i);
+		printf("N positions: %llu\n", stats.n_positions[i]);
+	}
+	printf("\n");
+	printf("Moves generated: %llu\n", stats.n_moves_generated);
+	printf("fail-hard cutoffs: %llu\n", stats.fail_hard_cutoffs);
+
+	free(stats.n_positions);
+}
+
+
+
 /*
  * a recursive search algorithm.
  * so far just a prototype.

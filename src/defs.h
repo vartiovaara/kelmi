@@ -22,6 +22,7 @@
    playw - Start playing a game against computer as white. \n\
    playb - Start playing a game against computer as black \n\
    perft n - Start perft with n plies \n\
+   pruned_perft n - Start perft to n plies but with prunings enabled\n\
    uci - Start uci. \n\
 Commands while playing: \n\
    p - Print the board. \n\
@@ -126,6 +127,9 @@ To make a move, give it in uci format."
 #define EVAL_ROOK_OPEN_FILE 90
 #define EVAL_MOVABLE_SQUARES_MULT 2
 
+// Move predict weights
+
+
 // Empty square char
 #define NO_PIECE_CHAR ('.')
 
@@ -154,7 +158,7 @@ To make a move, give it in uci format."
  */
 
 typedef uint64_t BitBoard;
-typedef int eval_t; // IF THIS IS CHANGED; CHANGE THE MAX AND MIN DEFS TOO
+typedef signed int eval_t; // IF THIS IS CHANGED; CHANGE THE MAX AND MIN DEFS TOO
 
 
 /*
@@ -286,6 +290,17 @@ typedef struct {
 	unsigned long long* castles;
 	unsigned long long* promotions;
 } pertf_result_s;
+
+
+typedef struct {
+	unsigned int n_plies; // Number of plies computed (rename to depth??)
+	unsigned long long* n_positions; // malloc -> Number of positions in nth ply
+	unsigned long long nodes;
+	unsigned long long n_moves_generated;
+
+	unsigned long long fail_hard_cutoffs;
+} search_stats_s;
+
 
 // Holds data from a uci instance
 // See: http://wbec-ridderkerk.nl/html/UCIProtocol.html

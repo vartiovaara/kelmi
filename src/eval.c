@@ -287,6 +287,7 @@ eval_t eval_rook_open_file(const board_s* board) {
 }
 
 // TODO: Make those fucking attack maps
+// FIXME: you lazy fuck
 eval_t eval_movable_squares(const board_s* board) {
 	eval_t res = 0;
 
@@ -307,4 +308,9 @@ eval_t eval_movable_squares(const board_s* board) {
 	}
 
 	return res;
+}
+
+
+eval_t get_move_predict_score(const board_s* board, const move_s* move) {
+
 }

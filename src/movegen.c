@@ -111,6 +111,14 @@ void set_move_flags(move_s* move, const board_s* board) {
 }
 
 
+/*
+ * Creates all the moves possible for a chess board and returns them ordered probable-best first.
+ */
+movelist_s get_available_moves_ordered(const board_s* board) {
+	
+}
+
+
 movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 	assert(popcount(piecebb));
 

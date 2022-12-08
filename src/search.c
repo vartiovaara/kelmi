@@ -18,7 +18,7 @@
 
 
 // Private functions
-eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const unsigned int depth, eval_t alpha, eval_t beta);
+eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const unsigned int depth, eval_t alpha, eval_t beta);
 
 
 
@@ -29,7 +29,7 @@ eval_t uci_think(const uci_s* uci, board_s* board, move_s* bestmove) {
 	//	goto THINK_PONDER;
 	
 	// Normal search (alpha is maximizing and beta minimizing)
-	return regular_search(board, bestmove, 7, EVAL_MIN, EVAL_MAX);
+	return regular_search(board, bestmove, NULL, 7, EVAL_MIN, EVAL_MAX);
 
 	//THINK_PONDER:
 	// TODO
@@ -39,8 +39,27 @@ eval_t uci_think(const uci_s* uci, board_s* board, move_s* bestmove) {
 }
 
 
+eval_t search_with_stats(board_s* restrict board, move_s* restrict bestmove, const unsigned int depth, search_stats_s* restrict stats) {
+	memset(stats, 0, sizeof (search_stats_s));
 
-eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const unsigned int depth, eval_t alpha, eval_t beta) {
+
+	stats->n_plies = depth;
+
+	// +1 becouse we start at 0 and end in depth, not depth-1
+	// n_positions[0] should always be 1 becouse there is only 1 root node (duh!)
+	stats->n_positions = calloc(depth+1, sizeof (unsigned long long));
+
+	return regular_search(board, bestmove, stats, depth, EVAL_MIN, EVAL_MAX);
+}
+
+
+
+eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const unsigned int depth, eval_t alpha, eval_t beta) {
+	if (stats) {
+		stats->n_positions[stats->n_plies - depth]++;
+		stats->nodes++;
+	}
+	
 	if (depth == 0)
 		return eval(board);
 
@@ -69,6 +88,9 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const 
 
 		if (!moves.n)
 			continue;
+		
+		if (stats)
+			stats->n_moves_generated += moves.n;
 		
 		// Go through every move
 		for (unsigned int j = 0; j < moves.n; j++) {
@@ -106,7 +128,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const 
 
 			append_to_move_history(board, &moves.moves[j]);
 
-			eval_t eval = regular_search(board, NULL, depth-1, alpha, beta);
+			eval_t eval = regular_search(board, NULL, stats, depth-1, alpha, beta);
 			//printf("info string %f\n", eval);
 
 			// if move was better, store it instead
@@ -116,14 +138,18 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, const 
 					memcpy(bestmove, &moves.moves[j], sizeof (move_s));
 			}
 
+
 			// alpha is maximizing and beta is minimizing
 			if (initial_side == WHITE)
 				alpha = better_eval(alpha, eval, WHITE);
 			else
 				beta = better_eval(beta, eval, BLACK);
 			
-			if (beta <= alpha)
-				goto REGULAR_SEARCH_BREAK_SEARCH;
+			if (beta <= alpha) {
+				if (stats)
+					stats->fail_hard_cutoffs++;
+				goto REGULAR_SEARCH_BREAK_SEARCH; // fail-hard cutoff (right term?)
+			}
 
 
 			REGULAR_SEARCH_SKIP_MOVE:
