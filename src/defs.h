@@ -127,8 +127,10 @@ To make a move, give it in uci format."
 #define EVAL_ROOK_OPEN_FILE 90
 #define EVAL_MOVABLE_SQUARES_MULT 2
 
-// Move predict weights
-
+// Move predict(ordering) weights
+#define MV_SCORE_PROMOTE 200; // added on top of material addition(piece to promote to)
+#define MV_SCORE_CHECK 700;
+#define MV_SCORE_CAPTURER_VALUE_DIVIDE 10;
 
 // Empty square char
 #define NO_PIECE_CHAR ('.')
@@ -187,13 +189,14 @@ enum castling_e {
 };
 
 enum moveflags_e {
-	FLAG_PAWNMOVE   = 0x1 << 0,
-	FLAG_CAPTURE    = 0x1 << 1,
-	FLAG_KCASTLE    = 0x1 << 2,
-	FLAG_QCASTLE    = 0x1 << 3,
-	FLAG_DOUBLEPUSH = 0x1 << 4,
-	FLAG_ENPASSANT  = 0x1 << 5,
-	FLAG_PROMOTE    = 0x1 << 6
+	FLAG_PAWNMOVE     = 0x1 << 0,
+	FLAG_CAPTURE      = 0x1 << 1,
+	FLAG_KCASTLE      = 0x1 << 2,
+	FLAG_QCASTLE      = 0x1 << 3,
+	FLAG_DOUBLEPUSH   = 0x1 << 4,
+	FLAG_ENPASSANT    = 0x1 << 5,
+	FLAG_PROMOTE      = 0x1 << 6,
+	FLAG_CHECK      = 0x1 << 7
 };
 
 /*
@@ -231,7 +234,7 @@ enum uci_searchtype_e {
  * 
  * Flags will also be in enum moveflags_e
  * Flags:
- * 1000 0000:
+ * 1000 0000: Probable check. Could very well be a check. Only not a check if move happened to be illegal. Only to be used in move-ordering.
  * 0100 0000: Promote
  * 0010 0000: En passant
  * 0001 0000: Pawn Double push
@@ -246,8 +249,10 @@ typedef struct move_s {
 	uint8_t flags;
 	uint8_t fromtype; // what type was the from piece
 	uint8_t side;
-	//uint8_t piece_captured; // marks what piece was eaten with this move
+	uint8_t piece_captured; // marks what type of piece was eaten with this move
 	uint8_t promoteto; // what to promote to
+
+	eval_t move_score; // assigned move score for move ordering
 } move_s;
 
 typedef struct movelist_s {
@@ -292,13 +297,15 @@ typedef struct {
 } pertf_result_s;
 
 
+/*
+ * remember to free n_positions and fail_hard_cutoffs
+ */
 typedef struct {
 	unsigned int n_plies; // Number of plies computed (rename to depth??)
 	unsigned long long* n_positions; // malloc -> Number of positions in nth ply
+	unsigned long long* fail_hard_cutoffs; // malloc -> Number of hard-cutoffs in nth ply
 	unsigned long long nodes;
 	unsigned long long n_moves_generated;
-
-	unsigned long long fail_hard_cutoffs;
 } search_stats_s;
 
 

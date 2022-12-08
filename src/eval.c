@@ -15,6 +15,16 @@
  */
 
 
+const eval_t eval_material_value[N_PIECES] = {
+	[PAWN] = EVAL_PAWN_MATERIAL_VALUE,
+	[KNIGHT] = EVAL_KNIGHT_MATERIAL_VALUE,
+	[BISHOP] = EVAL_BISHOP_MATERIAL_VALUE,
+	[ROOK] = EVAL_ROOK_MATERIAL_VALUE,
+	[QUEEN] = EVAL_QUEEN_MATERIAL_VALUE,
+	[KING] = EVAL_MAX // not really needed as king is never needed in any eval
+};
+
+
 /*
 	  A   B    C    D    E    F    G     H*/
 /*const eval_t psqt_pawn[64] = {
@@ -294,7 +304,7 @@ eval_t eval_movable_squares(const board_s* board) {
 	BitBoard w_pieces = board->all_pieces[WHITE];
 	while (w_pieces) {
 		const BitBoard piece = pop_bitboard(&w_pieces);
-		movelist_s moves = pseudo_legal_squares(board, piece);
+		movelist_s moves = get_pseudo_legal_squares(board, piece);
 		res += moves.n * EVAL_MOVABLE_SQUARES_MULT;
 		free(moves.moves);
 	}
@@ -302,7 +312,7 @@ eval_t eval_movable_squares(const board_s* board) {
 	BitBoard b_pieces = board->all_pieces[BLACK];
 	while (b_pieces) {
 		const BitBoard piece = pop_bitboard(&b_pieces);
-		movelist_s moves = pseudo_legal_squares(board, piece);
+		movelist_s moves = get_pseudo_legal_squares(board, piece);
 		res -= moves.n * EVAL_MOVABLE_SQUARES_MULT;
 		free(moves.moves);
 	}
@@ -312,5 +322,26 @@ eval_t eval_movable_squares(const board_s* board) {
 
 
 eval_t get_move_predict_score(const board_s* board, const move_s* move) {
+	eval_t score = 0;
 
+	// check if opponent is in check
+	// this works becouse opponent could not have already been in check before this move.
+	//if (is_in_check(board, OPPOSITE_SIDE(move->side)))
+	//	score += MV_SCORE_CHECK;
+	
+
+	
+	if (move->flags & FLAG_PROMOTE) {
+		score += MV_SCORE_PROMOTE;
+		score += eval_material_value[move->promoteto];
+	}
+
+	score += (move->flags & FLAG_PROMOTE) * MV_SCORE_CHECK;
+
+	if (move->flags & FLAG_CAPTURE) {
+		score += eval_material_value[move->piece_captured];
+		score -= eval_material_value[move->fromtype]/MV_SCORE_CAPTURER_VALUE_DIVIDE;
+	}
+
+	return score;
 }

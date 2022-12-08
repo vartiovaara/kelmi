@@ -16,6 +16,6 @@ void set_move_flags(move_s* move, const board_s* board);
 
 // generates all the squares the specified piece could move
 // currently just pseudo-legal so doesn't check for
-movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb);
+movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb);
 
 #endif // ATTACK_H

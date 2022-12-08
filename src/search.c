@@ -48,6 +48,7 @@ eval_t search_with_stats(board_s* restrict board, move_s* restrict bestmove, con
 	// +1 becouse we start at 0 and end in depth, not depth-1
 	// n_positions[0] should always be 1 becouse there is only 1 root node (duh!)
 	stats->n_positions = calloc(depth+1, sizeof (unsigned long long));
+	stats->fail_hard_cutoffs = calloc(depth+1, sizeof (unsigned long long));
 
 	return regular_search(board, bestmove, stats, depth, EVAL_MIN, EVAL_MAX);
 }
@@ -84,7 +85,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 
 	// Go through every piece
 	for (size_t i = 0; i < n_pieces; i++) {
-		movelist_s moves = pseudo_legal_squares(board, pop_bitboard(&pieces_copy));
+		movelist_s moves = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy));
 
 		if (!moves.n)
 			continue;
@@ -147,7 +148,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 			
 			if (beta <= alpha) {
 				if (stats)
-					stats->fail_hard_cutoffs++;
+					stats->fail_hard_cutoffs[stats->n_plies - depth]++;
 				goto REGULAR_SEARCH_BREAK_SEARCH; // fail-hard cutoff (right term?)
 			}
 

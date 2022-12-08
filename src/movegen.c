@@ -12,6 +12,7 @@ Attack stuff.
 #include "bitboard.h"
 #include "lookup.h"
 #include "board.h"
+#include "eval.h"
 #include "magicmoves/magicmoves.h"
 
 #include "defs.h"
@@ -30,6 +31,18 @@ BitBoard pseudo_legal_squares_q(const board_s* board, const unsigned int side, c
 BitBoard pseudo_legal_squares_b(const board_s* board, const unsigned int side, const BitBoard piece);
 BitBoard pseudo_legal_squares_r(const board_s* board, const unsigned int side, const BitBoard piece);
 BitBoard pseudo_legal_squares_p(const board_s* board, const unsigned int side, const BitBoard piece);
+
+/*
+ * Private data
+ */
+BitBoard (*pseudo_legal_squares[N_PIECES])(const board_s* board, const unsigned int side, const BitBoard piece) = {
+	[KING] = pseudo_legal_squares_k,
+	[QUEEN] = pseudo_legal_squares_q,
+	[ROOK] = pseudo_legal_squares_r,
+	[BISHOP] = pseudo_legal_squares_b,
+	[KNIGHT] = pseudo_legal_squares_n,
+	[PAWN] = pseudo_legal_squares_p
+};
 
 
 
@@ -108,43 +121,28 @@ void set_move_flags(move_s* move, const board_s* board) {
 			move->flags |= FLAG_ENPASSANT;
 		}
 	}
+
+	// Setting probable-check flag
+	// TODO: Fix this pos (make more checks for checks)
+	if (move->fromtype != KING) {
+		if (move->fromtype != PAWN) {
+			if (move->to & (*pseudo_legal_squares[move->fromtype])(board, move->side, board->pieces[OPPOSITE_SIDE(move->side)][KING])) {
+				move->flags |= FLAG_CHECK;
+			}
+		}
+	}
+
 }
 
 
-/*
- * Creates all the moves possible for a chess board and returns them ordered probable-best first.
- */
-movelist_s get_available_moves_ordered(const board_s* board) {
-	
-}
-
-
-movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
+movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 	assert(popcount(piecebb));
 
 	const unsigned int side = get_piece_side(board, piecebb);
 	const unsigned int piece_type = get_piece_type(board, side, piecebb);
 
 	BitBoard to;
-	// TODO: have the corresponding function pointer in a array of function pointer
-	//	thusly there are less branching
-	if (piece_type == KING)
-		to = pseudo_legal_squares_k(board, side, piecebb);
-	else if (piece_type == KNIGHT)
-		to = pseudo_legal_squares_n(board, side, piecebb);
-	else if (piece_type == QUEEN)
-		to = pseudo_legal_squares_q(board, side, piecebb);
-	else if (piece_type == BISHOP)
-		to = pseudo_legal_squares_b(board, side, piecebb);
-	else if (piece_type == ROOK)
-		to = pseudo_legal_squares_r(board, side, piecebb);
-	else if (piece_type == PAWN)
-		to = pseudo_legal_squares_p(board, side, piecebb);
-	else {
-		// should never get here
-		fprintf(stderr, "pseudo_legal_squares(%p, %p)\n", (void*)board, (void*)piecebb);
-		exit(1);
-	}
+	to = (*pseudo_legal_squares[piece_type])(board, side, piecebb);
 
 	// now we have all of the proper "to" squares
 	// now we just have to assign flags and properly encode them
@@ -156,7 +154,8 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 
 	bool promote = false;
 	// Check if piece is about to promote
-	if (piece_type == PAWN && piecebb & (side == WHITE ? W_PROMOTE_FROM_MASK : B_PROMOTE_FROM_MASK)) {
+	// this check works becouse a pawn can't have promotions and non-promotions intermixed
+	if (piece_type == PAWN && to & (side == WHITE ? W_PROMOTE_FROM_MASK : B_PROMOTE_FROM_MASK)) {
 		promote = true;
 		moves.n *= N_PROM_PIECES;
 	}
@@ -191,6 +190,11 @@ movelist_s pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
 		
 		// set flags
 		set_move_flags(moves.moves + i, board);
+
+		if (moves.moves[i].flags & FLAG_CAPTURE)
+			moves.moves[i].piece_captured = get_piece_type(board, OPPOSITE_SIDE(side), moves.moves[i].to);
+		
+		moves.moves[i].move_score = get_move_predict_score(board, moves.moves + i);
 	}
 	return moves;
 }

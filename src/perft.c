@@ -119,15 +119,20 @@ void pruned_perft(board_s* board, const unsigned int depth) {
 	printf("%llu nodes searched in %3fs\n", stats.nodes, time_taken);
 	printf("%f Nps\n\n", (float)stats.nodes/time_taken);
 
+	unsigned long long total_fail_hard = 0;
 	for (unsigned int i = 0; i <= stats.n_plies; i++) {
 		printf("Depth %u:\n", i);
 		printf("N positions: %llu\n", stats.n_positions[i]);
+		printf("fail-hard cutoffs: %llu\n", stats.fail_hard_cutoffs[i]);
+
+		total_fail_hard += stats.fail_hard_cutoffs[i];
 	}
 	printf("\n");
 	printf("Moves generated: %llu\n", stats.n_moves_generated);
-	printf("fail-hard cutoffs: %llu\n", stats.fail_hard_cutoffs);
+	printf("Total fail-hard cutoffs: %llu\n", total_fail_hard);
 
 	free(stats.n_positions);
+	free(stats.fail_hard_cutoffs);
 }
 
 
@@ -168,7 +173,7 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 	// go through every piece
 	for (unsigned int i = 0; i < npieces; i++) {
 		// generate moves
-		movelist_s moves = pseudo_legal_squares(board, pop_bitboard(&pieces_copy));
+		movelist_s moves = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy));
 		
 		// if there aren't any moves, cont now.
 		// otherwise we'd be freeing memory that has never
