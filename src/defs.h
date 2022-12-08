@@ -128,9 +128,15 @@ To make a move, give it in uci format."
 #define EVAL_MOVABLE_SQUARES_MULT 2
 
 // Move predict(ordering) weights
-#define MV_SCORE_PROMOTE 200; // added on top of material addition(piece to promote to)
-#define MV_SCORE_CHECK 700;
-#define MV_SCORE_CAPTURER_VALUE_DIVIDE 10;
+#define MV_SCORE_MOVE_WEIGHT_PAWN 200
+#define MV_SCORE_MOVE_WEIGHT_KNIGHT 300
+#define MV_SCORE_MOVE_WEIGHT_BISHOP 220
+#define MV_SCORE_MOVE_WEIGHT_ROOK 310
+#define MV_SCORE_MOVE_WEIGHT_QUEEN 600
+#define MV_SCORE_MOVE_WEIGHT_KING 100
+#define MV_SCORE_PROMOTE 200 // added on top of material addition(piece to promote to)
+#define MV_SCORE_CHECK 500
+#define MV_SCORE_CAPTURER_VALUE_DIVIDE 10
 
 // Empty square char
 #define NO_PIECE_CHAR ('.')

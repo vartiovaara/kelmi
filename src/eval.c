@@ -24,6 +24,15 @@ const eval_t eval_material_value[N_PIECES] = {
 	[KING] = EVAL_MAX // not really needed as king is never needed in any eval
 };
 
+const eval_t mv_move_weight[N_PIECES] = {
+	[PAWN] = MV_SCORE_MOVE_WEIGHT_PAWN,
+	[KNIGHT] = MV_SCORE_MOVE_WEIGHT_KNIGHT,
+	[BISHOP] = MV_SCORE_MOVE_WEIGHT_BISHOP,
+	[ROOK] = MV_SCORE_MOVE_WEIGHT_ROOK,
+	[QUEEN] = MV_SCORE_MOVE_WEIGHT_QUEEN,
+	[KING] = MV_SCORE_MOVE_WEIGHT_KING
+};
+
 
 /*
 	  A   B    C    D    E    F    G     H*/
@@ -342,6 +351,10 @@ eval_t get_move_predict_score(const board_s* board, const move_s* move) {
 		score += eval_material_value[move->piece_captured];
 		score -= eval_material_value[move->fromtype]/MV_SCORE_CAPTURER_VALUE_DIVIDE;
 	}
+
+	// this makes it perform worse
+	//if (!(move->flags & FLAG_CAPTURE) && !(move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)))
+	//	score += mv_move_weight[move->fromtype];
 
 	return score;
 }
