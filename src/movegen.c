@@ -155,7 +155,7 @@ movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb
 	bool promote = false;
 	// Check if piece is about to promote
 	// this check works becouse a pawn can't have promotions and non-promotions intermixed
-	if (piece_type == PAWN && to & (side == WHITE ? W_PROMOTE_FROM_MASK : B_PROMOTE_FROM_MASK)) {
+	if (piece_type == PAWN && piecebb & (side == WHITE ? W_PROMOTE_FROM_MASK : B_PROMOTE_FROM_MASK)) {
 		promote = true;
 		moves.n *= N_PROM_PIECES;
 	}

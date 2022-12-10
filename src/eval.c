@@ -139,6 +139,7 @@ eval_t eval(const board_s* board) {
 	eval += eval_compare_material_amount(board);
 	eval += eval_stacked_pawns(board);
 	eval += eval_psqt(board);
+	eval += eval_rook_open_file(board);
 
 	return eval;
 	

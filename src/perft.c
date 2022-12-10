@@ -8,6 +8,7 @@
 #include "movegen.h"
 #include "bitboard.h"
 #include "board.h"
+#include "uci.h"
 
 #include "defs.h"
 
@@ -107,15 +108,20 @@ void pruned_perft(board_s* board, const unsigned int depth) {
 	printf("Starting pruned perft with depth %u...\n\n", depth);
 
 	search_stats_s stats;
+	move_s bestmove;
 
 	clock_t t = clock();
 	
-	search_with_stats(board, NULL, depth, &stats);
+	eval_t eval = search_with_stats(board, &bestmove, depth, &stats);
 	
 	t = clock() - t;
 	double time_taken = ((double)t)/CLOCKS_PER_SEC;
 
 
+	char move[6];
+	move_to_uci_notation(&bestmove, move);
+	printf("Best move: %s\n", move);
+	printf("Eval: %i centipawns.\n", eval);
 	printf("%llu nodes searched in %3fs\n", stats.nodes, time_taken);
 	printf("%f Nps\n\n", (float)stats.nodes/time_taken);
 

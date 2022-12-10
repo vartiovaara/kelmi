@@ -4,7 +4,7 @@
 #include "defs.h"
 
 // sets bestmove toreturns evaluation of bestmove
-eval_t uci_think(const uci_s* uci, board_s* board, move_s* bestmove);
+eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bestmove);
 
 
 // searches a board to depth and tallies statistics

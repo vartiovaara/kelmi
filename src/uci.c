@@ -356,6 +356,21 @@ void uci_write(FILE* f, const char* s, ...) {
 }
 
 
+void move_to_uci_notation(const move_s* restrict move, char* restrict str) {
+	bbtoalg(str, move->from);
+	bbtoalg(str + 2, move->to);
+
+	if (move->flags & FLAG_PROMOTE) {
+		str[4] = piecetochar(move->promoteto);
+		str[5] = '\0';
+		return;
+	}
+	
+	str[4] = '\0';
+	return;
+}
+
+
 size_t divide_string(char** restrict fields, char* restrict s, const char* delim) {
 	// divide the string to fields
 	fields = NULL;

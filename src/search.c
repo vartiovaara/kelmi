@@ -22,14 +22,14 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 
 
 
-eval_t uci_think(const uci_s* uci, board_s* board, move_s* bestmove) {
+eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bestmove) {
 	assert(uci->action != UCI_IDLE);
 
 	//if (uci->action == UCI_PONDER)
 	//	goto THINK_PONDER;
 	
 	// Normal search (alpha is maximizing and beta minimizing)
-	return regular_search(board, bestmove, NULL, 9, EVAL_MIN, EVAL_MAX);
+	return regular_search(board, bestmove, NULL, 7, EVAL_MIN, EVAL_MAX);
 
 	//THINK_PONDER:
 	// TODO
@@ -74,8 +74,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	// Stores the best move for board->sidetomove
 	eval_t bestmove_eval = (board->sidetomove == WHITE ? EVAL_MIN : EVAL_MAX); // set to worst possible
 
-	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
-	unsigned int n_pieces = popcount(pieces_copy);
+	const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
 
 	// for checking if position is a checkmate
 	unsigned int skipped_because_of_checks = 0;
@@ -85,11 +84,19 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 
 	movelist_s* all_moves = calloc(n_pieces, sizeof (movelist_s));
 	unsigned int n_all_moves = 0;
+	
+	// !!!!REMEMBER TO FREE!!!!
+	// for tracking, which moves have already been selected (selection sort kinda)
+	bool** move_visited = calloc(n_pieces, sizeof (bool*)); //[piece_index][move_index]
 
 	// Go through every piece and create the moves
+	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
 	for (size_t i = 0; i < n_pieces; i++) {
 		all_moves[i] = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy));
 		
+		if (all_moves[i].n)
+			move_visited[i] = calloc(all_moves[i].n, sizeof (bool));
+
 		n_all_moves += all_moves[i].n;
 	}
 	
@@ -97,9 +104,6 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		stats->n_moves_generated += n_all_moves;
 
 	eval_t last_best_move = EVAL_MAX;
-	// so that we don't calculate the same move twice
-	unsigned int last_piece_index = UINT_MAX;
-	unsigned int last_move_index = UINT_MAX;
 
 	// Go through every move
 	for (unsigned int i = 0; i < n_all_moves; i++) {
@@ -110,24 +114,35 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 
 		// get the next best move from all of the moves
 		for (unsigned int j = 0; j < n_pieces; j++) {
+			if (!all_moves[j].n)
+				continue;
 			for (unsigned int k = 0; k < all_moves[j].n; k++) {
+				if (move_visited[j][k])
+					continue;
 				// FIXME: NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE
 				if (move == NULL) {
-					if (all_moves[j].moves[k].move_score <= last_best_move && last_piece_index != j && last_move_index != k) {
+					if (all_moves[j].moves[k].move_score <= last_best_move) {
 						move = all_moves[j].moves + k;
 						piece_index = j;
+						move_index = k;
 					}
 				}
-				else if (all_moves[j].moves[k].move_score <= last_best_move && all_moves[j].moves[k].move_score > move->move_score && last_piece_index != j && last_move_index != k) {
+				else if (all_moves[j].moves[k].move_score <= last_best_move && all_moves[j].moves[k].move_score > move->move_score) {
 					move = all_moves[j].moves + k;
-					move_index = i;
+					piece_index = j;
+					move_index = k;
 				}
 			}
 		}
 
+		assert(move);
+		assert(piece_index != UINT_MAX);
+		assert(move_index != UINT_MAX);
+
+		// set move as visited
+		move_visited[piece_index][move_index] = true;
+
 		last_best_move = move->move_score;
-		last_piece_index = piece_index;
-		last_move_index = move_index;
 
 
 		// --- CHECK FOR LEGALITY OF MOVE ---
@@ -146,7 +161,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 			//FIXME: This shit is slow as fuck. Make those attack maps pls.
 			while (between_rk) {
 				if (is_side_attacking_sq(board, pop_bitboard(&between_rk), OPPOSITE_SIDE(board->sidetomove)))
-					goto REGULAR_SEARCH_SKIP_MOVE;
+					continue; //goto REGULAR_SEARCH_SKIP_MOVE;
 			}
 		}
 		
@@ -184,7 +199,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		if (beta <= alpha) {
 			if (stats)
 				stats->fail_hard_cutoffs[stats->n_plies - depth]++;
-			goto REGULAR_SEARCH_BREAK_SEARCH; // fail-hard cutoff (right term?)
+			break; // at least 1 legal move has to have been made so we can just break search
 		}
 
 
@@ -192,14 +207,15 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		restore_board(board, &boardcopy);
 	}
 
-	REGULAR_SEARCH_BREAK_SEARCH:
-
+	// Free this stuff
 	for (unsigned int i = 0; i < n_pieces; i++) {
-		if (all_moves[i].n)
+		if (all_moves[i].n) {
 			free(all_moves[i].moves);
+			free(move_visited[i]);
+		}
 	}
 	free(all_moves);
-
+	free(move_visited);
 
 	// No moves were made??
 	if (!n_legal_moves_done) {

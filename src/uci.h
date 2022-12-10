@@ -24,6 +24,10 @@ void uci_write(FILE* f, const char* s, ...);
 
 void uci(FILE* f);
 
+// Converts a move to uci move notation
+// Make sure that str is at least 6 characters long (a1b1q + \0) 
+void move_to_uci_notation(const move_s* restrict move, char* restrict str);
+
 size_t divide_string(char** fields, char* s, const char* delim);
 
 #endif // UCI_H
