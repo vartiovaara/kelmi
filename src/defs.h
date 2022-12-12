@@ -134,15 +134,17 @@ To make a move, give it in uci format."
 #define EVAL_MOVABLE_SQUARES_MULT 2
 
 // Move predict(ordering) weights
-#define MV_SCORE_MOVE_WEIGHT_PAWN 200
-#define MV_SCORE_MOVE_WEIGHT_KNIGHT 300
-#define MV_SCORE_MOVE_WEIGHT_BISHOP 220
-#define MV_SCORE_MOVE_WEIGHT_ROOK 310
-#define MV_SCORE_MOVE_WEIGHT_QUEEN 600
-#define MV_SCORE_MOVE_WEIGHT_KING 100
+#define MV_SCORE_MOVE_WEIGHT_PAWN 20
+#define MV_SCORE_MOVE_WEIGHT_KNIGHT 30
+#define MV_SCORE_MOVE_WEIGHT_BISHOP 22
+#define MV_SCORE_MOVE_WEIGHT_ROOK 31
+#define MV_SCORE_MOVE_WEIGHT_QUEEN 60
+#define MV_SCORE_MOVE_WEIGHT_KING 5
+#define MV_SCORE_KCASTLE 19
+#define MV_SCORE_QCASTLE 14
 #define MV_SCORE_PROMOTE 200 // added on top of material addition(piece to promote to)
 #define MV_SCORE_CHECK 500
-#define MV_SCORE_CAPTURER_VALUE_DIVIDE 10
+#define MV_SCORE_CAPTURER_VALUE_DIVIDE 5
 
 // Empty square char
 #define NO_PIECE_CHAR ('.')
@@ -267,7 +269,7 @@ typedef struct move_s {
 	uint8_t old_castling_flags; // castling flags of the board previous to the move (for move undoing)
 	BitBoard old_en_passant;
 
-	eval_t move_score; // assigned move score for move ordering
+	eval_t move_score; // assigned move score for move ordering. Only set in the search algorithm
 } move_s;
 
 typedef struct movelist_s {

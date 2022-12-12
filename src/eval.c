@@ -5,6 +5,7 @@
 #include "bitboard.h"
 #include "lookup.h"
 #include "movegen.h"
+#include "board.h"
 
 #include "defs.h"
 
@@ -93,6 +94,15 @@ eval_t psqt_rook[64] = {
 	 0,   0,   0,  10,  10,  10,   0,   0
 };
 
+
+eval_t* psqt_values[N_PIECES] = {
+	[KING] = NULL,
+	[QUEEN] = NULL,
+	[ROOK] = psqt_rook,
+	[BISHOP] = psqt_bishop,
+	[KNIGHT] = psqt_knight,
+	[PAWN] = psqt_pawn
+};
 
 
 /*
@@ -187,9 +197,16 @@ eval_t eval_compare_material_amount(const board_s* board) {
 
 	// Maybe not needed???
 	// Compare kings
-	const unsigned int n_kings_w = popcount(board->pieces[WHITE][KING]);
-	const unsigned int n_kings_b = popcount(board->pieces[BLACK][KING]);
-	res += (n_kings_w - n_kings_b) * EVAL_MAX;
+	//const unsigned int n_kings_w = popcount(board->pieces[WHITE][KING]);
+	//const unsigned int n_kings_b = popcount(board->pieces[BLACK][KING]);
+	//res += (n_kings_w - n_kings_b) * EVAL_MAX;
+
+	// Material imbalance is more accentuated when material is low
+	// This makes the overall playing better but is bad for move ordering
+	if (res > 0)
+		res += 32 - popcount(board->every_piece); // 32 is starting n of pieces
+	else if (res < 0)
+		res -= 32 - popcount(board->every_piece);
 
 	return res;
 }
@@ -338,24 +355,51 @@ eval_t get_move_predict_score(const board_s* board, const move_s* move) {
 	// this works becouse opponent could not have already been in check before this move.
 	//if (is_in_check(board, OPPOSITE_SIDE(move->side)))
 	//	score += MV_SCORE_CHECK;
-	
 
-	
-	if (move->flags & FLAG_PROMOTE) {
-		score += MV_SCORE_PROMOTE;
-		score += eval_material_value[move->promoteto];
-	}
+	//score += (move->flags & FLAG_PROMOTE) * MV_SCORE_CHECK;
 
-	score += (move->flags & FLAG_PROMOTE) * MV_SCORE_CHECK;
+	if (move->flags & FLAG_PROMOTE)
+		score += eval_material_value[move->promoteto] - eval_material_value[PAWN];
 
+	// TODO: Can be further improved by removing attackers and doing same again (discovered attacks)
 	if (move->flags & FLAG_CAPTURE) {
 		score += eval_material_value[move->piece_captured];
-		score -= eval_material_value[move->fromtype]/MV_SCORE_CAPTURER_VALUE_DIVIDE;
+		//score -= eval_material_value[move->fromtype]/MV_SCORE_CAPTURER_VALUE_DIVIDE;
+
+		BitBoard attackers = get_attackers(board, move->to, move->side); // & ~(move->from); // movers pieces
+		BitBoard defenders = get_attackers(board, move->to, OPPOSITE_SIDE(move->side)) & ~(move->from);
+
+		while (attackers)
+			score -= eval_material_value[get_piece_type(board, move->side, pop_bitboard(&attackers))];
+
+		while (defenders)
+			score += eval_material_value[get_piece_type(board, OPPOSITE_SIDE(move->side), pop_bitboard(&defenders))];
 	}
 
-	// this makes it perform worse
-	//if (!(move->flags & FLAG_CAPTURE) && !(move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)))
-	//	score += mv_move_weight[move->fromtype];
+
+	 if (!(move->flags & FLAG_CAPTURE) && !(move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)))
+	 	score += mv_move_weight[move->fromtype];
+	
+	if (move->flags & FLAG_KCASTLE)
+		score += MV_SCORE_KCASTLE;
+	else if (move->flags & FLAG_QCASTLE)
+		score += MV_SCORE_QCASTLE;
+
+	if (psqt_values[move->fromtype] != NULL) {
+		const unsigned int from_sq = lowest_bitindex(move->from);
+		const unsigned int to_sq = lowest_bitindex(move->to);
+		if (move->flags & FLAG_PROMOTE) {
+			if (psqt_values[move->promoteto]) {
+				score -= psqt_values[move->fromtype][from_sq];
+				score += psqt_values[move->promoteto][to_sq];
+			}
+		}
+		else {
+			score -= psqt_values[move->fromtype][from_sq];
+			score += psqt_values[move->fromtype][to_sq];
+		}
+	}
+
 
 	return score;
 }

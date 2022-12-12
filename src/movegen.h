@@ -6,6 +6,10 @@
 // side: who is attacking
 bool is_side_attacking_sq(const board_s* board, const BitBoard sq, const unsigned int side);
 
+// Returns the squares of every piece of side that "sees" square
+// Does not check for legality of squares
+BitBoard get_attackers(const board_s* board, const BitBoard sq, const unsigned int side);
+
 // side: the side whose king to check(which side to check for)
 bool is_in_check(const board_s* board, const unsigned int side);
 

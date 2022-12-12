@@ -216,7 +216,7 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 			}
 			
 			makemove(board, &moves.moves[j]);
-			append_to_move_history(board, &moves.moves[j]);
+			//append_to_move_history(board, &moves.moves[j]);
 
 			// check if that side got itself in check (or couldn't get out of one)
 			if (is_in_check(board, initial_side)) {

@@ -360,6 +360,8 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 
 	// change side to move
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
+
+	append_to_move_history(board, move);
 }
 
 

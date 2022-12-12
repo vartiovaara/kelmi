@@ -29,7 +29,7 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 	//	goto THINK_PONDER;
 	
 	// Normal search (alpha is maximizing and beta minimizing)
-	return regular_search(board, bestmove, NULL, 7, EVAL_MIN, EVAL_MAX);
+	return regular_search(board, bestmove, NULL, 8, EVAL_MIN, EVAL_MAX);
 
 	//THINK_PONDER:
 	// TODO
@@ -98,10 +98,15 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	for (size_t i = 0; i < n_pieces; i++) {
 		all_moves[i] = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy));
 		
-		if (all_moves[i].n)
-			move_visited[i] = calloc(all_moves[i].n, sizeof (bool));
-
 		n_all_moves += all_moves[i].n;
+
+		if (!all_moves[i].n)
+			continue;
+		
+		//for (size_t j = 0; j < all_moves[i].n; j++)
+		//	all_moves[i].moves[j].move_score = get_move_predict_score(board, all_moves[i].moves + j);
+
+		move_visited[i] = calloc(all_moves[i].n, sizeof (bool));
 	}
 	
 	if (stats)
@@ -170,7 +175,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		}
 		
 		makemove(board, move);
-		append_to_move_history(board, move);
+		//append_to_move_history(board, move);
 
 		// check if that side got itself in check (or couldn't get out of one)
 		if (is_in_check(board, initial_side)) {
