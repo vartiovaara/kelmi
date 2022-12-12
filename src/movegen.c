@@ -141,8 +141,7 @@ movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb
 	const unsigned int side = get_piece_side(board, piecebb);
 	const unsigned int piece_type = get_piece_type(board, side, piecebb);
 
-	BitBoard to;
-	to = (*pseudo_legal_squares[piece_type])(board, side, piecebb);
+	BitBoard to = (*pseudo_legal_squares[piece_type])(board, side, piecebb);
 
 	// now we have all of the proper "to" squares
 	// now we just have to assign flags and properly encode them
@@ -195,26 +194,30 @@ movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb
 			moves.moves[i].piece_captured = get_piece_type(board, OPPOSITE_SIDE(side), moves.moves[i].to);
 		
 		moves.moves[i].move_score = get_move_predict_score(board, moves.moves + i);
+
+		moves.moves[i].old_castling_flags = board->castling;
+		moves.moves[i].old_en_passant = board->en_passant;
 	}
 	return moves;
 }
 
 
 BitBoard pseudo_legal_squares_k(const board_s* board, const unsigned int side, const BitBoard piece) {
+	assert(popcount(piece) == 1);
 	BitBoard squares = piecelookup(lowest_bitindex(piece), KING, 0);
 	// don't eat own pieces
 	squares &= ~board->all_pieces[side];
 	// Castling (represented by moving 2 squares)
 	if (side == WHITE) {
-		if (board->castling & WQCASTLE && !(board->every_piece & WQ_CAST_CLEAR_MASK) && board->pieces[WHITE][ROOK] & A1)
+		if ((board->castling & WQCASTLE) && !(board->every_piece & WQ_CAST_CLEAR_MASK) && board->pieces[WHITE][ROOK] & A1)
 			squares |= MV_W(piece, 2);
 		if (board->castling & WKCASTLE && !(board->every_piece & WK_CAST_CLEAR_MASK) && board->pieces[WHITE][ROOK] & H1)
 			squares |= MV_E(piece, 2);
 	}
 	else {
-		if (board->castling & BQCASTLE && !(board->every_piece & BQ_CAST_CLEAR_MASK) && board->pieces[BLACK][ROOK] & A1)
+		if (board->castling & BQCASTLE && !(board->every_piece & BQ_CAST_CLEAR_MASK) && board->pieces[BLACK][ROOK] & A8)
 			squares |= MV_W(piece, 2);
-		if (board->castling & BKCASTLE && !(board->every_piece & BK_CAST_CLEAR_MASK) && board->pieces[BLACK][ROOK] & H1)
+		if (board->castling & BKCASTLE && !(board->every_piece & BK_CAST_CLEAR_MASK) && board->pieces[BLACK][ROOK] & H8)
 			squares |= MV_E(piece, 2);
 	}
 	return squares;

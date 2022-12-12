@@ -1,6 +1,8 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+#include <stdbool.h>
+
 #include "defs.h"
 
 
@@ -41,8 +43,10 @@ void unmakemove(board_s* board);
 /*
  * Performs a castling. See castling_e enum in defs.h.
  * Also revokes castling sides castling permissions.
+ * DOES NOT RESTORE CASTLING RIGHTS WHEN UNDOING CASTLING
+ * If undo is set to true, function undoes castling instead
  */
-void performcastle(board_s* board, const unsigned int castle);
+void move_castling_pieces(board_s* restrict board, const move_s* restrict move, const bool undo);
 
 // Finds, which one of the bitboards holds the piece.
 // exit(1) on not found

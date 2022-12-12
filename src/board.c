@@ -229,6 +229,8 @@ void movepiece(board_s* board, const unsigned int type, const BitBoard from, con
 
 	assert(board->every_piece == (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
 
+	assert(!(board->every_piece & to));
+
 	// Otherwise we'd need to have a 4th argument
 	unsigned int side = get_piece_side(board, from);
 	
@@ -237,6 +239,17 @@ void movepiece(board_s* board, const unsigned int type, const BitBoard from, con
 	board->pieces[side][type] |= to; // add to
 	board->all_pieces[side] &= ~from;
 	board->all_pieces[side] |= to;
+	
+	// board->pieces[side][type] ^= from; // remove from
+	// board->pieces[side][type] |= to; // add to
+	// board->all_pieces[side] ^= from;
+	// board->all_pieces[side] |= to;
+
+	// board->pieces[side][type] ^= from | to;
+	// board->all_pieces[side] ^= from | to;
+
+
+	//board->every_piece = board->all_pieces[WHITE] | board->all_pieces[BLACK];
 	board->every_piece &= ~from;
 	board->every_piece |= to;
 
@@ -281,9 +294,7 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 	// If the piece was captured, remove it.
 	if (move->flags & FLAG_CAPTURE) {
 		assert(move->to & board->every_piece);
-		const unsigned int captured_side = get_piece_side(board, move->to);
-		const unsigned int captured_type = get_piece_type(board, captured_side, move->to);
-		removepiece(board, move->to, captured_side, captured_type);
+		removepiece(board, move->to, OPPOSITE_SIDE(move->side), move->piece_captured);
 	}
 
 	// If move was a promotion, remove it and add the relevant piece to its place
@@ -313,23 +324,11 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 	}
 
 	// Do castling
-	if (move->flags & FLAG_KCASTLE) {
-		unsigned int castle_flags = WKCASTLE;
-		if (board->sidetomove == BLACK)
-			castle_flags = BKCASTLE;
-		
-		performcastle(board, castle_flags);
+	if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
+		move_castling_pieces(board, move, false);
 		pieces_moved = true;
 	}
-	else if (move->flags & FLAG_QCASTLE) {
-		unsigned int castle_flags = (move->side == WHITE ? WQCASTLE : BQCASTLE);
-		//if (board->sidetomove == BLACK)
-		//	castle_flags = BQCASTLE;
-		
-		performcastle(board, castle_flags);
-		pieces_moved = true;
-	}
-
+	
 	// Revoking of castling rights by rook move
 	if (move->fromtype == ROOK && board->castling) {
 		// check which rook was moved and change correct flags
@@ -348,7 +347,7 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 	}
 
 	// Revoking of castling rights by king move
-	if (move->fromtype == KING && board->castling) {
+	if (move->fromtype == KING && board->castling && !(move->flags & (FLAG_KCASTLE | FLAG_QCASTLE))) {
 		if (move->side == WHITE)
 			board->castling &= ~(WKCASTLE | WQCASTLE);
 		else
@@ -366,6 +365,58 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 
 // TODO: Finish this function
 void unmakemove(board_s* board) {
+	// Get the reference to the last move
+	const move_s* move = board->movehistory.moves + (board->history_n - 1);
+
+	// restore a normal move
+	const uint8_t non_normal_move_flag_mask = FLAG_CAPTURE | FLAG_KCASTLE | FLAG_QCASTLE | FLAG_ENPASSANT | FLAG_PROMOTE;
+	if (!(move->flags & non_normal_move_flag_mask)) {
+		movepiece(board, move->fromtype, move->to, move->from);
+		goto UNMAKEMOVE_PIECES_MOVED;
+	}
+	
+	// restore a capture, when move was not a promotion
+	if (move->flags & FLAG_CAPTURE && !(move->flags & FLAG_PROMOTE)) {
+		movepiece(board, move->fromtype, move->to, move->from);
+		addpiece(board, move->to, OPPOSITE_SIDE(move->side), move->piece_captured);
+		goto UNMAKEMOVE_PIECES_MOVED;
+	}
+	
+	// restore a promote, works even if move was capture
+	if (move->flags & FLAG_PROMOTE) {
+		removepiece(board, move->to, move->side, move->promoteto); // remove to
+		addpiece(board, move->from, move->side, move->fromtype); // add to from
+		if (move->flags & FLAG_CAPTURE)
+			addpiece(board, move->to, OPPOSITE_SIDE(move->side), move->piece_captured); // add back captured
+		goto UNMAKEMOVE_PIECES_MOVED;
+	}
+	
+	// restore a castle
+	if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
+		move_castling_pieces(board, move, true);
+		goto UNMAKEMOVE_PIECES_MOVED;
+	}
+	
+	// restore en passant
+	if (move->flags & FLAG_ENPASSANT) {
+		const BitBoard piece_removed = (move->side == WHITE ? MV_S(move->to, 1) : MV_N(move->to, 1));
+		movepiece(board, PAWN, move->to, move->from);
+		addpiece(board, piece_removed, OPPOSITE_SIDE(move->side), PAWN);
+		goto UNMAKEMOVE_PIECES_MOVED;
+	}
+
+
+	UNMAKEMOVE_PIECES_MOVED:
+
+	// Restore old en passant square
+	board->en_passant = move->old_en_passant;
+
+	// Restore castling rights
+	board->castling = move->old_castling_flags;
+
+	// Decrease history size
+	board->history_n--;
+	
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
 }
 
@@ -381,6 +432,7 @@ unsigned int get_piece_type(const board_s* board, const unsigned int side, const
 	}
 	// should never get here
 	fprintf(stderr, "get_piece_type(board, %u, %p)\n", side, (void*)piecebb);
+	assert(0);
 	exit(1);
 }
 
@@ -396,63 +448,82 @@ unsigned int get_piece_side(const board_s* board, const BitBoard piecebb) {
 
 
 // TODO: Test the eligibility of this logic and the constants.
-void performcastle(board_s* board, const unsigned int castle) {
-	assert(popcount(castle) == 1); // ensure only 1 of the flags is set
+void move_castling_pieces(board_s* restrict board, const move_s* restrict move, const bool undo) {
+	assert(popcount(move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) == 1); // ensure only 1 of the flags is set
 	
 
-	// Revoke castling sides castling perms
-	if (castle & (WKCASTLE | WQCASTLE))
-		board->castling &= ~(WKCASTLE | WQCASTLE);
-	else
-		board->castling &= ~(BKCASTLE | BQCASTLE);
+	if (!undo) {
+		// Revoke castling sides castling perms
+		if (move->side == WHITE) //(WKCASTLE | WQCASTLE))
+			board->castling &= ~(WKCASTLE | WQCASTLE);
+		else
+			board->castling &= ~(BKCASTLE | BQCASTLE);
+	}
 
 	BitBoard king_from = 0x0;
 	BitBoard king_to = 0x0;
 	BitBoard rook_from = 0x0;
 	BitBoard rook_to = 0x0;
 
-	if (castle == WKCASTLE) {
-		assert(board->pieces[WHITE][KING] == W_KING_DEFAULT_POS);
-		assert(board->pieces[WHITE][ROOK] & H1); // make sure there exists a rook at H1
-		
-		king_from = W_KING_DEFAULT_POS;
-		king_to = WK_CASTLE_KING_TARGET;
+	if (move->side == WHITE) {
+		if (move->flags == FLAG_KCASTLE) { //WKCASTLE) {
+			if (!undo) {
+				assert(board->pieces[WHITE][KING] == W_KING_DEFAULT_POS);
+				assert(board->pieces[WHITE][ROOK] & H1); // make sure there exists a rook at H1
+			}
 
-		rook_from = H1;
-		rook_to = WK_CASTLE_ROOK_TARGET;
+			king_from = W_KING_DEFAULT_POS;
+			king_to = WK_CASTLE_KING_TARGET;
+
+			rook_from = H1;
+			rook_to = WK_CASTLE_ROOK_TARGET;
+		}
+		else { //(move->flags == WQCASTLE) {
+			if (!undo) {
+				assert(board->pieces[WHITE][KING] == W_KING_DEFAULT_POS);
+				assert(board->pieces[WHITE][ROOK] & A1); // make sure there exists a rook at A1
+			}
+
+			king_from = W_KING_DEFAULT_POS;
+			king_to = WQ_CASTLE_KING_TARGET;
+
+			rook_from = A1;
+			rook_to = WQ_CASTLE_ROOK_TARGET;
+		}
 	}
-	else if (castle == WQCASTLE) {
-		assert(board->pieces[WHITE][KING] == W_KING_DEFAULT_POS);
-		assert(board->pieces[WHITE][ROOK] & A1); // make sure there exists a rook at A1
+	else {
+		if (move->flags == FLAG_KCASTLE) { // BKCASTLE) {
+			if (!undo) {
+				assert(board->pieces[BLACK][KING] == B_KING_DEFAULT_POS);
+				assert(board->pieces[BLACK][ROOK] & H8); // make sure there exists a rook at H8
+			}
 
-		king_from = W_KING_DEFAULT_POS;
-		king_to = WQ_CASTLE_KING_TARGET;
+			king_from = B_KING_DEFAULT_POS;
+			king_to = BK_CASTLE_KING_TARGET;
 
-		rook_from = A1;
-		rook_to = WQ_CASTLE_ROOK_TARGET;
-	}
-	else if (castle == BKCASTLE) {
-		assert(board->pieces[BLACK][KING] == B_KING_DEFAULT_POS);
-		assert(board->pieces[BLACK][ROOK] & H8); // make sure there exists a rook at H8
-		
-		king_from = B_KING_DEFAULT_POS;
-		king_to = BK_CASTLE_KING_TARGET;
+			rook_from = H8;
+			rook_to = BK_CASTLE_ROOK_TARGET;
+		}
+		else { // BQCASTLE
+			if (!undo) {
+				assert(board->pieces[BLACK][KING] == B_KING_DEFAULT_POS);
+				assert(board->pieces[BLACK][ROOK] & A8); // make sure there exists a rook at H8
+			}
 
-		rook_from = H8;
-		rook_to = BK_CASTLE_ROOK_TARGET;
-	}
-	else { // BQCASTLE
-		assert(board->pieces[BLACK][KING] == B_KING_DEFAULT_POS);
-		assert(board->pieces[BLACK][ROOK] & A8); // make sure there exists a rook at H8
-		
-		king_from = B_KING_DEFAULT_POS;
-		king_to = BQ_CASTLE_KING_TARGET;
+			king_from = B_KING_DEFAULT_POS;
+			king_to = BQ_CASTLE_KING_TARGET;
 
-		rook_from = A8;
-		rook_to = BQ_CASTLE_ROOK_TARGET;
+			rook_from = A8;
+			rook_to = BQ_CASTLE_ROOK_TARGET;
+		}
 	}
 
 	// Move rook and king
+	if (undo) {
+		movepiece(board, KING, king_to, king_from);
+		movepiece(board, ROOK, rook_to, rook_from);
+		return;
+	}
 	movepiece(board, KING, king_from, king_to);
 	movepiece(board, ROOK, rook_from, rook_to);
 }
@@ -461,7 +532,7 @@ void performcastle(board_s* board, const unsigned int castle) {
 void set_move_history_size(board_s* board, const size_t size) {
 	assert(size > 0);
 
-	move_s* new_block = (move_s*)realloc(board->movehistory.moves, sizeof(move_s) * size);
+	move_s* new_block = (move_s*)realloc(board->movehistory.moves, sizeof (move_s) * size);
 
 	if (!new_block) {
 		printf("No memory to realloc move history! Aborting... \n");
@@ -480,7 +551,7 @@ void append_to_move_history(board_s* board, const move_s* move) {
 		set_move_history_size(board, board->history_n);
 	}
 
-	memcpy(&board->movehistory.moves[board->history_n-1], move, sizeof(move_s));
+	memcpy(&board->movehistory.moves[board->history_n-1], move, sizeof (move_s));
 }
 
 

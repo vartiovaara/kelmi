@@ -85,6 +85,12 @@ To make a move, give it in uci format."
 #define BK_CASTLE_ROOK_TARGET 0x2000000000000000
 #define BQ_CASTLE_ROOK_TARGET 0x0800000000000000
 
+// Defines squares that can not be attacked for castling (combined targets)
+#define WK_CASTLE_ATTACK_MASK (WK_CASTLE_KING_TARGET | WK_CASTLE_ROOK_TARGET)
+#define WQ_CASTLE_ATTACK_MASK (WQ_CASTLE_KING_TARGET | WQ_CASTLE_ROOK_TARGET)
+#define BK_CASTLE_ATTACK_MASK (BK_CASTLE_KING_TARGET | BK_CASTLE_ROOK_TARGET)
+#define BQ_CASTLE_ATTACK_MASK (BQ_CASTLE_KING_TARGET | BQ_CASTLE_ROOK_TARGET)
+
 // Castling "piece-in-the-way" masks
 #define WQ_CAST_CLEAR_MASK 0x000000000000000e
 #define WK_CAST_CLEAR_MASK 0x0000000000000060
@@ -257,6 +263,9 @@ typedef struct move_s {
 	uint8_t side;
 	uint8_t piece_captured; // marks what type of piece was eaten with this move
 	uint8_t promoteto; // what to promote to
+	
+	uint8_t old_castling_flags; // castling flags of the board previous to the move (for move undoing)
+	BitBoard old_en_passant;
 
 	eval_t move_score; // assigned move score for move ordering
 } move_s;

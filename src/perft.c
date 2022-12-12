@@ -69,7 +69,7 @@ void perft(board_s* board, const unsigned int depth) {
 	pertf_result_s res;
 	init_perft_result(&res, depth);
 
-	FILE* f = fopen("history", "w+");
+	//FILE* f = fopen("history", "w+");
 
 	clock_t t = clock();
 	
@@ -78,7 +78,7 @@ void perft(board_s* board, const unsigned int depth) {
 	t = clock() - t;
 	double time_taken = ((double)t)/CLOCKS_PER_SEC;
 
-	fclose(f);
+	//fclose(f);
 
 	printf("%llu nodes searched in %3fs\n", res.nodes, time_taken);
 	printf("%f Nps\n\n", (float)res.nodes/time_taken);
@@ -173,8 +173,8 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
 	unsigned int npieces = popcount(pieces_copy);
 
-	board_s boardcopy;// = *board;
-	memcpy(&boardcopy, board, sizeof (board_s)); // for some reason, it's faster with memcpy
+	//board_s boardcopy;// = *board;
+	//memcpy(&boardcopy, board, sizeof (board_s)); // for some reason, it's faster with memcpy
 
 	// go through every piece
 	for (unsigned int i = 0; i < npieces; i++) {
@@ -196,20 +196,27 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 				if (initially_in_check)
 					continue; // can not castle while in check
 				
-				BitBoard between_rk;
+				// BitBoard between_rk;
+				// if (board->sidetomove == WHITE)
+				// 	between_rk = (moves.moves[j].flags & FLAG_KCASTLE ? WK_CAST_CLEAR_MASK : WQ_CAST_CLEAR_MASK);
+				// else
+				// 	between_rk = (moves.moves[j].flags & FLAG_KCASTLE ? BK_CAST_CLEAR_MASK : BQ_CAST_CLEAR_MASK);
+				
+				BitBoard target_squares;
 				if (board->sidetomove == WHITE)
-					between_rk = (moves.moves[j].flags & FLAG_KCASTLE ? WK_CAST_CLEAR_MASK : WQ_CAST_CLEAR_MASK);
+					target_squares = (moves.moves[j].flags & FLAG_KCASTLE ? WK_CASTLE_ATTACK_MASK : WQ_CASTLE_ATTACK_MASK);
 				else
-					between_rk = (moves.moves[j].flags & FLAG_KCASTLE ? BK_CAST_CLEAR_MASK : BQ_CAST_CLEAR_MASK);
+					target_squares = (moves.moves[j].flags & FLAG_KCASTLE ? BK_CASTLE_ATTACK_MASK : BQ_CASTLE_ATTACK_MASK);
 				
 				//FIXME: This shit is slow as fuck. Make those attack maps pls.
-				while (between_rk) {
-					if (is_side_attacking_sq(board, pop_bitboard(&between_rk), OPPOSITE_SIDE(board->sidetomove)))
-						goto SEARCH_SKIP_MOVE;
+				while (target_squares) {
+					if (is_side_attacking_sq(board, pop_bitboard(&target_squares), OPPOSITE_SIDE(board->sidetomove)))
+						goto SEARCH_SKIP_MOVE_PRE_MAKE;
 				}
 			}
 			
 			makemove(board, &moves.moves[j]);
+			append_to_move_history(board, &moves.moves[j]);
 
 			// check if that side got itself in check (or couldn't get out of one)
 			if (is_in_check(board, initial_side)) {
@@ -240,14 +247,16 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 			if (moves.moves[j].flags & FLAG_PROMOTE)
 				res->promotions[(res->n_plies - depth)+1]++;
 
-			append_to_move_history(board, &moves.moves[j]);
 
 			search(board, depth-1, res, f);
 
 			SEARCH_SKIP_MOVE: // if move was illegal, go here
-			restore_board(board, &boardcopy);
+			//restore_board(board, &boardcopy);
+			unmakemove(board);
 			//memcpy(board, &boardcopy, sizeof (board_s)); // restore board
 			//*board = boardcopy;
+			SEARCH_SKIP_MOVE_PRE_MAKE:
+			continue;
 		}
 
 		free(moves.moves);

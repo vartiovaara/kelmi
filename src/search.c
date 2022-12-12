@@ -79,8 +79,12 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	// for checking if position is a checkmate
 	unsigned int skipped_because_of_checks = 0;
 
-	board_s boardcopy;
-	memcpy(&boardcopy, board, sizeof (board_s));
+	//board_s boardcopy;
+	//memcpy(&boardcopy, board, sizeof (board_s));
+
+#ifndef NDEBUG
+	BitBoard every_piece_copy = board->every_piece;
+#endif // NDEBUG
 
 	movelist_s* all_moves = calloc(n_pieces, sizeof (movelist_s));
 	unsigned int n_all_moves = 0;
@@ -152,20 +156,21 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 			if (initially_in_check)
 				continue; // can not castle while in check
 			
-			BitBoard between_rk;
+			BitBoard target_squares;
 			if (board->sidetomove == WHITE)
-				between_rk = (move->flags & FLAG_KCASTLE ? WK_CAST_CLEAR_MASK : WQ_CAST_CLEAR_MASK);
+				target_squares = (move->flags & FLAG_KCASTLE ? WK_CASTLE_ATTACK_MASK : WQ_CASTLE_ATTACK_MASK);
 			else
-				between_rk = (move->flags & FLAG_KCASTLE ? BK_CAST_CLEAR_MASK : BQ_CAST_CLEAR_MASK);
+				target_squares = (move->flags & FLAG_KCASTLE ? BK_CASTLE_ATTACK_MASK : BQ_CASTLE_ATTACK_MASK);
 			
 			//FIXME: This shit is slow as fuck. Make those attack maps pls.
-			while (between_rk) {
-				if (is_side_attacking_sq(board, pop_bitboard(&between_rk), OPPOSITE_SIDE(board->sidetomove)))
-					continue; //goto REGULAR_SEARCH_SKIP_MOVE;
+			while (target_squares) {
+				if (is_side_attacking_sq(board, pop_bitboard(&target_squares), OPPOSITE_SIDE(board->sidetomove)))
+					goto REGULAR_SEARCH_SKIP_MOVE_PRE_MAKE;
 			}
 		}
 		
 		makemove(board, move);
+		append_to_move_history(board, move);
 
 		// check if that side got itself in check (or couldn't get out of one)
 		if (is_in_check(board, initial_side)) {
@@ -173,11 +178,11 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 			goto REGULAR_SEARCH_SKIP_MOVE;
 		}
 
+
 		n_legal_moves_done++;
 
 		// --- MOVE WAS LEGAL AND IS DONE ---
 
-		append_to_move_history(board, move);
 
 		eval_t eval = regular_search(board, NULL, stats, depth-1, alpha, beta);
 		//printf("info string %f\n", eval);
@@ -199,12 +204,15 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		if (beta <= alpha) {
 			if (stats)
 				stats->fail_hard_cutoffs[stats->n_plies - depth]++;
+			unmakemove(board);
 			break; // at least 1 legal move has to have been made so we can just break search
 		}
 
 
 		REGULAR_SEARCH_SKIP_MOVE:
-		restore_board(board, &boardcopy);
+		unmakemove(board);
+		REGULAR_SEARCH_SKIP_MOVE_PRE_MAKE:
+		continue;
 	}
 
 	// Free this stuff
@@ -216,6 +224,8 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	}
 	free(all_moves);
 	free(move_visited);
+
+	assert(board->every_piece == every_piece_copy);
 
 	// No moves were made??
 	if (!n_legal_moves_done) {

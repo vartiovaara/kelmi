@@ -258,6 +258,12 @@ int parse_position_command(board_s* board, char* input, size_t n) {
 		move.fromtype = get_piece_type(board, move.side, move.from);
 
 		set_move_flags(&move, board);
+
+		if (move.flags & FLAG_CAPTURE)
+			move.piece_captured = get_piece_type(board, OPPOSITE_SIDE(move.side), move.to);
+
+		move.old_castling_flags = board->castling;
+		move.old_en_passant = board->en_passant;
 		makemove(board, &move);
 		append_to_move_history(board, &move);
 
@@ -306,6 +312,7 @@ void uci(FILE* f) {
 		}
 		else if (!strncmp(input, "position", 8)) {
 			parse_position_command(&board, input, len);
+			printboard(&board);
 		}
 		else if (!strncmp(input, "go", 2)){
 			parse_go_command(&uci, &board, input, f);
