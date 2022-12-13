@@ -10,6 +10,8 @@ BitBoard rowlookup(unsigned int pos);
 
 BitBoard columnlookup(unsigned int pos);
 
+BitBoard king_guard_lookup(unsigned int pos);
+
 void reset_lookups();
 void compute_lookups();
 void set_lookup_pointers();

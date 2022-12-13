@@ -128,10 +128,12 @@ To make a move, give it in uci format."
 #define EVAL_BISHOP_MATERIAL_VALUE 333
 #define EVAL_ROOK_MATERIAL_VALUE 563
 #define EVAL_QUEEN_MATERIAL_VALUE 950
+#define EVAL_MATERIAL_IMBALANCE_ACCENTUATE_MULT 2
 #define EVAL_BPAIR_VALUE 80
 #define EVAL_STACKED_PAWNS_PUNISHMENT 18 // applied for every stacked pawn
 #define EVAL_ROOK_OPEN_FILE 55
 #define EVAL_MOVABLE_SQUARES_MULT 2
+#define KING_GUARD_OUTSIDE_BOARD 49 // TODO: Not done yet
 
 // Move predict(ordering) weights
 #define MV_SCORE_MOVE_WEIGHT_PAWN 20

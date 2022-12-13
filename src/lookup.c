@@ -20,6 +20,9 @@ BitBoard pawnlookup[2][64]; // black and white pawns [side][sq_n]
 // pointers to according lookups
 BitBoard* lookup[N_PIECES]; //[piece_e]
 
+// see eval.c
+BitBoard kingguardlookup[64];
+
 
 
 // Private functions
@@ -32,6 +35,8 @@ void compute_bishop_lookup();
 void compute_knight_lookup();
 void compute_white_pawn_lookup();
 void compute_black_pawn_lookup();
+
+void compute_king_guard_lookup();
 
 
 
@@ -61,6 +66,10 @@ BitBoard columnlookup(unsigned int pos) {
 	return columns[pos % 8];
 }
 
+BitBoard king_guard_lookup(unsigned int pos) {
+	return kingguardlookup[pos];
+}
+
 
 
 void reset_lookups() {
@@ -72,6 +81,7 @@ void reset_lookups() {
 	memset(&knightlookup, 0, sizeof knightlookup);
 	memset(&pawnlookup, 0, sizeof pawnlookup);
 	memset(&lookup, 0, sizeof lookup);
+	memset(&kingguardlookup, 0, sizeof kingguardlookup);
 }
 
 void compute_lookups() {
@@ -83,6 +93,7 @@ void compute_lookups() {
 	compute_knight_lookup();
 	compute_white_pawn_lookup();
 	compute_black_pawn_lookup();
+	compute_king_guard_lookup();
 }
 
 void set_lookup_pointers() {
@@ -297,5 +308,48 @@ void compute_black_pawn_lookup() {
 		// On rank 7. double push available
 		//if(i >= 48 && i <= 55)
 		//	pawnlookup[BLACK][i] |= pos>>16;
+	}
+}
+
+
+// TODO: Confirm validity
+void compute_king_guard_lookup() {
+	for (unsigned int i = 0; i < 64; i++) {
+		const BitBoard pos = SQTOBB(i);
+
+		unsigned int space_n = 0, space_e = 0, space_s = 0, space_w = 0;
+
+		space_n = (!(pos & TOP_MASK_N) ? 2 : 1);
+		space_e = (!(pos & RIGHT_MASK_N) ? 2 : 1);
+		space_s = (!(pos & BOTTOM_MASK_N) ? 2 : 1);
+		space_w = (!(pos & LEFT_MASK_N) ? 2 : 1);
+
+		space_n = (pos & TOP_MASK ? 0 : space_n);
+		space_e = (pos & RIGHT_MASK ? 0 : space_e);
+		space_s = (pos & BOTTOM_MASK ? 0 : space_s);
+		space_w = (pos & LEFT_MASK ? 0 : space_w);
+
+		for (unsigned int n = 0; n <= space_n; n++) {
+			kingguardlookup[i] |= MV_N(pos, n);
+			for (unsigned int e = 0; e <= space_e; e++)
+				kingguardlookup[i] |= MV_E(MV_N(pos, n), e);
+			for (unsigned int w = 0; w <= space_w; w++)
+				kingguardlookup[i] |= MV_W(MV_N(pos, n), w);
+		}
+		for (unsigned int s = 0; s <= space_s; s++) {
+			kingguardlookup[i] |= MV_S(pos, s);
+			for (unsigned int e = 0; e <= space_e; e++)
+				kingguardlookup[i] |= MV_E(MV_S(pos, s), e);
+			for (unsigned int w = 0; w <= space_w; w++)
+				kingguardlookup[i] |= MV_W(MV_S(pos, s), w);
+		}
+		// now we have
+		/*
+		 * 1 1 1 1 1
+		 * 1 1 1 1 1
+		 * 1 1 1 1 1
+		 * 1 1 1 1 1
+		 * 1 1 1 1 1
+		 */
 	}
 }

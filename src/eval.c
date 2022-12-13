@@ -52,11 +52,11 @@ const eval_t mv_move_weight[N_PIECES] = {
 eval_t psqt_pawn[64] = {
 	100, 100, 100, 100, 100, 100, 100, 100,
 	  0,   0,   0,   0,   0,   0,   0,   0,
-	  0,   0,   0,   0,   0,   0,   0,   0,
-	  5,   5,   5,   5,   5,   5,   5,   5,
-	  3,  10,  13,  15,  16,  12,   0,   8,
-	  4,   9,  11,  10,  10,  11,   0,   3,
-	  0,   0,   0,   0,   0,   0,   9,   0,
+	 10,  10,  10,  10,  10,  10,  10,  10,
+	 10,   5,   5,   5,   6,   6,   5,   8,
+	  5,  10,  13,  17,  19,  12,   1,  15,
+	  7,   9,  11,  10,  10,  11,   0,  11,
+	  0,   0,   3,  -1,  -1,   0,  18,   0,
 	  0,   0,   0,   0,   0,   0,   0,   0
 };
 
@@ -67,7 +67,7 @@ eval_t psqt_knight[64] = {
 	-10,  -5,   15,   15,   15,   15,   -5,  -10,
 	-10,  -5,   15,   15,   15,   15,   -5,  -10,
 	-10,  -5,   15,   15,   15,   15,   -5,  -10,
-	-10,  -5,   10,   15,   15,   15,   -5,  -10,
+	-11,  -5,   10,   15,   15,   15,   -5,  -11,
 	-10,  -5,   -5,   -5,   -5,   -5,   -5,  -10,
 	-20,   0,  -10,  -10,  -10,  -10,    0,  -20
 };
@@ -94,9 +94,19 @@ eval_t psqt_rook[64] = {
 	 0,   0,   0,  10,  10,  10,   0,   0
 };
 
+eval_t psqt_king[64] = {
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   10,  20,   0, -10,   0,  20,   0
+};
 
 eval_t* psqt_values[N_PIECES] = {
-	[KING] = NULL,
+	[KING] = psqt_king,
 	[QUEEN] = NULL,
 	[ROOK] = psqt_rook,
 	[BISHOP] = psqt_bishop,
@@ -104,6 +114,30 @@ eval_t* psqt_values[N_PIECES] = {
 	[PAWN] = psqt_pawn
 };
 
+// King is in the 42 index
+eval_t psqt_king_guard_pieces[64] = {
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 8,   0,  17,   0,   8,   0,   0,   0,
+	 2,  30,  38,  30,   2,   0,   0,   0,
+	15,  31,   0,  38,  15,   0,   0,   0,
+	 0,  35,  32,  35,   0,   0,   0,   0,
+	 8,   0,  15,   0,   8,   0,   0,   0,
+};
+
+/*
+eval_t psqt_king_guard_pieces[64] = {
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	 0,   0,   0,   0,   0,   0,   0,   0,
+	12,   0,  38,   0,  12,   0,   0,   0,
+	 2,  35,  50,  35,   2,   0,   0,   0,
+	15,  48,   0,  48,  15,   0,   0,   0,
+	 0,  35,  50,  35,   0,   0,   0,   0,
+	12,   0,  38,   0,  12,   0,   0,   0,
+};
+*/
 
 /*
 const eval_t psqt_blank[64] = {
@@ -126,30 +160,32 @@ const eval_t psqt_blank[64] = {
  */
 
 // evaluation functions
-eval_t eval_compare_material_amount(const board_s* board);
+eval_t eval_material(const board_s* board);
 eval_t eval_stacked_pawns(const board_s* board);
 eval_t eval_psqt(const board_s* board);
 eval_t eval_rook_open_file(const board_s* board);
 eval_t eval_movable_squares(const board_s* board);
+eval_t eval_king_guard(const board_s* board);
 
 
 
 
-eval_t better_eval(eval_t a, eval_t b, unsigned int side) {
+inline eval_t better_eval(eval_t a, eval_t b, unsigned int side) {
 	return (is_eval_better(a, b, side) ? a : b);
 }
 
-bool is_eval_better(eval_t a, eval_t b, unsigned int side) {
+inline bool is_eval_better(eval_t a, eval_t b, unsigned int side) {
 	return ((side == WHITE) ? a > b : a < b);
 }
 
-eval_t eval(const board_s* board) {
+inline eval_t eval(const board_s* board) {
 	eval_t eval = 0;
 
-	eval += eval_compare_material_amount(board);
+	eval += eval_material(board);
 	eval += eval_stacked_pawns(board);
 	eval += eval_psqt(board);
 	eval += eval_rook_open_file(board);
+	eval += eval_king_guard(board);
 
 	return eval;
 	
@@ -159,7 +195,7 @@ eval_t eval(const board_s* board) {
 
 
 // Evaluation function definitions
-eval_t eval_compare_material_amount(const board_s* board) {
+eval_t eval_material(const board_s* board) {
 	eval_t res = 0;
 
 	// Compare pawns
@@ -204,9 +240,9 @@ eval_t eval_compare_material_amount(const board_s* board) {
 	// Material imbalance is more accentuated when material is low
 	// This makes the overall playing better but is bad for move ordering
 	if (res > 0)
-		res += 32 - popcount(board->every_piece); // 32 is starting n of pieces
+		res += (32 - popcount(board->every_piece)) * EVAL_MATERIAL_IMBALANCE_ACCENTUATE_MULT; // 32 is starting n of pieces
 	else if (res < 0)
-		res -= 32 - popcount(board->every_piece);
+		res -= (32 - popcount(board->every_piece)) * EVAL_MATERIAL_IMBALANCE_ACCENTUATE_MULT;
 
 	return res;
 }
@@ -285,6 +321,17 @@ eval_t eval_psqt(const board_s* board) {
 	while (rooks_b) {
 		res -= psqt_rook[pop_bit(&rooks_b)];
 	}
+	
+	// Kings
+	BitBoard kings_w = flip_vertical(board->pieces[WHITE][KING]);
+	while (kings_w) {
+		res += psqt_king[pop_bit(&kings_w)];
+	}
+
+	BitBoard kings_b = board->pieces[BLACK][KING];
+	while (kings_b) {
+		res -= psqt_king[pop_bit(&kings_b)];
+	}
 
 	return res;
 }
@@ -342,6 +389,30 @@ eval_t eval_movable_squares(const board_s* board) {
 		movelist_s moves = get_pseudo_legal_squares(board, piece);
 		res -= moves.n * EVAL_MOVABLE_SQUARES_MULT;
 		free(moves.moves);
+	}
+
+	return res;
+}
+
+
+eval_t eval_king_guard(const board_s* board) {
+	eval_t res = 0;
+
+	// signed because delta later might go negative
+	const int w_king_pos = lowest_bitindex(board->pieces[WHITE][KING]);
+	const int b_king_pos = lowest_bitindex(flip_vertical(board->pieces[BLACK][KING]));
+
+	BitBoard guarding_pieces_w = board->all_pieces[WHITE] & king_guard_lookup(w_king_pos);
+	BitBoard guarding_pieces_b = flip_vertical(board->all_pieces[BLACK]) & king_guard_lookup(b_king_pos);
+
+	while (guarding_pieces_w) {
+		const int piece_pos = pop_bit(&guarding_pieces_w);
+		res += psqt_king_guard_pieces[42 + (piece_pos - w_king_pos)];
+	}
+
+	while (guarding_pieces_b) {
+		const int piece_pos = pop_bit(&guarding_pieces_b);
+		res -= psqt_king_guard_pieces[42 + (piece_pos - b_king_pos)];
 	}
 
 	return res;

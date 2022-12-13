@@ -74,19 +74,25 @@ const int BitTable[64] = {
 
 
 // TODO: there is probably some kind of instruction for this
-unsigned int pop_bit(BitBoard* const bb) {
+inline unsigned int pop_bit(BitBoard* const bb) {
 	assert(*bb > 0);
 	
+	const unsigned int index = lowest_bitindex(*bb);
+	*bb &= *bb - 1;
+	return index;
+	
+	/*
 	BitBoard b = *bb ^ (*bb - 1);
 	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
 	*bb &= *bb - 1;
 	return BitTable[(fold * 0x783a9b23) >> 26];
+	*/
 }
 
 
-BitBoard pop_bitboard(BitBoard* const bb) {
+inline BitBoard pop_bitboard(BitBoard* const bb) {
 	assert(*bb > 0);
-	BitBoard bb_copy = *bb;
+	const BitBoard bb_copy = *bb;
 	*bb &= *bb - 1; // remove the lowest bit
 	return *bb ^ bb_copy; // return what was changed
 	//return (*bb ^ (*bb &= *bb-1)); // does the same thing but 1 liner
@@ -97,24 +103,36 @@ BitBoard pop_bitboard(BitBoard* const bb) {
 // see: https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
 // __builtin_ffs(int)
 // TODO: Test eligibility of this function
-unsigned int lowest_bitindex(const BitBoard bb) {
+inline unsigned int lowest_bitindex(const BitBoard bb) {
 	assert(bb > 0);
 	
+	// #if test which type is enough to hold 64 bits
+	// See: https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
+	#if UINT_MAX==18446744073709551615ULL
+	return __builtin_ctz(bb);
+	#elif ULONG_MAX==18446744073709551615ULL
+	return __builtin_ctzl(bb);
+	#elif ULLONG_MAX>=18446744073709551615ULL
+	return __builtin_ctzll(bb);
+	#endif
+	
+	/*
 	BitBoard b = bb ^ (bb - 1);
 	unsigned int fold = (unsigned) ((b & 0xffffffff) ^ (b >> 32));
 	return BitTable[(fold * 0x783a9b23) >> 26];
 	//return __builtin_ffsl(bb)-1;
+	*/
 }
 
 
-BitBoard lowest_bitboard(const BitBoard bb) {
+inline BitBoard lowest_bitboard(const BitBoard bb) {
 	assert(bb > 0);
 
 	return bb ^ (bb & (bb - 1));
 }
 
 
-unsigned int popcount(const BitBoard x) {
+inline unsigned int popcount(const BitBoard x) {
 	// See: http://0x80.pl/articles/sse-popcount.html
 	// See: https://en.wikipedia.org/wiki/Hamming_weight#Efficient_implementation
 	// #if test which type is enough to hold 64 bits
@@ -128,7 +146,7 @@ unsigned int popcount(const BitBoard x) {
 	#endif
 }
 
-BitBoard flip_vertical(const BitBoard bb) {
+inline BitBoard flip_vertical(const BitBoard bb) {
 	// Doesn't work for non x86-64 machines??? maybe??
 	return bswap_64(bb);
 }
