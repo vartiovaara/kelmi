@@ -148,7 +148,7 @@ To make a move, give it in uci format."
 #define MV_SCORE_CHECK 500
 #define MV_SCORE_CAPTURER_VALUE_DIVIDE 5
 
-#define NULL_MOVE_PRUNING_R 3
+#define NULL_MOVE_PRUNING_R 2
 
 // Empty square char
 #define NO_PIECE_CHAR ('.')

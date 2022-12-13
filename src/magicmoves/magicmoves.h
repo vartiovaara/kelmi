@@ -90,9 +90,9 @@
 #define USE_INLINING /*the MMINLINE keyword is assumed to be available*/
 
 // Following definition of U64 added by me
-//#define __64_BIT_INTEGER_DEFINED__
-//#include <stdint.h>
-//typedef uint64_t U64;
+#define __64_BIT_INTEGER_DEFINED__
+#include <stdint.h>
+typedef uint64_t U64;
 
 #ifndef __64_BIT_INTEGER_DEFINED__
 	#define __64_BIT_INTEGER_DEFINED__

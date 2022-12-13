@@ -29,7 +29,7 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 	//	goto THINK_PONDER;
 	
 	// Normal search (alpha is maximizing and beta minimizing)
-	return regular_search(board, bestmove, NULL, 7, 7, false, EVAL_MIN, EVAL_MAX);
+	return regular_search(board, bestmove, NULL, 8, 8, false, EVAL_MIN, EVAL_MAX);
 
 	//THINK_PONDER:
 	// TODO
@@ -77,6 +77,10 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 
 	const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
 
+	// I think the right term is fail-low?? Not sure
+	// This set to true if beta <= alpha
+	bool fail_low = false;
+
 	// for checking if position is a checkmate
 	unsigned int skipped_because_of_checks = 0;
 
@@ -97,7 +101,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 
 	bool do_null_move = false;
 	if (depth >= NULL_MOVE_PRUNING_R + 1 && search_depth-depth > 0 && !initially_in_check && !is_null_prune)
-		do_null_move = false;
+		do_null_move = true;
 
 	// Go through every piece and create the moves
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
@@ -106,13 +110,8 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		
 		n_all_moves += all_moves[i].n;
 
-		if (!all_moves[i].n)
-			continue;
-		
-		//for (size_t j = 0; j < all_moves[i].n; j++)
-		//	all_moves[i].moves[j].move_score = get_move_predict_score(board, all_moves[i].moves + j);
-
-		move_visited[i] = calloc(all_moves[i].n, sizeof (bool));
+		if (all_moves[i].n)
+			move_visited[i] = calloc(all_moves[i].n, sizeof (bool));
 	}
 	
 	if (stats)
@@ -195,18 +194,12 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 
 		// worst eval by default
 		eval_t eval = better_eval(EVAL_MAX, EVAL_MIN, OPPOSITE_SIDE(initial_side));
+		
 		if (i == 0 && do_null_move) {
-			
-			/*if (initial_side == WHITE)
-				eval = regular_search(board, NULL, stats, search_depth, depth - NULL_MOVE_PRUNING_R - 1, false, alpha - 1, alpha);
+			if (initial_side == WHITE)
+				eval = regular_search(board, NULL, stats, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, alpha - 1, alpha);
 			else
-				eval = regular_search(board, NULL, stats, search_depth, depth - NULL_MOVE_PRUNING_R - 1, false, beta - 1, beta);
-			*/
-
-			eval = regular_search(board, NULL, stats, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, beta - 1, beta);
-
-			if (eval <= beta)
-				bestmove_eval = beta;
+				eval = regular_search(board, NULL, stats, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, beta - 1, beta);
 		}
 		else {
 			// check if that side got itself in check (or couldn't get out of one)
@@ -238,6 +231,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 			beta = better_eval(beta, eval, BLACK);
 		
 		if (beta <= alpha) {
+			fail_low = true;
 			if (stats)
 				stats->fail_hard_cutoffs[stats->n_plies - depth]++;
 			unmakemove(board);
@@ -262,6 +256,14 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	free(move_visited);
 
 	assert(board->every_piece == every_piece_copy);
+
+	// alpha-beta pruning
+	if (fail_low) {
+		if (initial_side == WHITE)
+			return alpha;
+		else
+			return beta;
+	}
 
 	// No moves were made??
 	if (!n_legal_moves_done) {
