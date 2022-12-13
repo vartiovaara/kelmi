@@ -281,6 +281,10 @@ void addpiece(board_s* board, const BitBoard pos, const unsigned int side, const
 
 // TODO: Finish this function
 void makemove(board_s* restrict board, const move_s* restrict move) {
+	if (move == NULL)
+		goto MAKEMOVE_NULLMOVE;
+
+	
 	assert(popcount(move->from) == 1);
 	assert(popcount(move->to) == 1);
 	//assert(move->from)
@@ -362,6 +366,14 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
 
 	append_to_move_history(board, move);
+
+	return;
+
+	MAKEMOVE_NULLMOVE:
+	
+	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
+	append_to_move_history(board, NULL); // this function saves en_passant for null moves so do this first 
+	board->en_passant = 0x0;
 }
 
 
@@ -369,6 +381,9 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 void unmakemove(board_s* board) {
 	// Get the reference to the last move
 	const move_s* move = board->movehistory.moves + (board->history_n - 1);
+
+	if (!move->from && !move->to)
+		goto UNMAKEMOVE_NULLMOVE;
 
 	// restore a normal move
 	const uint8_t non_normal_move_flag_mask = FLAG_CAPTURE | FLAG_KCASTLE | FLAG_QCASTLE | FLAG_ENPASSANT | FLAG_PROMOTE;
@@ -420,6 +435,14 @@ void unmakemove(board_s* board) {
 	board->history_n--;
 	
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
+
+	return;
+
+	UNMAKEMOVE_NULLMOVE:
+
+	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
+	board->en_passant = move->old_en_passant;
+	board->history_n--;
 }
 
 
@@ -553,7 +576,15 @@ void append_to_move_history(board_s* board, const move_s* move) {
 		set_move_history_size(board, board->history_n);
 	}
 
-	memcpy(&board->movehistory.moves[board->history_n-1], move, sizeof (move_s));
+	if (move) {
+		memcpy(&board->movehistory.moves[board->history_n-1], move, sizeof (move_s));
+		return;
+	}
+
+	// Mark move as null move
+	board->movehistory.moves[board->history_n-1].from = 0x0;
+	board->movehistory.moves[board->history_n-1].to = 0x0;
+	board->movehistory.moves[board->history_n-1].old_en_passant = board->en_passant;
 }
 
 

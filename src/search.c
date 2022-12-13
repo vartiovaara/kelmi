@@ -18,7 +18,7 @@
 
 
 // Private functions
-eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const unsigned int depth, eval_t alpha, eval_t beta);
+eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta);
 
 
 
@@ -29,7 +29,7 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 	//	goto THINK_PONDER;
 	
 	// Normal search (alpha is maximizing and beta minimizing)
-	return regular_search(board, bestmove, NULL, 8, EVAL_MIN, EVAL_MAX);
+	return regular_search(board, bestmove, NULL, 7, 7, false, EVAL_MIN, EVAL_MAX);
 
 	//THINK_PONDER:
 	// TODO
@@ -50,18 +50,19 @@ eval_t search_with_stats(board_s* restrict board, move_s* restrict bestmove, con
 	stats->n_positions = calloc(depth+1, sizeof (unsigned long long));
 	stats->fail_hard_cutoffs = calloc(depth+1, sizeof (unsigned long long));
 
-	return regular_search(board, bestmove, stats, depth, EVAL_MIN, EVAL_MAX);
+	return regular_search(board, bestmove, stats, depth, depth, false, EVAL_MIN, EVAL_MAX);
 }
 
 
 
-eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const unsigned int depth, eval_t alpha, eval_t beta) {
-	if (stats) {
-		stats->n_positions[stats->n_plies - depth]++;
+eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta) {
+	if (stats)
 		stats->nodes++;
-	}
 	
-	if (depth == 0)
+	if (stats && depth >= 0)
+		stats->n_positions[stats->n_plies - depth]++;
+	
+	if (depth <= 0)
 		return eval(board);
 
 	const unsigned int initial_side = board->sidetomove;
@@ -92,6 +93,11 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	// !!!!REMEMBER TO FREE!!!!
 	// for tracking, which moves have already been selected (selection sort kinda)
 	bool** move_visited = calloc(n_pieces, sizeof (bool*)); //[piece_index][move_index]
+	
+
+	bool do_null_move = false;
+	if (depth >= NULL_MOVE_PRUNING_R + 1 && search_depth-depth > 0 && !initially_in_check && !is_null_prune)
+		do_null_move = false;
 
 	// Go through every piece and create the moves
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
@@ -115,8 +121,16 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	eval_t last_best_move = EVAL_MAX;
 
 	// Go through every move
+	// +1 becouse of null move
+	if (do_null_move)
+		n_all_moves++;
 	for (unsigned int i = 0; i < n_all_moves; i++) {
 		move_s* move = NULL;
+
+		
+		// Do a null move
+		if (do_null_move && i == 0 )
+			goto REGULAR_SEARCH_SKIP_MOVE_SELECTION;
 
 		unsigned int piece_index = UINT_MAX;
 		unsigned int move_index = UINT_MAX;
@@ -174,31 +188,48 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 			}
 		}
 		
+		REGULAR_SEARCH_SKIP_MOVE_SELECTION:
+		
 		makemove(board, move);
 		//append_to_move_history(board, move);
 
-		// check if that side got itself in check (or couldn't get out of one)
-		if (is_in_check(board, initial_side)) {
-			skipped_because_of_checks++;
-			goto REGULAR_SEARCH_SKIP_MOVE;
+		// worst eval by default
+		eval_t eval = better_eval(EVAL_MAX, EVAL_MIN, OPPOSITE_SIDE(initial_side));
+		if (i == 0 && do_null_move) {
+			
+			/*if (initial_side == WHITE)
+				eval = regular_search(board, NULL, stats, search_depth, depth - NULL_MOVE_PRUNING_R - 1, false, alpha - 1, alpha);
+			else
+				eval = regular_search(board, NULL, stats, search_depth, depth - NULL_MOVE_PRUNING_R - 1, false, beta - 1, beta);
+			*/
+
+			eval = regular_search(board, NULL, stats, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, beta - 1, beta);
+
+			if (eval <= beta)
+				bestmove_eval = beta;
 		}
+		else {
+			// check if that side got itself in check (or couldn't get out of one)
+			if (is_in_check(board, initial_side)) {
+				skipped_because_of_checks++;
+				goto REGULAR_SEARCH_SKIP_MOVE;
+			}
+
+			n_legal_moves_done++;
+
+			// --- MOVE WAS LEGAL AND IS DONE ---
 
 
-		n_legal_moves_done++;
+			eval = regular_search(board, NULL, stats, search_depth, depth-1, is_null_prune, alpha, beta);
+			//printf("info string %f\n", eval);
 
-		// --- MOVE WAS LEGAL AND IS DONE ---
-
-
-		eval_t eval = regular_search(board, NULL, stats, depth-1, alpha, beta);
-		//printf("info string %f\n", eval);
-
-		// if move was better, store it instead
-		if (is_eval_better(eval, bestmove_eval, initial_side)) {
-			bestmove_eval = eval;
-			if (bestmove)
-				memcpy(bestmove, move, sizeof (move_s));
+			// if move was better, store it instead
+			if (is_eval_better(eval, bestmove_eval, initial_side)) {
+				bestmove_eval = eval;
+				if (bestmove)
+					memcpy(bestmove, move, sizeof (move_s));
+			}
 		}
-
 
 		// alpha is maximizing and beta is minimizing
 		if (initial_side == WHITE)

@@ -146,6 +146,8 @@ To make a move, give it in uci format."
 #define MV_SCORE_CHECK 500
 #define MV_SCORE_CAPTURER_VALUE_DIVIDE 5
 
+#define NULL_MOVE_PRUNING_R 3
+
 // Empty square char
 #define NO_PIECE_CHAR ('.')
 
@@ -245,6 +247,8 @@ enum uci_searchtype_e {
  * king 2 sq left or right.
  * TODO: Implement flags.
  * TODO: Implement piece captured for undoing moves
+ * 
+ * If from and to is 0c0, move is null move.
  * 
  * Flags will also be in enum moveflags_e
  * Flags:
