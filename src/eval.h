@@ -17,4 +17,7 @@ eval_t eval(const board_s* board);
 // rates, how good a move could be
 eval_t get_move_predict_score(const board_s* board, const move_s* move);
 
+// SCORE IS FOR move->side SIDE NOT FOR WHITE ONLY
+eval_t see(board_s* restrict board, const move_s* move);
+
 #endif // EVAL_H

@@ -166,6 +166,7 @@ eval_t eval_psqt(const board_s* board);
 eval_t eval_rook_open_file(const board_s* board);
 eval_t eval_movable_squares(const board_s* board);
 eval_t eval_king_guard(const board_s* board);
+eval_t eval_castling_rights(const board_s* board);
 
 
 
@@ -185,7 +186,8 @@ inline eval_t eval(const board_s* board) {
 	eval += eval_stacked_pawns(board);
 	eval += eval_psqt(board);
 	eval += eval_rook_open_file(board);
-	eval += eval_king_guard(board);
+	//eval += eval_king_guard(board);
+	eval += eval_castling_rights(board);
 
 	return eval;
 	
@@ -419,6 +421,18 @@ eval_t eval_king_guard(const board_s* board) {
 }
 
 
+eval_t eval_castling_rights(const board_s* board) {
+	eval_t res = 0;
+
+	res += (board->castling & WKCASTLE) * EVAL_CASTLING_RIGHTS_K;
+	res -= (board->castling & BKCASTLE) * EVAL_CASTLING_RIGHTS_K;
+	res += (board->castling & WQCASTLE) * EVAL_CASTLING_RIGHTS_Q;
+	res -= (board->castling & BQCASTLE) * EVAL_CASTLING_RIGHTS_Q;
+
+	return res;
+}
+
+
 eval_t get_move_predict_score(const board_s* board, const move_s* move) {
 	eval_t score = 0;
 
@@ -473,4 +487,42 @@ eval_t get_move_predict_score(const board_s* board, const move_s* move) {
 
 
 	return score;
+}
+
+eval_t see(board_s* restrict board, const move_s* move) {
+	eval_t res = 0;
+
+	res += eval_material_value[move->piece_captured];
+	//score -= eval_material_value[move->fromtype]/MV_SCORE_CAPTURER_VALUE_DIVIDE;
+
+	BitBoard attackers = get_attackers(board, move->to, move->side) & ~(move->from); // movers pieces
+	BitBoard defenders = get_attackers(board, move->to, OPPOSITE_SIDE(move->side));
+
+	//FIXME: Doesn't find discovered attacks
+	while (attackers)
+		res -= eval_material_value[get_piece_type(board, move->side, pop_bitboard(&attackers))];
+	while (defenders)
+		res += eval_material_value[get_piece_type(board, OPPOSITE_SIDE(move->side), pop_bitboard(&defenders))];
+
+
+	/*while (defenders && attackers) {
+		// n_pieces counted this loop
+		const unsigned int n_pieces = MIN(popcount(attackers), popcount(defenders));
+
+
+
+		// Next we will find the n_pieces lowest pieces
+
+
+
+
+		BitBoard attackers_copy = attackers;
+		while (attackers_copy)
+			res -= eval_material_value[get_piece_type(board, move->side, pop_bitboard(&attackers_copy))];
+		BitBoard defenders_copy = defenders;
+		while (defenders_copy)
+			res += eval_material_value[get_piece_type(board, OPPOSITE_SIDE(move->side), pop_bitboard(&defenders_copy))];
+	}*/
+
+	return res;
 }

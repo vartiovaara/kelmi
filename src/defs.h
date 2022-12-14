@@ -36,6 +36,8 @@ To make a move, give it in uci format."
 // Macros
 #define SQTOBB(sq) ((BitBoard)0x1<<(sq))
 #define OPPOSITE_SIDE(side) ((side == WHITE) ? BLACK : WHITE)
+#define MIN(x, y) (x < y ? x : y)
+#define MAX(x, y) (x > y ? x : y)
 
 // Border masks
 #define TOP_MASK    0xff00000000000000
@@ -129,10 +131,12 @@ To make a move, give it in uci format."
 #define EVAL_ROOK_MATERIAL_VALUE 563
 #define EVAL_QUEEN_MATERIAL_VALUE 950
 #define EVAL_MATERIAL_IMBALANCE_ACCENTUATE_MULT 2
-#define EVAL_BPAIR_VALUE 80
-#define EVAL_STACKED_PAWNS_PUNISHMENT 18 // applied for every stacked pawn
-#define EVAL_ROOK_OPEN_FILE 55
+#define EVAL_BPAIR_VALUE 75
+#define EVAL_STACKED_PAWNS_PUNISHMENT 19 // applied for every stacked pawn
+#define EVAL_ROOK_OPEN_FILE 30
 #define EVAL_MOVABLE_SQUARES_MULT 2
+#define EVAL_CASTLING_RIGHTS_Q 4
+#define EVAL_CASTLING_RIGHTS_K 15
 #define KING_GUARD_OUTSIDE_BOARD 49 // TODO: Not done yet
 
 // Move predict(ordering) weights
