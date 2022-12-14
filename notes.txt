@@ -108,7 +108,6 @@ And with null move pruning R=2:
 0:00:07]} 51. Qh5+ {[%emt 0:00:00]} 51... Kf4 {[%emt 0:00:07]} 52. Qh4+ {[%emt
 0:00:00]} 52... Kf5 {[%emt 0:00:07]} 53. Qh5+ {[%emt 0:00:00]} 1/2-1/2
 
-And now with bad quiescence search:
 
 [Event "Local Event"]
 [Site "Local Site"]

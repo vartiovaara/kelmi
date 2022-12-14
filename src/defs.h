@@ -126,18 +126,19 @@ To make a move, give it in uci format."
 
 // Eval values
 #define EVAL_PAWN_MATERIAL_VALUE 100
-#define EVAL_KNIGHT_MATERIAL_VALUE 305
-#define EVAL_BISHOP_MATERIAL_VALUE 333
-#define EVAL_ROOK_MATERIAL_VALUE 563
+#define EVAL_KNIGHT_MATERIAL_VALUE 300//305
+#define EVAL_BISHOP_MATERIAL_VALUE 300//333
+#define EVAL_ROOK_MATERIAL_VALUE 600//563
 #define EVAL_QUEEN_MATERIAL_VALUE 950
 #define EVAL_MATERIAL_IMBALANCE_ACCENTUATE_MULT 2
 #define EVAL_BPAIR_VALUE 75
 #define EVAL_STACKED_PAWNS_PUNISHMENT 19 // applied for every stacked pawn
 #define EVAL_ROOK_OPEN_FILE 30
-#define EVAL_MOVABLE_SQUARES_MULT 2
+#define EVAL_MOVABLE_SQUARES_MULT 1
 #define EVAL_CASTLING_RIGHTS_Q 4
 #define EVAL_CASTLING_RIGHTS_K 15
 #define KING_GUARD_OUTSIDE_BOARD 49 // TODO: Not done yet
+#define EVAL_TEMPO_BONUS 8 // https://www.chessprogramming.org/Tempo
 
 // Move predict(ordering) weights
 #define MV_SCORE_MOVE_WEIGHT_PAWN 20
@@ -152,7 +153,7 @@ To make a move, give it in uci format."
 #define MV_SCORE_CHECK 500
 #define MV_SCORE_CAPTURER_VALUE_DIVIDE 5
 
-#define NULL_MOVE_PRUNING_R 2
+#define NULL_MOVE_PRUNING_R 3
 
 // Empty square char
 #define NO_PIECE_CHAR ('.')
@@ -218,7 +219,7 @@ enum moveflags_e {
 	FLAG_DOUBLEPUSH   = 0x1 << 4,
 	FLAG_ENPASSANT    = 0x1 << 5,
 	FLAG_PROMOTE      = 0x1 << 6,
-	FLAG_CHECK      = 0x1 << 7
+	FLAG_CHECK        = 0x1 << 7
 };
 
 /*

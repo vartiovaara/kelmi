@@ -53,9 +53,9 @@ eval_t psqt_pawn[64] = {
 	100, 100, 100, 100, 100, 100, 100, 100,
 	  0,   0,   0,   0,   0,   0,   0,   0,
 	 10,  10,  10,  10,  10,  10,  10,  10,
-	 10,   5,   5,   5,   6,   6,   5,   8,
-	  5,  10,  13,  17,  19,  12,   1,  15,
-	  7,   9,  11,  10,  10,  11,   0,  11,
+	 10,   5,   7,  13,  13,   8,   5,   8,
+	  5,  10,  13,  20,  25,  12,  -1,  15,
+	  7,   9,  11,  12,  12,  11,   0,  11,
 	  0,   0,   3,  -1,  -1,   0,  18,   0,
 	  0,   0,   0,   0,   0,   0,   0,   0
 };
@@ -160,13 +160,14 @@ const eval_t psqt_blank[64] = {
  */
 
 // evaluation functions
-eval_t eval_material(const board_s* board);
+//eval_t eval_material(const board_s* board); // public
 eval_t eval_stacked_pawns(const board_s* board);
 eval_t eval_psqt(const board_s* board);
 eval_t eval_rook_open_file(const board_s* board);
 eval_t eval_movable_squares(const board_s* board);
 eval_t eval_king_guard(const board_s* board);
 eval_t eval_castling_rights(const board_s* board);
+eval_t eval_tempo_bonus(const board_s* board);
 
 
 
@@ -186,8 +187,10 @@ inline eval_t eval(const board_s* board) {
 	eval += eval_stacked_pawns(board);
 	eval += eval_psqt(board);
 	eval += eval_rook_open_file(board);
+	eval += eval_movable_squares(board);
 	//eval += eval_king_guard(board);
 	eval += eval_castling_rights(board);
+	eval += eval_tempo_bonus(board);
 
 	return eval;
 	
@@ -382,7 +385,8 @@ eval_t eval_movable_squares(const board_s* board) {
 		const BitBoard piece = pop_bitboard(&w_pieces);
 		movelist_s moves = get_pseudo_legal_squares(board, piece);
 		res += moves.n * EVAL_MOVABLE_SQUARES_MULT;
-		free(moves.moves);
+		if (moves.n)
+			free(moves.moves);
 	}
 
 	BitBoard b_pieces = board->all_pieces[BLACK];
@@ -390,7 +394,8 @@ eval_t eval_movable_squares(const board_s* board) {
 		const BitBoard piece = pop_bitboard(&b_pieces);
 		movelist_s moves = get_pseudo_legal_squares(board, piece);
 		res -= moves.n * EVAL_MOVABLE_SQUARES_MULT;
-		free(moves.moves);
+		if (moves.n)
+			free(moves.moves);
 	}
 
 	return res;
@@ -431,6 +436,15 @@ eval_t eval_castling_rights(const board_s* board) {
 
 	return res;
 }
+
+
+// https://www.chessprogramming.org/Tempo
+eval_t eval_tempo_bonus(const board_s* board) {
+	if (board->sidetomove == WHITE)
+		return EVAL_TEMPO_BONUS;
+	return -EVAL_TEMPO_BONUS;
+}
+
 
 
 eval_t get_move_predict_score(const board_s* board, const move_s* move) {

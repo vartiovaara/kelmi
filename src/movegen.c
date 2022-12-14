@@ -118,6 +118,19 @@ bool is_in_check(const board_s* board, const unsigned int side) {
 }
 
 
+//TODO: Check validity
+bool promote_available(const board_s* board, const unsigned int side) {
+	assert(side == WHITE || side == BLACK);
+
+	BitBoard pawns_about_to_promote = board->pieces[side][PAWN] & (side == WHITE ? W_PROMOTE_FROM_MASK : B_PROMOTE_FROM_MASK);
+	while (pawns_about_to_promote) {
+		if (pseudo_legal_squares_p(board, side, pop_bitboard(&pawns_about_to_promote)) & TOP_MASK)
+			return true;
+	}
+	return false;
+}
+
+
 void set_move_flags(move_s* move, const board_s* board) {
 	// Setting capture flag
 	if (move->to & board->every_piece) { // move was a capture

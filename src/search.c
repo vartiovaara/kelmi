@@ -19,7 +19,7 @@
 
 // Private functions
 eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta);
-eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, eval_t alpha, eval_t beta);
+eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, eval_t alpha, eval_t beta);
 
 
 eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bestmove) {
@@ -29,7 +29,7 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 	//	goto THINK_PONDER;
 	
 	// Normal search (alpha is maximizing and beta minimizing)
-	return regular_search(board, bestmove, NULL, 7, 7, false, EVAL_MIN, EVAL_MAX);
+	return regular_search(board, bestmove, NULL, 6, 6, false, EVAL_MIN, EVAL_MAX);
 
 	//THINK_PONDER:
 	// TODO
@@ -63,7 +63,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		stats->n_positions[stats->n_plies - depth]++;
 	
 	if (depth <= 0)
-		return q_search(board, stats, search_depth, depth, alpha, beta);
+		return q_search(board, stats, search_depth, alpha, beta);
 
 	const unsigned int initial_side = board->sidetomove;
 
@@ -280,19 +280,53 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 }
 
 
-eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, eval_t alpha, eval_t beta) {
-	if (stats)
-		stats->nodes++;
+eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, eval_t alpha, eval_t beta) {
 	
 	// if (stats && depth >= 0)
 	// 	stats->n_positions[stats->n_plies - depth]++;
 	
-	if (depth <= 0)
-		return eval(board);
-
-	const unsigned int initial_side = board->sidetomove;
+	// if (depth <= 0)
+	// 	return eval(board);
 
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
+
+	
+	
+	/*
+	const eval_t stand_pat = eval(board);
+	
+	eval_t big_delta = EVAL_QUEEN_MATERIAL_VALUE;
+
+	if (promote_available(board, board->sidetomove))
+		big_delta = EVAL_QUEEN_MATERIAL_VALUE - EVAL_PAWN_MATERIAL_VALUE;
+	
+	if (board->sidetomove == WHITE) {
+		if (stand_pat < alpha - big_delta)
+			return alpha;
+		alpha = better_eval(alpha, stand_pat, board->sidetomove);
+	}
+	else {
+		if (stand_pat > beta + big_delta)
+			return beta;
+		beta = better_eval(beta, stand_pat, board->sidetomove);
+	}
+	*/
+	
+	/*
+	if (board->sidetomove == WHITE) {
+		if (stand_pat >= beta)
+			return beta;
+		//alpha = MAX(stand_pat, beta); //better_eval(stand_pat, alpha, board->sidetomove);
+	}
+	else {
+		if (stand_pat <= alpha)
+			return alpha;
+		//beta = MIN(stand_pat, beta); //better_eval(stand_pat, beta, board->sidetomove);
+	}
+	*/
+	
+
+	const unsigned int initial_side = board->sidetomove;
 
 	// for checking if there were any legal moves in this position for board->sidetomove
 	unsigned int n_legal_moves_done = 0;
@@ -312,9 +346,9 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 #endif // NDEBUG
 	
 
-	bool do_null_move = false;
-	if (depth >= NULL_MOVE_PRUNING_R + 1 && search_depth-depth > 0 && !initially_in_check)// && !is_null_prune)
-		do_null_move = false; // null move pruning disabled in q-search
+	// bool do_null_move = false;
+	// if (depth >= NULL_MOVE_PRUNING_R + 1 && search_depth-depth > 0 && !initially_in_check)// && !is_null_prune)
+	// 	do_null_move = false; // null move pruning disabled in q-search
 	
 	const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
 	
@@ -348,11 +382,10 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 		n_all_moves++; */
 	for (unsigned int i = 0; i < n_all_moves; i++) {
 		move_s* move = NULL;
-
 		
 		// Do a null move
-		if (do_null_move && i == 0 )
-			goto REGULAR_SEARCH_SKIP_MOVE_SELECTION;
+		// if (do_null_move && i == 0 )
+		// 	goto REGULAR_SEARCH_SKIP_MOVE_SELECTION;
 
 		unsigned int piece_index = UINT_MAX;
 		unsigned int move_index = UINT_MAX;
@@ -409,51 +442,77 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 			}
 		}
 
+		// Quiescence moving pre move-make
+
+		bool failed_q_prune = true;
+
 		if (move->flags & FLAG_CAPTURE) {
 			eval_t move_see = see(board, move);
-			if (move_see < EVAL_KNIGHT_MATERIAL_VALUE) {
-				n_fail_q_prune++;
-				continue;
+
+			if (move_see < 0)
+				failed_q_prune = true;
+			else if (board->sidetomove == WHITE) {
+				if (eval_material(board) + move_see - EVAL_PAWN_MATERIAL_VALUE*1.5 > alpha) {
+					failed_q_prune = false;
+				}
+			}
+			else {
+				if (eval_material(board) - move_see + EVAL_PAWN_MATERIAL_VALUE*1.5 < beta) {
+					failed_q_prune = false;
+				}
 			}
 		}
+		else if (move->flags & FLAG_PROMOTE)
+			failed_q_prune = false;
 		else{
-			n_fail_q_prune++;
-			continue;
+			//n_fail_q_prune++;
+			failed_q_prune = true;
 		}
 		
+
 		REGULAR_SEARCH_SKIP_MOVE_SELECTION:
 		
 		makemove(board, move);
 		//append_to_move_history(board, move);
 
+
 		// worst eval by default
 		eval_t eval = better_eval(EVAL_MAX, EVAL_MIN, OPPOSITE_SIDE(initial_side));
 		
-		if (i == 0 && do_null_move) {
-			if (initial_side == WHITE)
-				eval = regular_search(board, NULL, stats, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, alpha - 1, alpha);
-			else
-				eval = regular_search(board, NULL, stats, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, beta - 1, beta);
-		}
-		else {
-			// check if that side got itself in check (or couldn't get out of one)
-			if (is_in_check(board, initial_side))
-				goto REGULAR_SEARCH_SKIP_MOVE;
+		// check if that side got itself in check (or couldn't get out of one)
+		if (is_in_check(board, initial_side))
+			goto REGULAR_SEARCH_SKIP_MOVE;
 
-			n_legal_moves_done++;
+		n_legal_moves_done++;
 
-			// --- MOVE WAS LEGAL AND IS DONE ---
+		// --- MOVE WAS LEGAL AND IS DONE ---
+
+		if (stats)
+			stats->nodes++;
 
 
-			eval = q_search(board, stats, search_depth, depth-1, alpha, beta);
-			//printf("info string %f\n", eval);
+		// Quiescence pruning after move-make
 
-			// if move was better, store it instead
-			if (is_eval_better(eval, bestmove_eval, initial_side)) {
-				bestmove_eval = eval;
-				// if (bestmove)
-				// 	memcpy(bestmove, move, sizeof (move_s));
+		if (failed_q_prune) {
+			if (is_in_check(board, board->sidetomove)) {
+				failed_q_prune = false;
 			}
+		}
+
+		if (failed_q_prune) {
+			unmakemove(board);
+			n_fail_q_prune++;
+			continue;
+		}
+
+		eval = q_search(board, stats, search_depth, alpha, beta);
+		//printf("info string %f\n", eval);
+
+		// if move was better, store it instead
+		if (is_eval_better(eval, bestmove_eval, initial_side)) {
+			bestmove_eval = eval;
+			// if (bestmove)
+			// 	memcpy(bestmove, move, sizeof (move_s));
 		}
 
 		// alpha is maximizing and beta is minimizing
@@ -464,8 +523,8 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 		
 		if (beta <= alpha) {
 			fail_low = true;
-			if (stats)
-				stats->fail_hard_cutoffs[stats->n_plies - depth]++;
+			// if (stats)
+			// 	stats->fail_hard_cutoffs[stats->n_plies - depth]++;
 			unmakemove(board);
 			break; // at least 1 legal move has to have been made so we can just break search
 		}
@@ -497,9 +556,6 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 			return beta;
 	}
 
-	if (n_fail_q_prune == n_all_moves) {
-		return eval(board);
-	}
 
 	// No moves were made??
 	if (!n_legal_moves_done) {
@@ -510,6 +566,10 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 		else { // is a stalemate (wasn't in check and no legal moves)
 			return 0;
 		}
+	}
+
+	if (n_fail_q_prune == n_legal_moves_done) {
+		return eval(board);
 	}
 	
 	return bestmove_eval;
