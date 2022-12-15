@@ -134,7 +134,9 @@ bool promote_available(const board_s* board, const unsigned int side) {
 void set_move_flags(move_s* move, const board_s* board) {
 	// Setting capture flag
 	if (move->to & board->every_piece) { // move was a capture
-		assert(!(board->pieces[OPPOSITE_SIDE(move->side)][KING] & move->to));
+		// assert may cause issues when checking mobility
+		// FIXME: Create separate movability calc function
+		//assert(!(board->pieces[OPPOSITE_SIDE(move->side)][KING] & move->to));
 		assert(move->to & board->all_pieces[OPPOSITE_SIDE(move->side)]);
 
 		move->flags |= FLAG_CAPTURE;

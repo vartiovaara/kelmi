@@ -51,11 +51,11 @@ const eval_t mv_move_weight[N_PIECES] = {
 
 eval_t psqt_pawn[64] = {
 	100, 100, 100, 100, 100, 100, 100, 100,
-	  0,   0,   0,   0,   0,   0,   0,   0,
+	 11,  11,  11,  11,  11,  11,  11,  11,
 	 10,  10,  10,  10,  10,  10,  10,  10,
 	 10,   5,   7,  13,  13,   8,   5,   8,
 	  5,  10,  13,  20,  25,  12,  -1,  15,
-	  7,   9,  11,  12,  12,  11,   0,  11,
+	  7,   9,  11,  12,  12,  11,  -1,  11,
 	  0,   0,   3,  -1,  -1,   0,  18,   0,
 	  0,   0,   0,   0,   0,   0,   0,   0
 };
@@ -190,7 +190,7 @@ inline eval_t eval(const board_s* board) {
 	eval += eval_movable_squares(board);
 	//eval += eval_king_guard(board);
 	eval += eval_castling_rights(board);
-	eval += eval_tempo_bonus(board);
+	//eval += eval_tempo_bonus(board);
 
 	return eval;
 	
@@ -438,6 +438,7 @@ eval_t eval_castling_rights(const board_s* board) {
 }
 
 
+// FIXME: Implement computer side. Function doesn't work otherwise
 // https://www.chessprogramming.org/Tempo
 eval_t eval_tempo_bonus(const board_s* board) {
 	if (board->sidetomove == WHITE)

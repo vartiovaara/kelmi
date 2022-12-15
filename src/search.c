@@ -19,7 +19,7 @@
 
 // Private functions
 eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta);
-eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, eval_t alpha, eval_t beta);
+eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, eval_t alpha, eval_t beta);
 
 
 eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bestmove) {
@@ -48,6 +48,9 @@ eval_t search_with_stats(board_s* restrict board, move_s* restrict bestmove, con
 	// +1 becouse we start at 0 and end in depth, not depth-1
 	// n_positions[0] should always be 1 becouse there is only 1 root node (duh!)
 	stats->n_positions = calloc(depth+1, sizeof (unsigned long long));
+
+	//stats->n_positions_size = depth+1;
+
 	stats->fail_hard_cutoffs = calloc(depth+1, sizeof (unsigned long long));
 
 	return regular_search(board, bestmove, stats, depth, depth, false, EVAL_MIN, EVAL_MAX);
@@ -56,15 +59,15 @@ eval_t search_with_stats(board_s* restrict board, move_s* restrict bestmove, con
 
 
 eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta) {
-	if (stats)
-		stats->nodes++;
-	
 	if (stats && depth >= 0)
 		stats->n_positions[stats->n_plies - depth]++;
 	
 	if (depth <= 0)
-		return q_search(board, stats, search_depth, alpha, beta);
+		return q_search(board, stats, search_depth, depth - 1, alpha, beta);
 
+	if (stats)
+		stats->nodes++;
+	
 	const unsigned int initial_side = board->sidetomove;
 
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
@@ -280,50 +283,67 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 }
 
 
-eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, eval_t alpha, eval_t beta) {
-	
-	// if (stats && depth >= 0)
-	// 	stats->n_positions[stats->n_plies - depth]++;
-	
+
+
+eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, eval_t alpha, eval_t beta) {
 	// if (depth <= 0)
 	// 	return eval(board);
 
-	const bool initially_in_check = is_in_check(board, board->sidetomove);
+	assert(depth < 0);
 
-	
-	
 	/*
+	if (stats) {
+		const unsigned int curr_depth = search_depth + -depth;
+		if (curr_depth + 1 > stats->n_plies) {
+			unsigned long long* new_n_positions = realloc(stats->n_positions, sizeof (unsigned long long) * (curr_depth + 1));
+			if (!new_n_positions) {
+				puts("No memory to realloc n_positions! Aborting...");
+				abort();
+			}
+			stats->n_positions = new_n_positions;
+			stats->n_plies = curr_depth;
+		}
+	 	stats->n_positions[curr_depth]++;
+	}
+	*/
+
+	const bool initially_in_check = is_in_check(board, board->sidetomove);
+	
+	
 	const eval_t stand_pat = eval(board);
 	
-	eval_t big_delta = EVAL_QUEEN_MATERIAL_VALUE;
+	/*
+	if (depth <= Q_SEARCH_STANDPAT_PRUNING_DEPTH_TRESHOLD) {
+		if (board->sidetomove == WHITE) {
+			if (stand_pat <= alpha)
+				return alpha;
+			//alpha = MAX(stand_pat, alpha); //better_eval(stand_pat, alpha, board->sidetomove);
+		}
+		else {
+			if (stand_pat >= beta)
+				return beta;
+			//beta = MIN(stand_pat, beta); //better_eval(stand_pat, beta, board->sidetomove);
+		}
+	}
+	*/
+
+	// Delta pruning i think is the term for the following pruning?
+	big_eval_t big_delta = EVAL_QUEEN_MATERIAL_VALUE;
 
 	if (promote_available(board, board->sidetomove))
 		big_delta = EVAL_QUEEN_MATERIAL_VALUE - EVAL_PAWN_MATERIAL_VALUE;
 	
 	if (board->sidetomove == WHITE) {
-		if (stand_pat < alpha - big_delta)
+		if (stand_pat < (big_eval_t)alpha - big_delta)
 			return alpha;
 		alpha = better_eval(alpha, stand_pat, board->sidetomove);
 	}
 	else {
-		if (stand_pat > beta + big_delta)
+		if (stand_pat > (big_eval_t)beta + big_delta)
 			return beta;
 		beta = better_eval(beta, stand_pat, board->sidetomove);
 	}
-	*/
 	
-	/*
-	if (board->sidetomove == WHITE) {
-		if (stand_pat >= beta)
-			return beta;
-		//alpha = MAX(stand_pat, beta); //better_eval(stand_pat, alpha, board->sidetomove);
-	}
-	else {
-		if (stand_pat <= alpha)
-			return alpha;
-		//beta = MIN(stand_pat, beta); //better_eval(stand_pat, beta, board->sidetomove);
-	}
-	*/
 	
 
 	const unsigned int initial_side = board->sidetomove;
@@ -345,10 +365,6 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 	BitBoard every_piece_copy = board->every_piece;
 #endif // NDEBUG
 	
-
-	// bool do_null_move = false;
-	// if (depth >= NULL_MOVE_PRUNING_R + 1 && search_depth-depth > 0 && !initially_in_check)// && !is_null_prune)
-	// 	do_null_move = false; // null move pruning disabled in q-search
 	
 	const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
 	
@@ -375,17 +391,8 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 
 	eval_t last_best_move = EVAL_MAX;
 
-	/*
-	// Go through every move
-	// +1 becouse of null move
-	if (do_null_move)
-		n_all_moves++; */
 	for (unsigned int i = 0; i < n_all_moves; i++) {
 		move_s* move = NULL;
-		
-		// Do a null move
-		// if (do_null_move && i == 0 )
-		// 	goto REGULAR_SEARCH_SKIP_MOVE_SELECTION;
 
 		unsigned int piece_index = UINT_MAX;
 		unsigned int move_index = UINT_MAX;
@@ -438,50 +445,48 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 			//FIXME: This shit is slow as fuck. Make those attack maps pls.
 			while (target_squares) {
 				if (is_side_attacking_sq(board, pop_bitboard(&target_squares), OPPOSITE_SIDE(board->sidetomove)))
-					goto REGULAR_SEARCH_SKIP_MOVE_PRE_MAKE;
+					continue;
 			}
 		}
 
-		// Quiescence moving pre move-make
+		// Quiescence pruning pre move-make
 
 		bool failed_q_prune = true;
 
 		if (move->flags & FLAG_CAPTURE) {
 			eval_t move_see = see(board, move);
 
+			assert(-(eval_t)depth - 1 >= 0);
+
 			if (move_see < 0)
 				failed_q_prune = true;
 			else if (board->sidetomove == WHITE) {
-				if (eval_material(board) + move_see - EVAL_PAWN_MATERIAL_VALUE*1.5 > alpha) {
+				if (eval_material(board) + move_see + Q_SEARCH_PRUNE_TRESHOLD(depth) > alpha) {
 					failed_q_prune = false;
 				}
 			}
 			else {
-				if (eval_material(board) - move_see + EVAL_PAWN_MATERIAL_VALUE*1.5 < beta) {
+				if (eval_material(board) - move_see - Q_SEARCH_PRUNE_TRESHOLD(depth) < beta) {
 					failed_q_prune = false;
 				}
 			}
 		}
 		else if (move->flags & FLAG_PROMOTE)
 			failed_q_prune = false;
-		else{
-			//n_fail_q_prune++;
+		else if (move->fromtype == PAWN && move->from & (move->side == WHITE ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B))
+			failed_q_prune = false;
+		else
 			failed_q_prune = true;
-		}
 		
-
-		REGULAR_SEARCH_SKIP_MOVE_SELECTION:
 		
 		makemove(board, move);
-		//append_to_move_history(board, move);
-
 
 		// worst eval by default
 		eval_t eval = better_eval(EVAL_MAX, EVAL_MIN, OPPOSITE_SIDE(initial_side));
 		
 		// check if that side got itself in check (or couldn't get out of one)
 		if (is_in_check(board, initial_side))
-			goto REGULAR_SEARCH_SKIP_MOVE;
+			goto Q_SEARCH_SKIP_MOVE;
 
 		n_legal_moves_done++;
 
@@ -505,15 +510,12 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 			continue;
 		}
 
-		eval = q_search(board, stats, search_depth, alpha, beta);
+		eval = q_search(board, stats, search_depth, depth - 1, alpha, beta);
 		//printf("info string %f\n", eval);
 
 		// if move was better, store it instead
-		if (is_eval_better(eval, bestmove_eval, initial_side)) {
+		if (is_eval_better(eval, bestmove_eval, initial_side))
 			bestmove_eval = eval;
-			// if (bestmove)
-			// 	memcpy(bestmove, move, sizeof (move_s));
-		}
 
 		// alpha is maximizing and beta is minimizing
 		if (initial_side == WHITE)
@@ -530,10 +532,8 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 		}
 
 
-		REGULAR_SEARCH_SKIP_MOVE:
+		Q_SEARCH_SKIP_MOVE:
 		unmakemove(board);
-		REGULAR_SEARCH_SKIP_MOVE_PRE_MAKE:
-		continue;
 	}
 
 	// Free this stuff

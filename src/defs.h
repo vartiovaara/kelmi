@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <limits.h>
+#include <math.h>
 
 
 /*
@@ -99,6 +100,10 @@ To make a move, give it in uci format."
 #define BQ_CAST_CLEAR_MASK 0x0e00000000000000
 #define BK_CAST_CLEAR_MASK 0x6000000000000000
 
+// Quiescence search pawn selection mask
+#define Q_SEARCH_PAWN_SELECT_MASK_W 0xffffff0000000000 // top 3 rows
+#define Q_SEARCH_PAWN_SELECT_MASK_B 0x0000000000ffffff // bottom 3 rows
+
 // Handy squares
 #define A1 0x0000000000000001
 #define A8 0x0100000000000000
@@ -123,17 +128,19 @@ To make a move, give it in uci format."
 // Eval type max and min
 #define EVAL_MAX INT_MAX
 #define EVAL_MIN INT_MIN
+#define BIG_EVAL_MAX LONG_MAX
+#define BIG_EVAL_MIN LONG_MIN
 
 // Eval values
 #define EVAL_PAWN_MATERIAL_VALUE 100
 #define EVAL_KNIGHT_MATERIAL_VALUE 300//305
 #define EVAL_BISHOP_MATERIAL_VALUE 300//333
-#define EVAL_ROOK_MATERIAL_VALUE 600//563
+#define EVAL_ROOK_MATERIAL_VALUE 620//563
 #define EVAL_QUEEN_MATERIAL_VALUE 950
 #define EVAL_MATERIAL_IMBALANCE_ACCENTUATE_MULT 2
-#define EVAL_BPAIR_VALUE 75
+#define EVAL_BPAIR_VALUE 50
 #define EVAL_STACKED_PAWNS_PUNISHMENT 19 // applied for every stacked pawn
-#define EVAL_ROOK_OPEN_FILE 30
+#define EVAL_ROOK_OPEN_FILE 15
 #define EVAL_MOVABLE_SQUARES_MULT 1
 #define EVAL_CASTLING_RIGHTS_Q 4
 #define EVAL_CASTLING_RIGHTS_K 15
@@ -147,13 +154,20 @@ To make a move, give it in uci format."
 #define MV_SCORE_MOVE_WEIGHT_ROOK 31
 #define MV_SCORE_MOVE_WEIGHT_QUEEN 60
 #define MV_SCORE_MOVE_WEIGHT_KING 5
-#define MV_SCORE_KCASTLE 19
-#define MV_SCORE_QCASTLE 14
+#define MV_SCORE_KCASTLE 10
+#define MV_SCORE_QCASTLE 5
 #define MV_SCORE_PROMOTE 200 // added on top of material addition(piece to promote to)
 #define MV_SCORE_CHECK 500
 #define MV_SCORE_CAPTURER_VALUE_DIVIDE 5
 
-#define NULL_MOVE_PRUNING_R 3
+#define NULL_MOVE_PRUNING_R 2
+
+#define Q_SEARCH_INITIAL_PRUNE_TRESHOLD -100 // (MV_SCORE_MOVE_WEIGHT_PAWN)
+// enter in graphical calculator
+// depth in q-search is always -1 or less
+#define Q_SEARCH_PRUNE_TRESHOLD(depth) ((eval_t)(Q_SEARCH_INITIAL_PRUNE_TRESHOLD - (-(eval_t)depth - 1)*300)) // (int)powf(-1 - depth, 0.7))
+
+#define Q_SEARCH_STANDPAT_PRUNING_DEPTH_TRESHOLD (0)
 
 // Empty square char
 #define NO_PIECE_CHAR ('.')
@@ -184,7 +198,8 @@ To make a move, give it in uci format."
 
 typedef uint64_t BitBoard;
 typedef signed int eval_t; // IF THIS IS CHANGED; CHANGE THE MAX AND MIN DEFS TOO
-
+// An eval type quaranteed to be bigger than eval_t. Use for delta calc when values might underflow
+typedef signed long big_eval_t;  // IF THIS IS CHANGED; CHANGE THE MAX AND MIN DEFS TOO
 
 /*
  * Enums
