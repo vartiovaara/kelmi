@@ -458,17 +458,18 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 
 			assert(-(eval_t)depth - 1 >= 0);
 
+			
 			if (move_see < 0)
 				failed_q_prune = true;
 			else if (board->sidetomove == WHITE) {
-				if (eval_material(board) + move_see + Q_SEARCH_PRUNE_TRESHOLD(depth) > alpha) {
+				const int phase = get_game_phase_value(board);
+				if (eval_material(board, phase) + move_see + Q_SEARCH_PRUNE_TRESHOLD > alpha)
 					failed_q_prune = false;
-				}
 			}
 			else {
-				if (eval_material(board) - move_see - Q_SEARCH_PRUNE_TRESHOLD(depth) < beta) {
+				const int phase = get_game_phase_value(board);
+				if (eval_material(board, phase) - move_see - Q_SEARCH_PRUNE_TRESHOLD < beta)
 					failed_q_prune = false;
-				}
 			}
 		}
 		else if (move->flags & FLAG_PROMOTE)
@@ -477,7 +478,6 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 			failed_q_prune = false;
 		else
 			failed_q_prune = true;
-		
 		
 		makemove(board, move);
 
@@ -498,11 +498,11 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 
 		// Quiescence pruning after move-make
 
-		if (failed_q_prune) {
-			if (is_in_check(board, board->sidetomove)) {
-				failed_q_prune = false;
-			}
-		}
+		// if (failed_q_prune) {
+		// 	if (is_in_check(board, board->sidetomove)) {
+		// 		failed_q_prune = false;
+		// 	}
+		// }
 
 		if (failed_q_prune) {
 			unmakemove(board);

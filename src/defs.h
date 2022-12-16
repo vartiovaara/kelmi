@@ -137,7 +137,7 @@ To make a move, give it in uci format."
 #define EVAL_BISHOP_MATERIAL_VALUE 300//333
 #define EVAL_ROOK_MATERIAL_VALUE 620//563
 #define EVAL_QUEEN_MATERIAL_VALUE 950
-#define EVAL_MATERIAL_IMBALANCE_ACCENTUATE_MULT 2
+#define EVAL_MATERIAL_IMBALANCE_ACCENTUATE_MULT 1
 #define EVAL_BPAIR_VALUE 50
 #define EVAL_STACKED_PAWNS_PUNISHMENT 19 // applied for every stacked pawn
 #define EVAL_ROOK_OPEN_FILE 15
@@ -162,10 +162,11 @@ To make a move, give it in uci format."
 
 #define NULL_MOVE_PRUNING_R 2
 
-#define Q_SEARCH_INITIAL_PRUNE_TRESHOLD -100 // (MV_SCORE_MOVE_WEIGHT_PAWN)
+//#define Q_SEARCH_INITIAL_PRUNE_TRESHOLD -100 // (MV_SCORE_MOVE_WEIGHT_PAWN)
 // enter in graphical calculator
 // depth in q-search is always -1 or less
-#define Q_SEARCH_PRUNE_TRESHOLD(depth) ((eval_t)(Q_SEARCH_INITIAL_PRUNE_TRESHOLD - (-(eval_t)depth - 1)*300)) // (int)powf(-1 - depth, 0.7))
+//#define Q_SEARCH_PRUNE_TRESHOLD(depth) ((eval_t)(Q_SEARCH_INITIAL_PRUNE_TRESHOLD + (-(eval_t)depth - 1)*0)) // (int)powf(-1 - depth, 0.7))
+#define Q_SEARCH_PRUNE_TRESHOLD 78
 
 #define Q_SEARCH_STANDPAT_PRUNING_DEPTH_TRESHOLD (0)
 
