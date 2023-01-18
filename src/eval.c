@@ -352,7 +352,7 @@ inline eval_t eval(const board_s* board) {
 	//eval += eval_movable_squares(board);
 	//eval += eval_king_guard(board);
 	eval += eval_castling_rights(board);
-	eval += eval_tempo_bonus(board);
+	//eval += eval_tempo_bonus(board);
 
 	return eval;
 	
@@ -630,6 +630,7 @@ eval_t eval_castling_rights(const board_s* board) {
 }
 
 
+// FIXME: Make computer-side tracking. Function can't work otherwise
 // https://www.chessprogramming.org/Tempo
 eval_t eval_tempo_bonus(const board_s* board) {
 	if (board->sidetomove == WHITE)

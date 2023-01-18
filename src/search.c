@@ -471,13 +471,19 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 				if (eval_material(board, phase) - move_see - Q_SEARCH_PRUNE_TRESHOLD < beta)
 					failed_q_prune = false;
 			}
+
+			if (move->piece_captured == PAWN && move->to & (move->side == BLACK ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B))
+				failed_q_prune = false;
+			else if (move->fromtype == KING)
+				failed_q_prune = false;
 		}
 		else if (move->flags & FLAG_PROMOTE)
 			failed_q_prune = false;
-		else if (move->fromtype == PAWN && move->from & (move->side == WHITE ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B))
-			failed_q_prune = false;
 		else
 			failed_q_prune = true;
+		
+		if (move->fromtype == PAWN && move->from & (move->side == WHITE ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B))
+			failed_q_prune = false;
 		
 		makemove(board, move);
 

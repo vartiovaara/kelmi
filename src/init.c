@@ -9,8 +9,12 @@ Init stuff
 #include "defs.h"
 #include "lookup.h"
 #include "magicmoves/magicmoves.h"
+#include "random.h"
+
+const uint64_t seed[] = {'b', 'o', 'o', 'b', 's'};
 
 int init_all() {
+	init_by_array64(seed, LENGTH(seed));
 	reset_lookups();
 	compute_lookups();
 	set_lookup_pointers();

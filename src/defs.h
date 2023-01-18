@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <limits.h>
 #include <math.h>
+#include <stdlib.h>
 
 
 /*
@@ -39,6 +40,7 @@ To make a move, give it in uci format."
 #define OPPOSITE_SIDE(side) ((side == WHITE) ? BLACK : WHITE)
 #define MIN(x, y) (x < y ? x : y)
 #define MAX(x, y) (x > y ? x : y)
+#define LENGTH(x) (sizeof (x) / sizeof (x[0]))
 
 // Border masks
 #define TOP_MASK    0xff00000000000000
@@ -191,7 +193,7 @@ To make a move, give it in uci format."
 //#define DEFAULT_FEN "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
 //#define DEFAULT_FEN "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
 //#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
-
+//#define DEFAULT_FEN "8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1"
 
 /*
  * Typedefs
@@ -259,6 +261,12 @@ enum uci_searchtype_e {
 	UCI_SEARCH_INFINITE,
 };
 
+enum tt_entry_flags_e {
+	TT_ENTRY_FLAG_EXIST     = 0x1 << 0,
+	TT_ENTRY_FLAG_FAIL_HIGH = 0x1 << 1,
+	TT_ENTRY_FLAG_FAIL_LOW  = 0x1 << 2
+};
+
 
 /*
  * Structs
@@ -318,6 +326,7 @@ typedef struct board_s {
 	uint8_t castling; // see castling_e enum
 	uint8_t fiftym_counter; // 50-move rule counter
 	uint8_t fullmoves;
+	uint64_t hash; // hash of current position
 
 	unsigned int history_n; // aka n of moves in movehistory
 	movelist_s movehistory; // movelist_s.n = n of moves allocated
@@ -372,6 +381,28 @@ typedef struct {
 
 	bool sudden_death;
 } uci_s;
+
+
+typedef struct {
+	uint64_t hash;
+	eval_t eval;
+	// height of the tree under this node
+	// if depth is set to 0, entry doesn't exist
+	// this works because qsearch has its own tt
+	// and qsearch nodes will set depth to 1 because of this
+	uint8_t depth;
+	uint8_t flags;
+	uint8_t bestmove_from;
+	uint8_t bestmove_to;
+	uint8_t bestmove_promoteto;
+} tt_entry_s;
+
+typedef struct {
+	tt_entry_s** entries; // [bucket][entry]
+	size_t n_buckets; // n of buckets
+	size_t n_entries; // n entries per bucket
+} tt_s;
+
 
 
 

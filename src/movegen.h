@@ -22,6 +22,10 @@ bool promote_available(const board_s* board, const unsigned int side);
 // NOTE: Does not set promotion flag
 void set_move_flags(move_s* move, const board_s* board);
 
+// sets everything needed in move
+// just give valid board, form, to and if needed; promoteto
+void create_move(const board_s* board, move_s* move, BitBoard from, BitBoard to, unsigned int promoteto);
+
 // generates all the squares the specified piece could move
 // currently just pseudo-legal so doesn't check for
 movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb);

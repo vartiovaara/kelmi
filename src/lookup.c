@@ -5,6 +5,8 @@
 
 #include "lookup.h"
 
+#include "random.h"
+
 #include "defs.h"
 
 
@@ -23,6 +25,12 @@ BitBoard* lookup[N_PIECES]; //[piece_e]
 // see eval.c
 BitBoard kingguardlookup[64];
 
+// These are public
+uint64_t hash_rand_piece[2][N_PIECES][64];
+uint64_t hash_rand_castle[2*2*2*2]; // castle flags use only 4 bits
+uint64_t hash_rand_enpassant[64];
+uint64_t hash_rand_sidetomove[2];
+
 
 
 // Private functions
@@ -37,6 +45,8 @@ void compute_white_pawn_lookup();
 void compute_black_pawn_lookup();
 
 void compute_king_guard_lookup();
+
+void compute_hash_rand();
 
 
 
@@ -82,6 +92,9 @@ void reset_lookups() {
 	memset(&pawnlookup, 0, sizeof pawnlookup);
 	memset(&lookup, 0, sizeof lookup);
 	memset(&kingguardlookup, 0, sizeof kingguardlookup);
+	memset(&hash_rand_piece, 0, sizeof hash_rand_piece);
+	memset(&hash_rand_castle, 0, sizeof hash_rand_castle);
+	memset(&hash_rand_enpassant, 0, sizeof hash_rand_enpassant);
 }
 
 void compute_lookups() {
@@ -94,6 +107,7 @@ void compute_lookups() {
 	compute_white_pawn_lookup();
 	compute_black_pawn_lookup();
 	compute_king_guard_lookup();
+	compute_hash_rand();
 }
 
 void set_lookup_pointers() {
@@ -352,4 +366,27 @@ void compute_king_guard_lookup() {
 		 * 1 1 1 1 1
 		 */
 	}
+}
+
+
+void compute_hash_rand() {
+	// uint64_t hash_rand_piece[2][N_PIECES][64];
+	for (int i = 0; i < 2; i++) {
+		for (int j = 0; j < N_PIECES; j++) {
+			for (int k = 0; k < 64; k++) {
+				hash_rand_piece[i][j][k] = genrand64_int64();
+			}
+		}
+	}
+	// uint64_t hash_rand_castle[2*2*2*2];
+	for (int i = 0; i < 2*2*2*2; i++) {
+		hash_rand_castle[i] = genrand64_int64();
+	}
+	// uint64_t hash_rand_enpassant[64];
+	for (int i = 0; i < 64; i++) {
+		hash_rand_enpassant[i] = genrand64_int64();
+	}
+	// uint64_t hash_rand_sidetomove[2];
+	hash_rand_sidetomove[0] = genrand64_int64(); // TODO: Have other just be 0x0?? investigate
+	hash_rand_sidetomove[1] = genrand64_int64();
 }

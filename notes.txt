@@ -221,3 +221,32 @@ Kf8 {[%emt 0:00:00]} 39. Bd6+ {[%emt 0:00:00]} 39... Kg8 {[%emt 0:00:00]} 40. g4
 {[%emt 0:00:00]} 48. Be5 {[%emt 0:00:00]} 48... Bd5 {[%emt 0:00:00]} 49. Bd6
 {[%emt 0:00:00]} 49... Be6 {[%emt 0:00:00]} 50. Be5 {[%emt 0:00:00]} 1/2-1/2
 
+
+18.12.2022:
+
+Bad blunder on move 41:
+
+[Event "Local Event"]
+[Site "Local Site"]
+[Date "2022.12.18"]
+[Round "1"]
+[White "Kelmi"]
+[Black "Monochrome"]
+[Result "0-1"]
+[PlyCount "92"]
+[Termination "rules infraction"]
+[WhiteClock "0:00:00.000"]
+[BlackClock "0:01:46.271"]
+[TimeControl "300+0"]
+[ECO "B48"]
+[Opening "Sicilian Defense"]
+[Variation "Paulsen Variation, Bastrikov Variation"]
+
+1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6 5. Nc3 Qc7 6. Be3 a6 7. Qf3 Ne5 8. Qg3
+Nf6 9. Be2 b5 10. f4 Nc4 11. e5 Nd5 12. Nxd5 exd5 13. Bc1 d6 14. exd6 Qxd6 15.
+b3 Qf6 16. c3 Nd6 17. Qe3+ Ne4 18. Bd3 Bf5 19. b4 Rc8 20. Bb2 Bd6 21. Nxf5 Qxf5
+22. O-O O-O 23. a4 Rfe8 24. axb5 axb5 25. Bxb5 d4 26. Qxd4 Red8 27. Qe3 Qxb5 28.
+Qxe4 Rc4 29. Qe3 Re8 30. Qh3 Bxf4 31. g3 Be3+ 32. Kh1 g6 33. Qg2 f5 34. Rad1
+Rce4 35. Qf3 Qc6 36. Kg2 g5 37. h3 h6 38. Rd3 Bb6 39. Kh1 h5 40. Ba3 g4 41. hxg4
+hxg4 42. Qg2 Kg7 43. Rd4 Rh8+ 44. Kg1 Qxc3 45. Qxe4 fxe4 46. Kg2 Bxd4 0-1
+

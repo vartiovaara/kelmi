@@ -166,6 +166,10 @@ void set_move_flags(move_s* move, const board_s* board) {
 		if (move->to == board->en_passant) {
 			move->flags |= FLAG_ENPASSANT;
 		}
+
+		// Promote
+		if (move->from & (move->side==WHITE ? W_PROMOTE_FROM_MASK : B_PROMOTE_FROM_MASK))
+			move->flags |= FLAG_PROMOTE;
 	}
 
 	// Setting probable-check flag
@@ -177,7 +181,32 @@ void set_move_flags(move_s* move, const board_s* board) {
 			}
 		}
 	}
+}
 
+
+void create_move(const board_s* board, move_s* move, BitBoard from, BitBoard to, unsigned int promoteto) {
+	assert(popcount(from) == 1);
+	assert(popcount(to) == 1);
+	
+	move->from = from;
+	move->to = to;
+	move->side = get_piece_side(board, from);
+	assert(move->side == board->sidetomove); // may cause problems??
+	move->fromtype = get_piece_type(board, move->side, from);
+
+	set_move_flags(move, board);
+
+	if (move->flags & FLAG_CAPTURE)
+		move->piece_captured = get_piece_type(board, OPPOSITE_SIDE(move->side), to);
+	
+	if (move->flags & FLAG_PROMOTE) {
+		assert(promoteto != KING);
+		assert(promoteto != PAWN);
+		move->promoteto = promoteto;
+	}
+	
+	move->old_castling_flags = board->castling;
+	move->old_en_passant = board->en_passant;
 }
 
 
@@ -215,10 +244,15 @@ movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb
 
 	// TODO: move ordering would be done here and taken into account in search
 	for (unsigned int i = 0; i < moves.n; i++) {
-		moves.moves[i].from = piecebb;
-		moves.moves[i].fromtype = piece_type;
-		moves.moves[i].side = side;
+		//moves.moves[i].from = piecebb;
+		//moves.moves[i].fromtype = piece_type;
+		//moves.moves[i].side = side;
 		moves.moves[i].flags = 0x0;
+
+		BitBoard from = piecebb;
+		BitBoard to_sq;
+
+		unsigned int promoteto = 0;
 		
 		// Change the to square only every N_PROM_PIECES
 		if (promote) {
@@ -226,21 +260,25 @@ movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb
 				last_pop = pop_bitboard(&to);
 			}
 			assert(last_pop);
-			moves.moves[i].to = last_pop;
-			moves.moves[i].flags |= FLAG_PROMOTE;
-			moves.moves[i].promoteto = promote_piece_codes[i % N_PROM_PIECES];
+			//moves.moves[i].to = last_pop;
+			to_sq = last_pop;
+			//moves.moves[i].flags |= FLAG_PROMOTE;
+			//moves.moves[i].promoteto = promote_piece_codes[i % N_PROM_PIECES];
+			promoteto = promote_piece_codes[i % N_PROM_PIECES];
 		}
 		else
-			moves.moves[i].to = pop_bitboard(&to);
+			to_sq = pop_bitboard(&to); //moves.moves[i].to = pop_bitboard(&to);
 		
-		// set flags
-		set_move_flags(moves.moves + i, board);
+		create_move(board, moves.moves + i, from, to_sq, promoteto);
 
-		if (moves.moves[i].flags & FLAG_CAPTURE)
-			moves.moves[i].piece_captured = get_piece_type(board, OPPOSITE_SIDE(side), moves.moves[i].to);
+		// set flags
+		//set_move_flags(moves.moves + i, board);
+
+		// if (moves.moves[i].flags & FLAG_CAPTURE)
+		// 	moves.moves[i].piece_captured = get_piece_type(board, OPPOSITE_SIDE(side), moves.moves[i].to);
 		
-		moves.moves[i].old_castling_flags = board->castling;
-		moves.moves[i].old_en_passant = board->en_passant;
+		// moves.moves[i].old_castling_flags = board->castling;
+		// moves.moves[i].old_en_passant = board->en_passant;
 		
 		moves.moves[i].move_score = get_move_predict_score(board, moves.moves + i);
 	}
