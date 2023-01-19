@@ -401,6 +401,7 @@ typedef struct {
 	tt_entry_s** entries; // [bucket][entry]
 	size_t n_buckets; // n of buckets
 	size_t n_entries; // n entries per bucket
+	unsigned int counter; // FIXME: counter to be used for just random replacement
 } tt_s;
 
 

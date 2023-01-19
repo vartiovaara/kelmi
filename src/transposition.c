@@ -19,11 +19,13 @@ tt_s tt_q; // transposition table for quiescense search
 
 void allocate_table(tt_s* tt, size_t n);
 void free_table(tt_s* tt);
-
+size_t get_entry_index(const tt_s* tt, uint64_t hash);
 
 
 void allocate_table(tt_s* tt, size_t n) {
 	assert(n >= N_BUCKETS); // minimum size
+
+	memset(tt, 0, sizeof (tt_s));
 
 	tt->n_buckets = N_BUCKETS;
 
@@ -59,10 +61,15 @@ void free_table(tt_s* tt) {
 }
 
 
+size_t get_entry_index(const tt_s* tt, uint64_t hash) {
+	return hash % tt->n_entries;
+}
+
+
 bool retrieve_entry(tt_s* tt, tt_entry_s* entry, uint64_t hash, bool qsearch) {
 
 	tt_entry_s* best_entry = NULL;
-	const size_t index = hash % tt->n_entries;
+	const size_t index = get_entry_index(tt, hash);
 
 	for (size_t i = 0; i < tt->n_buckets; i++) {
 		
