@@ -188,12 +188,13 @@ To make a move, give it in uci format."
 
 #define UCI_INPUT_BUFFER_SIZE 4096
 
-#define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+//#define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 //#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
 //#define DEFAULT_FEN "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
 //#define DEFAULT_FEN "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
 //#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
 //#define DEFAULT_FEN "8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1"
+#define DEFAULT_FEN "8/8/7p/3KNN1k/2p4p/8/3P2p1/8 w - - 0 1"
 
 /*
  * Typedefs
@@ -386,12 +387,9 @@ typedef struct {
 typedef struct {
 	uint64_t hash;
 	eval_t eval;
-	// height of the tree under this node
-	// if depth is set to 0, entry doesn't exist
-	// this works because qsearch has its own tt
-	// and qsearch nodes will set depth to 1 because of this
-	uint8_t depth;
-	uint8_t flags;
+	uint8_t search_depth; // depth of the search
+	uint8_t node_depth; // depth of this node
+	uint8_t flags; // TODO: Maybe do something with this
 	uint8_t bestmove_from;
 	uint8_t bestmove_to;
 	uint8_t bestmove_promoteto;

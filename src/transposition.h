@@ -17,7 +17,7 @@ extern void free_table(tt_s* tt);
 // Returns true if entry found. Copies the entry to entry
 extern bool retrieve_entry(tt_s* tt, tt_entry_s* entry, uint64_t hash, bool qsearch);
 
-extern void store_move(tt_s* tt, uint64_t hash, uint8_t depth, uint8_t from, uint8_t to, uint8_t promoteto, bool qsearch);
+extern void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint8_t node_depth, uint8_t from, uint8_t to, uint8_t promoteto, bool qsearch);
 
 
 #endif // TRANSPOSITION_H
