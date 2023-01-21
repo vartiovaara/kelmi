@@ -134,7 +134,7 @@ void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint
 
 	// n of bucket where to replace
 	// FIXME: Current is just basically random why what the fuck
-	size_t bucket_n = tt->counter % N_BUCKETS;
+	size_t bucket_n = tt->counter++ % N_BUCKETS;
 
 	memcpy(&(tt->entries[bucket_n][index]), &entry, sizeof (tt_entry_s));
 }
