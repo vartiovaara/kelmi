@@ -17,6 +17,7 @@ Stuff about boards and bitboards.
 
 #include "bitboard.h"
 #include "algebraic.h"
+#include "lookup.h"
 
 #include "defs.h"
 
@@ -197,6 +198,9 @@ board_s boardfromfen(const char* fen_str) {
 	board.fiftym_counter = strtoul(halfmove, NULL, 10);
 	board.fullmoves = strtoul(fullmove, NULL, 10);
 
+	// set board hash
+	board.hash = calculate_board_hash(&board);
+
 	/*
 #ifndef NDEBUG
 	printf("Start FEN parsing debug info\n");
@@ -234,24 +238,9 @@ void movepiece(board_s* board, const unsigned int type, const BitBoard from, con
 	// Otherwise we'd need to have a 4th argument
 	unsigned int side = get_piece_side(board, from);
 	
-	// Change piece bitboards
-	board->pieces[side][type] &= ~from; // remove from
-	board->pieces[side][type] |= to; // add to
-	board->all_pieces[side] &= ~from;
-	board->all_pieces[side] |= to;
 	
-	// board->pieces[side][type] ^= from; // remove from
-	// board->pieces[side][type] |= to; // add to
-	// board->all_pieces[side] ^= from;
-	// board->all_pieces[side] |= to;
-
-	// board->pieces[side][type] ^= from | to;
-	// board->all_pieces[side] ^= from | to;
-
-
-	//board->every_piece = board->all_pieces[WHITE] | board->all_pieces[BLACK];
-	board->every_piece &= ~from;
-	board->every_piece |= to;
+	removepiece(board, from, side, type);
+	addpiece(board, to, side, type);
 
 	assert(board->every_piece == (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
 }
@@ -261,10 +250,12 @@ void removepiece(board_s* board, const BitBoard pos, const unsigned int side, co
 	assert(popcount(pos) == 1);
 	assert(side == WHITE || side == BLACK);
 	assert(type < N_PIECES);
+	assert(board->pieces[side][type] & pos);
 
 	board->pieces[side][type] &= ~pos;
 	board->all_pieces[side] &= ~pos;
 	board->every_piece &= ~pos;
+	board->hash ^= hash_rand_piece[side][type][lowest_bitindex(pos)];
 }
 
 
@@ -272,28 +263,47 @@ void addpiece(board_s* board, const BitBoard pos, const unsigned int side, const
 	assert(popcount(pos) == 1);
 	assert(side == WHITE || side == BLACK);
 	assert(type < N_PIECES);
+	assert(board->pieces[side][type] ^ pos); // check that there wasn't a piece already
 
 	board->pieces[side][type] |= pos;
 	board->all_pieces[side] |= pos;
 	board->every_piece |= pos;
+	board->hash ^= hash_rand_piece[side][type][lowest_bitindex(pos)];
 }
 
 
 // TODO: Finish this function
 void makemove(board_s* restrict board, const move_s* restrict move) {
+	assert(popcount(board->en_passant) <= 1);
+	assert(board->castling < 2*2*2*2);
+
+
+	// remove castling from zobrish hash
+	board->hash ^= hash_rand_castle[board->castling];
+
+	// remove enpassant sqare from zobrist hash
+	if (board->en_passant)
+		board->hash ^= hash_rand_enpassant[lowest_bitindex(board->en_passant)];
+	
+	// remove sidetomove from zobrist hash
+	board->hash ^= hash_rand_sidetomove[board->sidetomove];
+
+
 	if (move == NULL)
 		goto MAKEMOVE_NULLMOVE;
-
 	
+
 	assert(popcount(move->from) == 1);
 	assert(popcount(move->to) == 1);
 	//assert(move->from)
 	assert(move->from & board->all_pieces[board->sidetomove]); // can trigger if wrong side tries to perform a move
 
+
 	bool pieces_moved = false;
 
 	// Clear en passant
 	board->en_passant = 0x0;
+
 
 	// If the piece was captured, remove it.
 	if (move->flags & FLAG_CAPTURE) {
@@ -361,19 +371,46 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 	// some moves are already handled (like castling)
 	if (!pieces_moved)
 		movepiece(board, move->fromtype, move->from, move->to);
-
+	
 	// change side to move
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
 
 	append_to_move_history(board, move);
 
+
+	// add castling rights back to zobrist hash
+	board->hash ^= hash_rand_castle[board->castling];
+	
+	// add enpassant sqare to zobrist hash
+	if (board->en_passant)
+		board->hash ^= hash_rand_enpassant[lowest_bitindex(board->en_passant)];
+	
+	// add sidetomove to zobrist hash
+	board->hash ^= hash_rand_sidetomove[board->sidetomove];
+
+
+	assert(calculate_board_hash(board) == board->hash);
+
 	return;
+
+
 
 	MAKEMOVE_NULLMOVE:
 	
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
-	append_to_move_history(board, NULL); // this function saves en_passant for null moves so do this first 
 	board->en_passant = 0x0;
+
+	// add castling rights back to zobrist hash
+	board->hash ^= hash_rand_castle[board->castling];
+	
+	// add enpassant sqare to zobrist hash
+	if (board->en_passant)
+		board->hash ^= hash_rand_enpassant[lowest_bitindex(board->en_passant)];
+	
+	// add sidetomove to zobrist hash
+	board->hash ^= hash_rand_sidetomove[board->sidetomove];
+
+	append_to_move_history(board, NULL); // this function saves en_passant for null moves so do this first 
 }
 
 
@@ -381,6 +418,16 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 void unmakemove(board_s* board) {
 	// Get the reference to the last move
 	const move_s* move = board->movehistory.moves + (board->history_n - 1);
+
+	// remove castling from zobrish hash
+	board->hash ^= hash_rand_castle[board->castling];
+
+	// remove enpassant sqare from zobrist hash
+	if (board->en_passant)
+		board->hash ^= hash_rand_enpassant[lowest_bitindex(board->en_passant)];
+	
+	// remove sidetomove from zobrist hash
+	board->hash ^= hash_rand_sidetomove[board->sidetomove];
 
 	if (!move->from && !move->to)
 		goto UNMAKEMOVE_NULLMOVE;
@@ -436,13 +483,39 @@ void unmakemove(board_s* board) {
 	
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
 
+	// add castling to zobrish hash
+	board->hash ^= hash_rand_castle[board->castling];
+
+	// add enpassant sqare to zobrist hash
+	if (board->en_passant)
+		board->hash ^= hash_rand_enpassant[lowest_bitindex(board->en_passant)];
+	
+	// add sidetomove to zobrist hash
+	board->hash ^= hash_rand_sidetomove[board->sidetomove];
+
+	assert(calculate_board_hash(board) == board->hash);
+
 	return;
+
+
 
 	UNMAKEMOVE_NULLMOVE:
 
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
 	board->en_passant = move->old_en_passant;
 	board->history_n--;
+
+	// add castling to zobrish hash
+	board->hash ^= hash_rand_castle[board->castling];
+
+	// add enpassant sqare to zobrist hash
+	if (board->en_passant)
+		board->hash ^= hash_rand_enpassant[lowest_bitindex(board->en_passant)];
+	
+	// add sidetomove to zobrist hash
+	board->hash ^= hash_rand_sidetomove[board->sidetomove];
+
+	assert(calculate_board_hash(board) == board->hash);
 }
 
 
@@ -623,6 +696,39 @@ void write_move_history(const board_s* board, FILE* f) {
 	}
 	fputs("\n", f);
 }
+
+
+// TODO: Test eligibility
+uint64_t calculate_board_hash(const board_s* board) {
+	assert(board->sidetomove == 0 || board->sidetomove == 1);
+	assert(popcount(board->en_passant) < 2);
+	assert(board->castling < 2*2*2*2);
+
+
+	// sidetomove
+	uint64_t hash = hash_rand_sidetomove[board->sidetomove];
+
+	// pieces
+	for (int i = 0; i < 2; i++) {
+		for (int j = 0; j < N_PIECES; j++) {
+			BitBoard pieces = board->pieces[i][j];
+			while (pieces) {
+				BitBoard piece = pop_bitboard(&pieces);
+				hash ^= hash_rand_piece[i][j][lowest_bitindex(piece)];
+			}
+		}
+	}
+
+	// enpassant
+	if (board->en_passant)
+		hash ^= hash_rand_enpassant[lowest_bitindex(board->en_passant)];
+
+	// castling
+	hash ^= hash_rand_castle[board->castling];
+
+	return hash;
+}
+
 
 
 #endif // BOARD_C

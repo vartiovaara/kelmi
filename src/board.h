@@ -68,4 +68,6 @@ void restore_board(board_s* restrict to, board_s* restrict from);
 
 void write_move_history(const board_s* board, FILE* f);
 
+uint64_t calculate_board_hash(const board_s* board);
+
 #endif // BOARD_H
