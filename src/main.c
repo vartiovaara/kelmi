@@ -10,6 +10,7 @@
 #include "perft.h"
 #include "board.h"
 #include "uci.h"
+#include "transposition.h"
 
 #include "defs.h"
 
@@ -129,7 +130,8 @@ int main(void) {
 	//perft(&board, argv[1][0]-48);
 
 	MAIN_NORMAL_EXIT:
-	
+
+	free_table(&tt_normal);
 
 	return 0;
 }

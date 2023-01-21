@@ -68,7 +68,9 @@ size_t get_entry_index(const tt_s* tt, uint64_t hash) {
 
 
 void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, uint8_t search_depth, uint8_t node_depth, uint8_t from, uint8_t to, uint8_t promoteto) {
-	assert(from && to);
+	assert(hash);
+	assert(from < 64);
+	assert(to < 64);
 
 	// FIXME
 	entry->hash = hash;
@@ -121,7 +123,8 @@ bool retrieve_entry(tt_s* tt, tt_entry_s* entry, uint64_t hash, bool qsearch) {
 // TODO: Implement qsearch replacement strategy
 void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint8_t node_depth, uint8_t from, uint8_t to, uint8_t promoteto, bool qsearch) {
 	assert(hash);
-	assert(from && to);
+	assert(from < 64);
+	assert(to < 64);
 
 	tt_entry_s entry;
 	memset(&entry, 0, sizeof (tt_entry_s));

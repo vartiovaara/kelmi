@@ -12,6 +12,7 @@
 #include "eval.h"
 #include "uci.h"
 #include "algebraic.h"
+#include "transposition.h"
 
 #include "defs.h"
 
@@ -62,6 +63,16 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	if (stats && depth >= 0)
 		stats->n_positions[stats->n_plies - depth]++;
 	
+	tt_entry_s entry;
+	if (retrieve_entry(&tt_normal, &entry, board->hash, false)) {
+		// (how many depth are supposed to be under the entry)  >= ( vs how many under this node)
+		if (entry.search_depth - entry.node_depth >= (signed int)search_depth - ((signed int)search_depth - depth)) {
+			if (stats)
+				stats->nodes++;
+			return entry.eval;
+		}
+	}
+
 	if (depth <= 0)
 		return q_search(board, stats, search_depth, depth - 1, alpha, beta);
 
@@ -105,6 +116,10 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	bool do_null_move = false;
 	if (depth >= NULL_MOVE_PRUNING_R + 1 && search_depth-depth > 0 && !initially_in_check && !is_null_prune)
 		do_null_move = true;
+
+	BitBoard bestmove_from = 0x0;
+	BitBoard bestmove_to = 0x0;
+	unsigned int bestmove_promoteto = 0;
 
 	// Go through every piece and create the moves
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
@@ -219,9 +234,19 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 			eval = regular_search(board, NULL, stats, search_depth, depth-1, is_null_prune, alpha, beta);
 			//printf("info string %f\n", eval);
 
-			// if move was better, store it instead
-			if (is_eval_better(eval, bestmove_eval, initial_side)) {
+			// if move was better, store it instead.
+			// Or if no legal moves have been stored to yet; store it now
+			if (is_eval_better(eval, bestmove_eval, initial_side) || bestmove_from == 0) {
+				assert(popcount(move->from) == 1);
+				assert(popcount(move->to) == 1);
 				bestmove_eval = eval;
+				bestmove_from = move->from;
+				bestmove_to = move->to;
+				if (move->flags & FLAG_PROMOTE)
+					bestmove_promoteto = move->promoteto;
+				else
+					bestmove_promoteto = 0x0;
+				
 				if (bestmove)
 					memcpy(bestmove, move, sizeof (move_s));
 			}
@@ -272,13 +297,19 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	if (!n_legal_moves_done) {
 		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
 			// store the worst value possible for checkmate
-			return (is_eval_better(EVAL_MAX, EVAL_MIN, board->sidetomove) ? EVAL_MIN : EVAL_MAX);
+			bestmove_eval = (is_eval_better(EVAL_MAX, EVAL_MIN, board->sidetomove) ? EVAL_MIN : EVAL_MAX);
 		}
 		else { // is a stalemate (wasn't in check and no legal moves)
-			return 0;
+			bestmove_eval = 0;
 		}
+		return bestmove_eval;
+		//store_move(&tt_normal, board->hash, bestmove_eval, search_depth, (search_depth - depth), )
 	}
-	
+
+	if (!is_null_prune)
+		store_move(&tt_normal, board->hash, bestmove_eval, search_depth, ((signed int)search_depth - depth), lowest_bitindex(bestmove_from), lowest_bitindex(bestmove_to), bestmove_promoteto, false);
+
+
 	return bestmove_eval;
 }
 

@@ -10,6 +10,7 @@ Init stuff
 #include "lookup.h"
 #include "magicmoves/magicmoves.h"
 #include "random.h"
+#include "transposition.h"
 
 const uint64_t seed[] = {'b', 'o', 'o', 'b', 's'};
 
@@ -19,6 +20,10 @@ int init_all() {
 	compute_lookups();
 	set_lookup_pointers();
 	initmagicmoves();
+
+	// FIXME: testing
+	allocate_table(&tt_normal, 10000000);
+
 	/*
 	unsigned int i; unsigned long l; BitBoard ll;
 	printf("uint: %llu %llu\nulong: %llu %llu\nullong: %llu %llu\n",
