@@ -83,15 +83,11 @@ void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, uint8_t search
 }
 
 
-bool retrieve_entry(tt_s* tt, tt_entry_s* entry, uint64_t hash, bool qsearch) {
+bool retrieve_entry(tt_s* restrict tt, tt_entry_s* restrict entry, uint64_t hash) {
 
-	tt_entry_s* best_entry = NULL;
 	const size_t index = get_entry_index(tt, hash);
 
 	for (size_t i = 0; i < tt->n_buckets; i++) {
-		
-		if (qsearch && best_entry)
-			break; // get the first matching entry if qsearch
 		
 		tt_entry_s* current_entry = &(tt->entries[i][index]);
 
@@ -101,23 +97,13 @@ bool retrieve_entry(tt_s* tt, tt_entry_s* entry, uint64_t hash, bool qsearch) {
 		if (current_entry->hash != hash)
 			continue; // entry didin't match
 		
-		if (!best_entry) {
-			best_entry = current_entry;
-			continue;
-		}
+		if (entry)
+			memcpy(entry, current_entry, sizeof (tt_entry_s));
 		
-		//if (current_entry->depth > best_entry->depth)
-		//	best_entry = current_entry;
-		// TODO: Design a proper selection method
-		if (current_entry->search_depth - current_entry->node_depth > best_entry->search_depth - best_entry->node_depth)
-			best_entry = current_entry;
+		return true;
 	}
 
-	if (!best_entry)
-		return false;
-	
-	memcpy(entry, best_entry, sizeof (tt_entry_s));
-	return true;
+	return false;
 }
 
 // TODO: Implement qsearch replacement strategy

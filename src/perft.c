@@ -136,6 +136,7 @@ void pruned_perft(board_s* board, const unsigned int depth) {
 	printf("\n");
 	printf("Moves generated: %llu\n", stats.n_moves_generated);
 	printf("Total fail-hard cutoffs: %llu\n", total_fail_hard);
+	printf("Transposition table hits: %llu\n", stats.hashtable_hits);
 
 	free(stats.n_positions);
 	free(stats.fail_hard_cutoffs);

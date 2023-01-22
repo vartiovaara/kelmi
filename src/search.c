@@ -20,7 +20,7 @@
 
 // Private functions
 eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta);
-eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, eval_t alpha, eval_t beta);
+eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, unsigned int qdepth, eval_t alpha, eval_t beta);
 
 
 eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bestmove) {
@@ -63,18 +63,21 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	if (stats && depth >= 0)
 		stats->n_positions[stats->n_plies - depth]++;
 	
-	tt_entry_s entry;
-	if (retrieve_entry(&tt_normal, &entry, board->hash, false)) {
+	tt_entry_s tt_entry;
+	const bool tt_entry_found = retrieve_entry(&tt_normal, &tt_entry, board->hash);
+	if (tt_entry_found) {
 		// (how many depth are supposed to be under the entry)  >= ( vs how many under this node)
-		if (entry.search_depth - entry.node_depth >= (signed int)search_depth - ((signed int)search_depth - depth)) {
-			if (stats)
+		if (tt_entry.search_depth - tt_entry.node_depth >= (signed int)search_depth - ((signed int)search_depth - depth)) {
+			if (stats) {
 				stats->nodes++;
-			return entry.eval;
+				stats->hashtable_hits++;
+			}
+			return tt_entry.eval;
 		}
 	}
 
 	if (depth <= 0)
-		return q_search(board, stats, search_depth, depth - 1, alpha, beta);
+		return q_search(board, stats, search_depth, depth - 1, 0, alpha, beta);
 
 	if (stats)
 		stats->nodes++;
@@ -159,6 +162,21 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 			for (unsigned int k = 0; k < all_moves[j].n; k++) {
 				if (move_visited[j][k])
 					continue;
+				
+				// if tt entry was found for this board, set the score for the saved move to best
+				// this means that move stored in tt will always be preferred and done first
+				if (tt_entry_found) {
+					if (all_moves[j].moves[k].from == tt_entry.bestmove_from &&
+					      all_moves[j].moves[k].to == tt_entry.bestmove_to) {
+						if (all_moves[j].moves[k].flags & FLAG_PROMOTE) { // check if promote
+							if (all_moves[j].moves[k].promoteto == tt_entry.bestmove_promoteto) // promoteto same
+								all_moves[j].moves[k].move_score = EVAL_MAX;
+						}
+						else // no promote so just from and to need to be same
+							all_moves[j].moves[k].move_score = EVAL_MAX;
+					}
+				}
+
 				// FIXME: NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE
 				if (move == NULL) {
 					if (all_moves[j].moves[k].move_score <= last_best_move) {
@@ -315,12 +333,25 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 
 
 
-
-eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, eval_t alpha, eval_t beta) {
+// qdepth starts always at 0 and is incremented every qnode.
+eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, unsigned int qdepth, eval_t alpha, eval_t beta) {
 	// if (depth <= 0)
 	// 	return eval(board);
 
 	assert(depth < 0);
+
+	// Looking up entries here slows search around 300knps
+	// TODO: Do more testing in future for this
+	if (qdepth > 0) {
+		tt_entry_s entry;
+		if (retrieve_entry(&tt_normal, &entry, board->hash)) {
+			if (stats) {
+				stats->nodes++;
+				stats->hashtable_hits++;
+			}
+			return entry.eval;
+		}
+	}
 
 	/*
 	if (stats) {
@@ -547,7 +578,7 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 			continue;
 		}
 
-		eval = q_search(board, stats, search_depth, depth - 1, alpha, beta);
+		eval = q_search(board, stats, search_depth, depth - 1, qdepth + 1, alpha, beta);
 		//printf("info string %f\n", eval);
 
 		// if move was better, store it instead

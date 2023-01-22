@@ -195,6 +195,8 @@ To make a move, give it in uci format."
 //#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
 //#define DEFAULT_FEN "8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1"
 //#define DEFAULT_FEN "8/8/7p/3KNN1k/2p4p/8/3P2p1/8 w - - 0 1"
+//#define DEFAULT_FEN "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"
+//#define DEFAULT_FEN "q2k2q1/2nqn2b/1n1P1n1b/2rnr2Q/1NQ1QN1Q/3Q3B/2RQR2B/Q2K2Q1 w - - 0 1"
 
 /*
  * Typedefs
@@ -360,6 +362,7 @@ typedef struct {
 	unsigned long long* fail_hard_cutoffs; // malloc -> Number of hard-cutoffs in nth ply
 	unsigned long long nodes;
 	unsigned long long n_moves_generated;
+	unsigned long long hashtable_hits;
 } search_stats_s;
 
 
