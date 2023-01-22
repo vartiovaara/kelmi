@@ -63,17 +63,22 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	if (stats && depth >= 0)
 		stats->n_positions[stats->n_plies - depth]++;
 	
+	bool tt_entry_found = false; //retrieve_entry(&tt_normal, &tt_entry, board->hash);
+	//if (tt_entry_found) {
 	tt_entry_s tt_entry;
-	const bool tt_entry_found = retrieve_entry(&tt_normal, &tt_entry, board->hash);
-	if (tt_entry_found) {
+	tt_entry_s* entry = probe_table(&tt_normal, board->hash);
+	if (entry) {
 		// (how many depth are supposed to be under the entry)  >= ( vs how many under this node)
-		if (tt_entry.search_depth - tt_entry.node_depth >= (signed int)search_depth - ((signed int)search_depth - depth)) {
+		if (entry->search_depth - entry->node_depth >= (signed int)search_depth - ((signed int)search_depth - depth)) {
 			if (stats) {
 				stats->nodes++;
 				stats->hashtable_hits++;
 			}
-			return tt_entry.eval;
+			return entry->eval;
 		}
+
+		tt_entry_found = true;
+		memcpy(&tt_entry, entry, sizeof (tt_entry_s));
 	}
 
 	if (depth <= 0)
@@ -133,6 +138,30 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 
 		if (all_moves[i].n)
 			move_visited[i] = calloc(all_moves[i].n, sizeof (bool));
+		
+		// if tt entry was found for this board, set the score for the saved move to best
+		// this means that move stored in tt will always be preferred and done first
+		if (tt_entry_found) {
+			for (size_t j = 0; j < all_moves[i].n; j++) {
+
+				if (all_moves[i].moves[j].from == SQTOBB(tt_entry.bestmove_from)) {
+
+					//all_moves[i].moves[j].move_score += 20; // same from square
+
+					if (all_moves[i].moves[j].to == SQTOBB(tt_entry.bestmove_to)) {
+
+						//all_moves[i].moves[j].move_score += 10; // same to square
+						
+						if (all_moves[i].moves[j].flags & FLAG_PROMOTE) { // check if promote
+							if (all_moves[i].moves[j].promoteto == tt_entry.bestmove_promoteto) // promoteto same
+								all_moves[i].moves[j].move_score = EVAL_MAX;
+						}
+						else // no promote so just from and to need to be same
+							all_moves[i].moves[j].move_score = EVAL_MAX;
+					}
+				}
+			}
+		}
 	}
 	
 	if (stats)
@@ -163,20 +192,6 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 				if (move_visited[j][k])
 					continue;
 				
-				// if tt entry was found for this board, set the score for the saved move to best
-				// this means that move stored in tt will always be preferred and done first
-				if (tt_entry_found) {
-					if (all_moves[j].moves[k].from == tt_entry.bestmove_from &&
-					      all_moves[j].moves[k].to == tt_entry.bestmove_to) {
-						if (all_moves[j].moves[k].flags & FLAG_PROMOTE) { // check if promote
-							if (all_moves[j].moves[k].promoteto == tt_entry.bestmove_promoteto) // promoteto same
-								all_moves[j].moves[k].move_score = EVAL_MAX;
-						}
-						else // no promote so just from and to need to be same
-							all_moves[j].moves[k].move_score = EVAL_MAX;
-					}
-				}
-
 				// FIXME: NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE NIGHTMARE
 				if (move == NULL) {
 					if (all_moves[j].moves[k].move_score <= last_best_move) {
@@ -343,13 +358,14 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 	// Looking up entries here slows search around 300knps
 	// TODO: Do more testing in future for this
 	if (qdepth > 0) {
-		tt_entry_s entry;
-		if (retrieve_entry(&tt_normal, &entry, board->hash)) {
+		const tt_entry_s* entry = probe_table(&tt_normal, board->hash);
+
+		if (entry) {
 			if (stats) {
 				stats->nodes++;
 				stats->hashtable_hits++;
 			}
-			return entry.eval;
+			return entry->eval;
 		}
 	}
 

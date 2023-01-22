@@ -68,11 +68,9 @@ size_t get_entry_index(const tt_s* tt, uint64_t hash) {
 
 
 void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, uint8_t search_depth, uint8_t node_depth, uint8_t from, uint8_t to, uint8_t promoteto) {
-	assert(hash);
 	assert(from < 64);
 	assert(to < 64);
 
-	// FIXME
 	entry->hash = hash;
 	entry->eval = eval;
 	entry->search_depth = search_depth;
@@ -82,8 +80,7 @@ void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, uint8_t search
 	entry->bestmove_promoteto = promoteto;
 }
 
-
-bool retrieve_entry(tt_s* restrict tt, tt_entry_s* restrict entry, uint64_t hash) {
+tt_entry_s* probe_table(tt_s* tt, uint64_t hash) {
 
 	const size_t index = get_entry_index(tt, hash);
 
@@ -97,18 +94,26 @@ bool retrieve_entry(tt_s* restrict tt, tt_entry_s* restrict entry, uint64_t hash
 		if (current_entry->hash != hash)
 			continue; // entry didin't match
 		
-		if (entry)
-			memcpy(entry, current_entry, sizeof (tt_entry_s));
-		
-		return true;
+		return current_entry;
 	}
+	
+	return NULL;
+}
 
-	return false;
+bool retrieve_entry(tt_s* restrict tt, tt_entry_s* restrict entry, uint64_t hash) {
+
+	tt_entry_s* tt_entry = probe_table(tt, hash);
+
+	if (!tt_entry)
+		return false;
+
+	memcpy(entry, tt_entry, sizeof (tt_entry_s));
+	
+	return true;
 }
 
 // TODO: Implement qsearch replacement strategy
 void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint8_t node_depth, uint8_t from, uint8_t to, uint8_t promoteto, bool qsearch) {
-	assert(hash);
 	assert(from < 64);
 	assert(to < 64);
 
@@ -116,11 +121,27 @@ void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint
 	memset(&entry, 0, sizeof (tt_entry_s));
 	make_tt_entry(&entry, hash, eval, search_depth, node_depth, from, to, promoteto);
 
-	size_t index = get_entry_index(tt, hash);
+	const size_t index = get_entry_index(tt, hash);
 
-	// n of bucket where to replace
-	// FIXME: Current is just basically random why what the fuck
-	size_t bucket_n = tt->counter++ % N_BUCKETS;
+	// n of bucket where to store
+	size_t bucket_n;
+
+	// find first empty bucket or the same hash
+	bool need_to_replace = true;
+	for (size_t i = 0; i < N_BUCKETS; i++) {
+		if (tt->entries[i][index].hash != hash)
+			continue;
+		if (tt->entries[i][index].bestmove_from != 0x0)
+			continue;
+		
+		need_to_replace = false;
+		bucket_n = i;
+		break;
+	}
+
+	// FIXME: Make a replacement stratgy
+	if (need_to_replace)
+		bucket_n = tt->counter++ % N_BUCKETS;
 
 	memcpy(&(tt->entries[bucket_n][index]), &entry, sizeof (tt_entry_s));
 }
