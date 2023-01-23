@@ -678,19 +678,32 @@ eval_t get_move_predict_score(const board_s* board, const move_s* move) {
 		score += eval_material_value[move->promoteto] - eval_material_value[PAWN];
 
 	// TODO: Can be further improved by removing attackers and doing same again (discovered attacks)
-	if (move->flags & FLAG_CAPTURE) {
+	if (move->flags & FLAG_CAPTURE)
 		score += eval_material_value[move->piece_captured];
-		//score -= eval_material_value[move->fromtype]/MV_SCORE_CAPTURER_VALUE_DIVIDE;
+	//score -= eval_material_value[move->fromtype]/MV_SCORE_CAPTURER_VALUE_DIVIDE;
 
-		BitBoard attackers = get_attackers(board, move->to, move->side); // & ~(move->from); // movers pieces
-		BitBoard defenders = get_attackers(board, move->to, OPPOSITE_SIDE(move->side)) & ~(move->from);
+	BitBoard attackers = get_attackers(board, move->to, move->side); // & ~(move->from); // movers pieces
+	BitBoard defenders = get_attackers(board, move->to, OPPOSITE_SIDE(move->side)) & ~(move->from);
 
-		while (attackers)
-			score -= GET_PIECE_VALUE(get_piece_type(board, move->side, pop_bitboard(&attackers)), phase);
+	int n_attackers = popcount(attackers);
+	int n_defenders = popcount(defenders);
 
-		while (defenders)
-			score += GET_PIECE_VALUE(get_piece_type(board, OPPOSITE_SIDE(move->side), pop_bitboard(&defenders)), phase);
+	if (!n_attackers)
+		goto GET_MOVE_PREDICT_SCORE_ATTACK_DEFEND;
+
+	if (!n_defenders) {
+		score -= eval_material_value[move->fromtype]; //GET_PIECE_VALUE(move->fromtype, phase);
+		goto GET_MOVE_PREDICT_SCORE_ATTACK_DEFEND;
 	}
+
+	while (attackers)
+		score -= eval_material_value[get_piece_type(board, move->side, pop_bitboard(&attackers))]; //GET_PIECE_VALUE(get_piece_type(board, move->side, pop_bitboard(&attackers)), phase);
+
+	while (defenders)
+		score += eval_material_value[get_piece_type(board, move->side, pop_bitboard(&defenders))];
+	//score += GET_PIECE_VALUE(get_piece_type(board, OPPOSITE_SIDE(move->side), pop_bitboard(&defenders)), phase);
+	//}
+	GET_MOVE_PREDICT_SCORE_ATTACK_DEFEND:
 
 
 	 if (!(move->flags & FLAG_CAPTURE) && !(move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)))

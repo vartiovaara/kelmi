@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include <math.h>
+#include <time.h>
 
 #include "search.h"
 
@@ -19,18 +20,60 @@
 
 
 // Private functions
-eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta);
+eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const clock_t time1, const clock_t time_available, const unsigned int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta);
 eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, unsigned int qdepth, eval_t alpha, eval_t beta);
 
 
-eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bestmove) {
+eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bestmove, FILE* restrict f) {
 	assert(uci->action != UCI_IDLE);
 
 	//if (uci->action == UCI_PONDER)
 	//	goto THINK_PONDER;
+
+	move_s move = {0};
+	eval_t move_eval = 0;
+
+	// from: https://www.talkchess.com/forum3/viewtopic.php?t=51135
+	unsigned int predicted_moves_left = 15;
+	if (board->history_n <= 25)
+		predicted_moves_left = 40 - board->history_n;
+
+	const unsigned long time_left = (board->sidetomove == WHITE ? uci->wtime : uci->btime);
+	const unsigned long increment = (board->sidetomove == WHITE ? uci->winc : uci->binc);
+	const clock_t time_allotted = (time_left*(CLOCKS_PER_SEC/1000))/predicted_moves_left + increment;
+
+	const time_t t = clock();
 	
-	// Normal search (alpha is maximizing and beta minimizing)
-	return regular_search(board, bestmove, NULL, 6, 6, false, EVAL_MIN, EVAL_MAX);
+	for (int depth = 1; 1; depth++) {
+		const time_t last_search_time = clock();
+
+		// Normal search (alpha is maximizing and beta minimizing)
+		eval_t current_eval = regular_search(board, &move, NULL, t, time_allotted, depth, depth, false, EVAL_MIN, EVAL_MAX);
+
+		if (clock() - t >= time_allotted)
+			break;
+		
+
+		memcpy(bestmove, &move, sizeof (move_s));
+		move_eval = current_eval;
+
+		char str[6];
+		move_to_uci_notation(&move, str);
+		uci_write(f, "info depth %i score cp %i pv %s\n", depth, move_eval, str);
+
+		// mate
+		if (move_eval == EVAL_MAX || move_eval == EVAL_MIN)
+			break;
+
+		// Check if we would have enough time for next search.
+		// Next search is guessed to be at least 1.5x the duration of this search.
+		const time_t allotted_time_left = time_allotted - (clock() - t);
+		if ((clock() - last_search_time) * 1.5 >= allotted_time_left || allotted_time_left < 0)
+			break;
+	}
+
+	return move_eval;
+
 
 	//THINK_PONDER:
 	// TODO
@@ -54,14 +97,19 @@ eval_t search_with_stats(board_s* restrict board, move_s* restrict bestmove, con
 
 	stats->fail_hard_cutoffs = calloc(depth+1, sizeof (unsigned long long));
 
-	return regular_search(board, bestmove, stats, depth, depth, false, EVAL_MIN, EVAL_MAX);
+	return regular_search(board, bestmove, stats, 0, 0, depth, depth, false, EVAL_MIN, EVAL_MAX);
 }
 
 
 
-eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta) {
+eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const clock_t time1, const clock_t time_available, const unsigned int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta) {
 	if (stats && depth >= 0)
 		stats->n_positions[stats->n_plies - depth]++;
+	
+	if (time_available) {
+		if (clock() - time1 > time_available)
+			return 0; // every node henceforth will also return early
+	}
 	
 	bool tt_entry_found = false; //retrieve_entry(&tt_normal, &tt_entry, board->hash);
 	//if (tt_entry_found) {
@@ -69,7 +117,8 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	tt_entry_s* entry = probe_table(&tt_normal, board->hash);
 	if (entry) {
 		// (how many depth are supposed to be under the entry)  >= ( vs how many under this node)
-		if (entry->search_depth - entry->node_depth >= (signed int)search_depth - ((signed int)search_depth - depth)) {
+		if (entry->search_depth - entry->node_depth >= (signed int)search_depth - ((signed int)search_depth - depth) &&
+		     depth - search_depth != 0) { // and don't replace root node
 			if (stats) {
 				stats->nodes++;
 				stats->hashtable_hits++;
@@ -248,9 +297,9 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		
 		if (i == 0 && do_null_move) {
 			if (initial_side == WHITE)
-				eval = regular_search(board, NULL, stats, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, alpha - 1, alpha);
+				eval = regular_search(board, NULL, stats, time1, time_available, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, alpha - 1, alpha);
 			else
-				eval = regular_search(board, NULL, stats, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, beta - 1, beta);
+				eval = regular_search(board, NULL, stats, time1, time_available, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, beta - 1, beta);
 		}
 		else {
 			// check if that side got itself in check (or couldn't get out of one)
@@ -264,7 +313,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 			// --- MOVE WAS LEGAL AND IS DONE ---
 
 
-			eval = regular_search(board, NULL, stats, search_depth, depth-1, is_null_prune, alpha, beta);
+			eval = regular_search(board, NULL, stats, time1, time_available, search_depth, depth-1, is_null_prune, alpha, beta);
 			//printf("info string %f\n", eval);
 
 			// if move was better, store it instead.
@@ -317,6 +366,11 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	free(move_visited);
 
 	assert(board->every_piece == every_piece_copy);
+
+	if (time_available) {
+		if (clock() - time1 > time_available)
+			return 0; // every node henceforth will also return early
+	}
 
 	// alpha-beta pruning
 	if (fail_low) {
