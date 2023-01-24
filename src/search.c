@@ -20,7 +20,8 @@
 
 
 // Private functions
-eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const clock_t time1, const clock_t time_available, const unsigned int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta);
+uint16_t encode_compact_move(const move_s* move);
+eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, pv_s* restrict pv, const size_t history_n_at_root, const clock_t time1, const clock_t time_available, const int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta);
 eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, unsigned int qdepth, eval_t alpha, eval_t beta);
 
 
@@ -32,6 +33,21 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 
 	move_s move = {0};
 	eval_t move_eval = 0;
+
+	
+	pv_s pv = {0};
+
+	// Total memory usage of the pv with max_depth 99 is as such:
+	//2bytes×((99×99)/2) + 99×8bytes = 10.593kB
+
+	const size_t max_depth = 99;
+
+	pv.n_moves = calloc(max_depth, sizeof (size_t));
+	pv.pv = calloc(max_depth, sizeof (uint16_t*));
+	for (size_t i = 0; i < max_depth; i++) {
+		pv.pv[i] = calloc(max_depth - i, sizeof (uint16_t));
+	}
+	pv.depth_allocated = max_depth;
 
 	// from: https://www.talkchess.com/forum3/viewtopic.php?t=51135
 	unsigned int predicted_moves_left = 15;
@@ -47,8 +63,13 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 	for (int depth = 1; 1; depth++) {
 		const time_t last_search_time = clock();
 
+		memset(pv.n_moves, 0, max_depth * sizeof (size_t));
+		
+		for (size_t i = 0; i < pv.depth_allocated; i++)
+			memset(pv.pv[i], 0, (pv.depth_allocated - i) * sizeof (uint16_t));
+
 		// Normal search (alpha is maximizing and beta minimizing)
-		eval_t current_eval = regular_search(board, &move, NULL, t, time_allotted, depth, depth, false, EVAL_MIN, EVAL_MAX);
+		eval_t current_eval = regular_search(board, &move, NULL, &pv, board->history_n, t, time_allotted, depth, depth, false, EVAL_MIN, EVAL_MAX);
 
 		if (clock() - t >= time_allotted)
 			break;
@@ -57,9 +78,22 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 		memcpy(bestmove, &move, sizeof (move_s));
 		move_eval = current_eval;
 
-		char str[6];
-		move_to_uci_notation(&move, str);
-		uci_write(f, "info depth %i score cp %i pv %s\n", depth, move_eval, str);
+		//char str[6];
+		
+		char pv_str[125];
+		size_t current_str_index = 0;
+		for (size_t i = 0; i < pv.n_moves[0]; i++) {
+			char move[6];
+			//move_to_uci_notation(&(pv.pv.moves[i]), move);
+			compact_move_to_uci_notation(pv.pv[0][i], move);
+			strcpy(pv_str + current_str_index, move);
+			current_str_index += strlen(move);
+			pv_str[current_str_index++] = ' ';
+		}
+		pv_str[current_str_index] = '\0';
+		
+
+		uci_write(f, "info depth %i score cp %i pv %s\n", depth, move_eval, pv_str);
 
 		// mate
 		if (move_eval == EVAL_MAX || move_eval == EVAL_MIN)
@@ -71,6 +105,17 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 		if ((clock() - last_search_time) * 1.5 >= allotted_time_left || allotted_time_left < 0)
 			break;
 	}
+
+	//free(pv.pv.moves);
+	for (size_t i = 0; i < max_depth; i++) {
+		//pv.pv[i] = calloc(max_depth - i, sizeof (uint16_t));
+		free(pv.pv[i]);
+	}
+	//pv.n_moves = calloc(max_depth, sizeof (size_t));
+	free(pv.n_moves);
+	//pv.pv = calloc(max_depth, sizeof (uint16_t));
+	free(pv.pv);
+
 
 	return move_eval;
 
@@ -97,12 +142,37 @@ eval_t search_with_stats(board_s* restrict board, move_s* restrict bestmove, con
 
 	stats->fail_hard_cutoffs = calloc(depth+1, sizeof (unsigned long long));
 
-	return regular_search(board, bestmove, stats, 0, 0, depth, depth, false, EVAL_MIN, EVAL_MAX);
+	return regular_search(board, bestmove, stats, 0, (board->sidetomove == WHITE ? true : false), 0, 0, depth, depth, false, EVAL_MIN, EVAL_MAX);
 }
 
 
 
-eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, const clock_t time1, const clock_t time_available, const unsigned int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta) {
+uint16_t encode_compact_move(const move_s* move) {
+	uint16_t res = 0x0;
+	
+	res |= lowest_bitindex(move->from) << 10;
+	res |= lowest_bitindex(move->to) << 4;
+	
+	if (move->flags & FLAG_PROMOTE) {
+		assert(!(res & COMPACT_MOVE_PROMOTE_FLAG)); // Make sure flag wasn't set already for some reason
+		assert(move->promoteto < 2*2*2); // make sure promoteto actually fits
+
+		res |= COMPACT_MOVE_PROMOTE_FLAG;
+		res |= move->promoteto;
+
+		assert(COMPACT_MOVE_PROMOTETO(res) == move->promoteto);
+	}
+
+	assert(SQTOBB(COMPACT_MOVE_FROM(res)) == move->from);
+	assert(SQTOBB(COMPACT_MOVE_TO(res)) == move->to);
+
+	return res;
+}
+
+
+
+// always when calling set was_horizon_node to NULL 
+eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, pv_s* restrict pv, const size_t history_n_at_root, const clock_t time1, const clock_t time_available, const int search_depth, const int depth, const bool is_null_prune, eval_t alpha, eval_t beta) {
 	if (stats && depth >= 0)
 		stats->n_positions[stats->n_plies - depth]++;
 	
@@ -111,8 +181,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 			return 0; // every node henceforth will also return early
 	}
 	
-	bool tt_entry_found = false; //retrieve_entry(&tt_normal, &tt_entry, board->hash);
-	//if (tt_entry_found) {
+	bool tt_entry_found = false;
 	tt_entry_s tt_entry;
 	tt_entry_s* entry = probe_table(&tt_normal, board->hash);
 	if (entry) {
@@ -123,6 +192,10 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 				stats->nodes++;
 				stats->hashtable_hits++;
 			}
+
+			if (pv && !is_null_prune)
+				pv->n_moves[search_depth - depth] = 0;
+
 			return entry->eval;
 		}
 
@@ -130,8 +203,11 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		memcpy(&tt_entry, entry, sizeof (tt_entry_s));
 	}
 
-	if (depth <= 0)
+	if (depth <= 0) {
+		if (pv && !is_null_prune)
+			pv->n_moves[search_depth - depth] = 0;
 		return q_search(board, stats, search_depth, depth - 1, 0, alpha, beta);
+	}
 
 	if (stats)
 		stats->nodes++;
@@ -177,6 +253,8 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	BitBoard bestmove_from = 0x0;
 	BitBoard bestmove_to = 0x0;
 	unsigned int bestmove_promoteto = 0;
+	
+	move_s* best_move_here = NULL;
 
 	// Go through every piece and create the moves
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
@@ -195,12 +273,8 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 
 				if (all_moves[i].moves[j].from == SQTOBB(tt_entry.bestmove_from)) {
 
-					//all_moves[i].moves[j].move_score += 20; // same from square
-
 					if (all_moves[i].moves[j].to == SQTOBB(tt_entry.bestmove_to)) {
 
-						//all_moves[i].moves[j].move_score += 10; // same to square
-						
 						if (all_moves[i].moves[j].flags & FLAG_PROMOTE) { // check if promote
 							if (all_moves[i].moves[j].promoteto == tt_entry.bestmove_promoteto) // promoteto same
 								all_moves[i].moves[j].move_score = EVAL_MAX;
@@ -297,9 +371,9 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		
 		if (i == 0 && do_null_move) {
 			if (initial_side == WHITE)
-				eval = regular_search(board, NULL, stats, time1, time_available, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, alpha - 1, alpha);
+				eval = regular_search(board, NULL, stats, pv, history_n_at_root, time1, time_available, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, alpha - 1, alpha);
 			else
-				eval = regular_search(board, NULL, stats, time1, time_available, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, beta - 1, beta);
+				eval = regular_search(board, NULL, stats, pv, history_n_at_root, time1, time_available, search_depth, depth - NULL_MOVE_PRUNING_R - 1, true, beta - 1, beta);
 		}
 		else {
 			// check if that side got itself in check (or couldn't get out of one)
@@ -312,8 +386,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 
 			// --- MOVE WAS LEGAL AND IS DONE ---
 
-
-			eval = regular_search(board, NULL, stats, time1, time_available, search_depth, depth-1, is_null_prune, alpha, beta);
+			eval = regular_search(board, NULL, stats, pv, history_n_at_root, time1, time_available, search_depth, depth-1, is_null_prune, alpha, beta);
 			//printf("info string %f\n", eval);
 
 			// if move was better, store it instead.
@@ -331,6 +404,8 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 				
 				if (bestmove)
 					memcpy(bestmove, move, sizeof (move_s));
+				
+				best_move_here = move;
 			}
 		}
 
@@ -355,29 +430,26 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		continue;
 	}
 
-	// Free this stuff
-	for (unsigned int i = 0; i < n_pieces; i++) {
-		if (all_moves[i].n) {
-			free(all_moves[i].moves);
-			free(move_visited[i]);
-		}
-	}
-	free(all_moves);
-	free(move_visited);
-
 	assert(board->every_piece == every_piece_copy);
 
 	if (time_available) {
-		if (clock() - time1 > time_available)
-			return 0; // every node henceforth will also return early
+		if (clock() - time1 > time_available) {
+			//return 0; // every node henceforth will also return early
+			goto REGULAR_SEARCH_SEARCH_END;
+		}
 	}
 
 	// alpha-beta pruning
 	if (fail_low) {
 		if (initial_side == WHITE)
-			return alpha;
+			bestmove_eval = alpha; //return alpha;
 		else
-			return beta;
+			bestmove_eval = beta; //return beta;
+		
+		//if (pv)
+		//	pv->n_moves[search_depth - depth] = 0;
+		
+		goto REGULAR_SEARCH_SEARCH_END;
 	}
 
 	// No moves were made??
@@ -389,13 +461,40 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		else { // is a stalemate (wasn't in check and no legal moves)
 			bestmove_eval = 0;
 		}
-		return bestmove_eval;
+		//if (pv && !is_null_prune)
+		//	pv->n_moves[search_depth - depth] = 0;
+		goto REGULAR_SEARCH_SEARCH_END;
+		//return bestmove_eval;
 		//store_move(&tt_normal, board->hash, bestmove_eval, search_depth, (search_depth - depth), )
+	}
+
+	if (pv && !is_null_prune) {
+		const size_t node_depth = search_depth - depth;
+		// save this node to the pv
+		pv->n_moves[node_depth] = 1;
+		pv->pv[node_depth][0] = encode_compact_move(best_move_here);
+
+		// if the searched nodes saved something to pv, save it to this depth
+		if (pv->n_moves[node_depth + 1] > 0) {
+			memcpy(&pv->pv[node_depth][1], &pv->pv[node_depth+1][0], pv->n_moves[node_depth+1] * sizeof (uint16_t));
+			pv->n_moves[node_depth] = pv->n_moves[node_depth + 1] + 1;
+		}
 	}
 
 	if (!is_null_prune)
 		store_move(&tt_normal, board->hash, bestmove_eval, search_depth, ((signed int)search_depth - depth), lowest_bitindex(bestmove_from), lowest_bitindex(bestmove_to), bestmove_promoteto, false);
 
+	REGULAR_SEARCH_SEARCH_END:
+
+	// Free this stuff
+	for (unsigned int i = 0; i < n_pieces; i++) {
+		if (all_moves[i].n) {
+			free(all_moves[i].moves);
+			free(move_visited[i]);
+		}
+	}
+	free(all_moves);
+	free(move_visited);
 
 	return bestmove_eval;
 }
@@ -604,18 +703,18 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 					failed_q_prune = false;
 			}
 
-			if (move->piece_captured == PAWN && move->to & (move->side == BLACK ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B))
-				failed_q_prune = false;
-			else if (move->fromtype == KING)
-				failed_q_prune = false;
+			//if (move->piece_captured == PAWN && move->to & (move->side == BLACK ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B))
+			//	failed_q_prune = false;
+			//else if (move->fromtype == KING)
+			//	failed_q_prune = false;
 		}
 		else if (move->flags & FLAG_PROMOTE)
 			failed_q_prune = false;
 		else
 			failed_q_prune = true;
 		
-		if (move->fromtype == PAWN && move->from & (move->side == WHITE ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B))
-			failed_q_prune = false;
+		//if (move->fromtype == PAWN && move->from & (move->side == WHITE ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B))
+		//	failed_q_prune = false;
 		
 		makemove(board, move);
 

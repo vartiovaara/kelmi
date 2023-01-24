@@ -41,6 +41,13 @@ To make a move, give it in uci format."
 #define MIN(x, y) (x < y ? x : y)
 #define MAX(x, y) (x > y ? x : y)
 #define LENGTH(x) (sizeof (x) / sizeof (x[0]))
+#define COMPACT_MOVE_FROM(x) ((x & 0xfc00) >> 10) // 0b1111_1100_0000_0000 = 0xFC00
+#define COMPACT_MOVE_TO(x) ((x & 0x03f0) >> 4) // 0b0000_0011_1111_0000 = 0x3F0
+#define COMPACT_MOVE_PROMOTETO(x) ((x & 0x0007)) // 0b0000_0000_0000_0111 = 0x7
+
+
+// Compact move promote flag
+#define COMPACT_MOVE_PROMOTE_FLAG 0x8 // 0b0000_0000_0000_1000 = 0x8
 
 // Border masks
 #define TOP_MASK    0xff00000000000000
@@ -314,6 +321,21 @@ typedef struct movelist_s {
 	move_s* moves; // remember to free this after done with this
 	unsigned int n; // amount of moves
 } movelist_s;
+
+typedef struct {
+	// triangular array with 1 -> depth entries in each layer
+	// moves are encoded as compact moves
+	// 6 bits from + 6 bits to + 1 bit promote flag + 3 bits promoteto = 16 bits = 2 bytes
+	// Normal move_s would at the time of writing take 40 bytes
+	uint16_t** pv;
+	// number of moves in each layer
+	size_t* n_moves;
+
+	size_t depth_allocated;
+
+	eval_t alpha;
+	eval_t beta;
+} pv_s;
 
 /*
  * Struct representing a board.

@@ -28,6 +28,10 @@ void uci(FILE* f);
 // Make sure that str is at least 6 characters long (a1b1q + \0) 
 void move_to_uci_notation(const move_s* restrict move, char* restrict str);
 
+// 6 bits from + 6 bits to + 1 bit promote flag + 3 bits promoteto = 16 bits = 2 bytes
+// Make sure that str is at least 6 characters long (a1b1q + \0)
+void compact_move_to_uci_notation(const uint16_t move, char* str);
+
 size_t divide_string(char** fields, char* s, const char* delim);
 
 #endif // UCI_H

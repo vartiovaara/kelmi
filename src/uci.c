@@ -312,7 +312,9 @@ void uci(FILE* f) {
 		}
 		else if (!strncmp(input, "position", 8)) {
 			parse_position_command(&board, input, len);
-			//printboard(&board);
+#ifndef NDEBUG
+			printboard(&board);
+#endif // NDEBUG
 		}
 		else if (!strncmp(input, "go", 2)){
 			parse_go_command(&uci, &board, input, f);
@@ -375,6 +377,20 @@ void move_to_uci_notation(const move_s* restrict move, char* restrict str) {
 	
 	str[4] = '\0';
 	return;
+}
+
+
+void compact_move_to_uci_notation(const uint16_t move, char* str) {
+	bbtoalg(str, SQTOBB(COMPACT_MOVE_FROM(move)));
+	bbtoalg(str + 2, SQTOBB(COMPACT_MOVE_TO(move)));
+
+	if (move & COMPACT_MOVE_PROMOTE_FLAG) {
+		str[4] = piecetochar(COMPACT_MOVE_PROMOTETO(move));
+		str[5] = '\0';
+		return;
+	}
+
+	str[4] = '\0';
 }
 
 
