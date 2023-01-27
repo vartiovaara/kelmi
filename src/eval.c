@@ -308,6 +308,16 @@ const eval_t piece_values[2][6] = { // [mg/eg][piece]
 	}
 };
 
+// for usage in get_cheapest_piece()
+const unsigned int pieces_ordered_by_cheapness[N_PIECES] = {
+	PAWN,
+	KNIGHT,
+	BISHOP,
+	ROOK,
+	QUEEN,
+	KING
+};
+
 #define GET_PIECE_VALUE(piece, phase) ((int)((phase * piece_values[0][piece] + (PHASE_TOTAL - phase) * piece_values[1][piece]) / PHASE_TOTAL))
 
 
@@ -662,8 +672,8 @@ int get_game_phase_value(const board_s* board) {
 
 
 
-eval_t get_move_predict_score(const board_s* board, const move_s* move) {
-	eval_t score = 0;
+void set_move_predict_scores(const board_s* restrict board, move_s* restrict move) {
+	move->move_score = 0;
 
 	const int phase = get_game_phase_value(board);
 
@@ -675,44 +685,55 @@ eval_t get_move_predict_score(const board_s* board, const move_s* move) {
 	//score += (move->flags & FLAG_PROMOTE) * MV_SCORE_CHECK;
 
 	if (move->flags & FLAG_PROMOTE)
-		score += eval_material_value[move->promoteto] - eval_material_value[PAWN];
+		move->move_score += eval_material_value[move->promoteto] - eval_material_value[PAWN];
 
 	// TODO: Can be further improved by removing attackers and doing same again (discovered attacks)
-	if (move->flags & FLAG_CAPTURE)
-		score += eval_material_value[move->piece_captured];
-	//score -= eval_material_value[move->fromtype]/MV_SCORE_CAPTURER_VALUE_DIVIDE;
-
-	BitBoard attackers = get_attackers(board, move->to, move->side); // & ~(move->from); // movers pieces
-	BitBoard defenders = get_attackers(board, move->to, OPPOSITE_SIDE(move->side)) & ~(move->from);
-
-	int n_attackers = popcount(attackers);
-	int n_defenders = popcount(defenders);
-
-	if (!n_attackers)
-		goto GET_MOVE_PREDICT_SCORE_ATTACK_DEFEND;
-
-	if (!n_defenders) {
-		score -= eval_material_value[move->fromtype]; //GET_PIECE_VALUE(move->fromtype, phase);
-		goto GET_MOVE_PREDICT_SCORE_ATTACK_DEFEND;
+	if (move->flags & FLAG_CAPTURE) {
+		const eval_t move_see = see(board, move);//score += eval_material_value[move->piece_captured];
+		move->move_see = move_see;
+		move->move_score += move_see;
+		if (move_see > 0)
+			move->move_score += 20;
 	}
 
-	while (attackers)
-		score -= eval_material_value[get_piece_type(board, move->side, pop_bitboard(&attackers))]; //GET_PIECE_VALUE(get_piece_type(board, move->side, pop_bitboard(&attackers)), phase);
+	/*
+	else {
+		//score -= eval_material_value[move->fromtype]/MV_SCORE_CAPTURER_VALUE_DIVIDE;
 
-	while (defenders)
-		score += eval_material_value[get_piece_type(board, move->side, pop_bitboard(&defenders))];
+		BitBoard attackers = get_attackers(board, move->to, move->side, 0); // & ~(move->from); // movers pieces
+		BitBoard defenders = get_attackers(board, move->to, OPPOSITE_SIDE(move->side), 0) & ~(move->from);
+
+		int n_attackers = popcount(attackers);
+		int n_defenders = popcount(defenders);
+
+		if (!n_attackers)
+			goto GET_MOVE_PREDICT_SCORE_ATTACK_DEFEND;
+
+		if (!n_defenders) {
+			score -= eval_material_value[move->fromtype]; //GET_PIECE_VALUE(move->fromtype, phase);
+			goto GET_MOVE_PREDICT_SCORE_ATTACK_DEFEND;
+		}
+
+		while (attackers)
+			score -= eval_material_value[get_piece_type(board, move->side, pop_bitboard(&attackers))]; //GET_PIECE_VALUE(get_piece_type(board, move->side, pop_bitboard(&attackers)), phase);
+
+		while (defenders)
+			score += eval_material_value[get_piece_type(board, OPPOSITE_SIDE(move->side), pop_bitboard(&defenders))];
+	}
+	*/
+	
 	//score += GET_PIECE_VALUE(get_piece_type(board, OPPOSITE_SIDE(move->side), pop_bitboard(&defenders)), phase);
 	//}
-	GET_MOVE_PREDICT_SCORE_ATTACK_DEFEND:
+	//GET_MOVE_PREDICT_SCORE_ATTACK_DEFEND:
 
 
-	 if (!(move->flags & FLAG_CAPTURE) && !(move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)))
-	 	score += mv_move_weight[move->fromtype];
+	//  if (!(move->flags & FLAG_CAPTURE) && !(move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)))
+	//  	move->move_score += mv_move_weight[move->fromtype];
 	
-	if (move->flags & FLAG_KCASTLE)
-		score += MV_SCORE_KCASTLE;
-	else if (move->flags & FLAG_QCASTLE)
-		score += MV_SCORE_QCASTLE;
+	// if (move->flags & FLAG_KCASTLE)
+	// 	move->move_score += MV_SCORE_KCASTLE;
+	// else if (move->flags & FLAG_QCASTLE)
+	// 	move->move_score += MV_SCORE_QCASTLE;
 	
 	
 	//if (psqt_values[move->fromtype] != NULL) {
@@ -726,55 +747,80 @@ eval_t get_move_predict_score(const board_s* board, const move_s* move) {
 
 	if (move->flags & FLAG_PROMOTE) {
 		//if (psqt_values[move->promoteto]) {
-		score -= (psqt[move->fromtype][0][from_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->fromtype][0][from_sq])/PHASE_TOTAL; // FIXME: Taper this shit
-		score += (psqt[move->promoteto][0][to_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->promoteto][0][to_sq])/PHASE_TOTAL;
+		move->move_score -= (psqt[move->fromtype][0][from_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->fromtype][0][from_sq])/PHASE_TOTAL; // FIXME: Taper this shit
+		move->move_score += (psqt[move->promoteto][0][to_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->promoteto][0][to_sq])/PHASE_TOTAL;
 		//}
 	}
 	else {
-		score -= (psqt[move->fromtype][0][from_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->fromtype][0][from_sq])/PHASE_TOTAL;
-		score += (psqt[move->fromtype][0][to_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->fromtype][0][to_sq])/PHASE_TOTAL;
+		move->move_score -= (psqt[move->fromtype][0][from_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->fromtype][0][from_sq])/PHASE_TOTAL;
+		move->move_score += (psqt[move->fromtype][0][to_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->fromtype][0][to_sq])/PHASE_TOTAL;
 	}
 	//}
 	
 
 
-	return score;
+	//return score;
 }
 
-eval_t see(board_s* restrict board, const move_s* move) {
-	eval_t res = 0;
 
-	res += eval_material_value[move->piece_captured];
-	//score -= eval_material_value[move->fromtype]/MV_SCORE_CAPTURER_VALUE_DIVIDE;
+BitBoard get_cheapest_piece(const board_s* board, unsigned int side, BitBoard select_mask) {
+	assert(side < 2);
+	
+	const BitBoard pieces = board->all_pieces[side] & select_mask;
 
-	BitBoard attackers = get_attackers(board, move->to, move->side) & ~(move->from); // movers pieces
-	BitBoard defenders = get_attackers(board, move->to, OPPOSITE_SIDE(move->side));
+	for (int i = 0; i < N_PIECES; i++) {
+		const BitBoard current_selected_pieces = board->pieces[side][pieces_ordered_by_cheapness[i]] & pieces;
+		// TODO: Order by tapered psqt and piece eval
+		if (current_selected_pieces)
+			return lowest_bitboard(current_selected_pieces);
+	}
 
-	//FIXME: Doesn't find discovered attacks
-	while (attackers)
-		res -= eval_material_value[get_piece_type(board, move->side, pop_bitboard(&attackers))];
-	while (defenders)
-		res += eval_material_value[get_piece_type(board, OPPOSITE_SIDE(move->side), pop_bitboard(&defenders))];
-
-
-	/*while (defenders && attackers) {
-		// n_pieces counted this loop
-		const unsigned int n_pieces = MIN(popcount(attackers), popcount(defenders));
+	return 0x0;
+}
 
 
 
-		// Next we will find the n_pieces lowest pieces
+eval_t see(const board_s* restrict board, const move_s* restrict move) {
+	// https://www.chessprogramming.org/SEE_-_The_Swap_Algorithm
 
+	assert(move->flags & FLAG_CAPTURE);
 
+	const int phase = get_game_phase_value(board);
 
+	eval_t gain[32];
+	int d = 0;
+	// Get the attackers and defenders while ignoring the already made capture piece
+	// as we assume that piece has already been moved to the square
+	// (it hasn't really)
+	BitBoard removed_pieces = move->from;
+	BitBoard attackdef = get_seeing_pieces(board, move->to, removed_pieces);
 
-		BitBoard attackers_copy = attackers;
-		while (attackers_copy)
-			res -= eval_material_value[get_piece_type(board, move->side, pop_bitboard(&attackers_copy))];
-		BitBoard defenders_copy = defenders;
-		while (defenders_copy)
-			res += eval_material_value[get_piece_type(board, OPPOSITE_SIDE(move->side), pop_bitboard(&defenders_copy))];
-	}*/
+	unsigned int current_side = OPPOSITE_SIDE(move->side);
+	BitBoard current_attacker = get_cheapest_piece(board, current_side, attackdef);
+	// pieces that have done a capture get added here
+	// so that they may be ignored by get_attackers()
 
-	return res;
+	gain[0] = GET_PIECE_VALUE(move->piece_captured, phase);
+
+	if (!current_attacker)
+		return gain[0];
+
+	do {
+		d++;
+		gain[d] = GET_PIECE_VALUE(get_piece_type(board, current_side, current_attacker), phase) - gain[d-1];
+
+		if (MAX(-gain[d-1], gain[d]) < 0) break;
+
+		removed_pieces |= current_attacker;
+		// HACK: Suboptimal.
+		attackdef = get_seeing_pieces(board, move->to, removed_pieces);
+		current_side = OPPOSITE_SIDE(current_side);
+		current_attacker = get_cheapest_piece(board, current_side, attackdef);
+
+	} while (current_attacker);
+
+	while (--d)
+		gain[d-1] = -MAX(-gain[d-1], gain[0]);
+	
+	return gain[0];
 }

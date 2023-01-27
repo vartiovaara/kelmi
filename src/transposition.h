@@ -21,7 +21,7 @@ extern tt_entry_s* probe_table(tt_s* tt, uint64_t hash);
 // Returns true if entry found. Copies the entry to entry
 extern bool retrieve_entry(tt_s* restrict tt, tt_entry_s* restrict entry, uint64_t hash);
 
-extern void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint8_t node_depth, uint8_t from, uint8_t to, uint8_t promoteto, bool qsearch);
+extern void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint64_t bestmove_hash, int16_t node_depth, uint16_t move);
 
 
 #endif // TRANSPOSITION_H

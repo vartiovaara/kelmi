@@ -169,13 +169,13 @@ To make a move, give it in uci format."
 #define MV_SCORE_CHECK 500
 #define MV_SCORE_CAPTURER_VALUE_DIVIDE 5
 
-#define NULL_MOVE_PRUNING_R 2
+#define NULL_MOVE_PRUNING_R(depth) ((signed int)depth > 9 ? 4 : (((signed int)depth > 6) ? 3 : 2))
 
 //#define Q_SEARCH_INITIAL_PRUNE_TRESHOLD -100 // (MV_SCORE_MOVE_WEIGHT_PAWN)
 // enter in graphical calculator
 // depth in q-search is always -1 or less
 //#define Q_SEARCH_PRUNE_TRESHOLD(depth) ((eval_t)(Q_SEARCH_INITIAL_PRUNE_TRESHOLD + (-(eval_t)depth - 1)*0)) // (int)powf(-1 - depth, 0.7))
-#define Q_SEARCH_PRUNE_TRESHOLD 78
+#define Q_SEARCH_PRUNE_TRESHOLD (200) //100 // 78
 
 #define Q_SEARCH_STANDPAT_PRUNING_DEPTH_TRESHOLD (0)
 
@@ -195,7 +195,7 @@ To make a move, give it in uci format."
 
 #define UCI_INPUT_BUFFER_SIZE 4096
 
-#define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+//#define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 //#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
 //#define DEFAULT_FEN "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
 //#define DEFAULT_FEN "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
@@ -204,6 +204,8 @@ To make a move, give it in uci format."
 //#define DEFAULT_FEN "8/8/7p/3KNN1k/2p4p/8/3P2p1/8 w - - 0 1"
 //#define DEFAULT_FEN "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"
 //#define DEFAULT_FEN "q2k2q1/2nqn2b/1n1P1n1b/2rnr2Q/1NQ1QN1Q/3Q3B/2RQR2B/Q2K2Q1 w - - 0 1"
+//#define DEFAULT_FEN "1r6/p2r1p1p/6p1/2b1kp2/2Bn3P/2N5/PP1R1PP1/4K2R w K - 4 27"
+#define DEFAULT_FEN "r5k1/pp2pr1p/2n3p1/1qP3Q1/4P3/4KN2/P4PPP/b1B4R w - - 6 16"
 
 /*
  * Typedefs
@@ -272,9 +274,11 @@ enum uci_searchtype_e {
 };
 
 enum tt_entry_flags_e {
-	TT_ENTRY_FLAG_EXIST     = 0x1 << 0,
-	TT_ENTRY_FLAG_FAIL_HIGH = 0x1 << 1,
-	TT_ENTRY_FLAG_FAIL_LOW  = 0x1 << 2
+	TT_ENTRY_FLAG_PROMOTION = 0x1 << 0,
+	TT_ENTRY_FLAG_CUT_NODE  = 0x1 << 1
+	//TT_ENTRY_FLAG_EXIST     = 0x1 << 0,
+	//TT_ENTRY_FLAG_FAIL_HIGH = 0x1 << 1,
+	//TT_ENTRY_FLAG_FAIL_LOW  = 0x1 << 2
 };
 
 
@@ -315,6 +319,7 @@ typedef struct move_s {
 	BitBoard old_en_passant;
 
 	eval_t move_score; // assigned move score for move ordering. Only set in the search algorithm
+	eval_t move_see;
 } move_s;
 
 typedef struct movelist_s {
@@ -412,12 +417,16 @@ typedef struct {
 typedef struct {
 	uint64_t hash;
 	eval_t eval;
-	uint8_t search_depth; // depth of the search
-	uint8_t node_depth; // depth of this node
+	//uint8_t search_depth; // depth of the search
+	int16_t depth; // depth of this node
 	uint8_t flags; // TODO: Maybe do something with this
+	uint16_t bestmove;
+	/*
 	uint8_t bestmove_from;
 	uint8_t bestmove_to;
 	uint8_t bestmove_promoteto;
+	*/
+	uint64_t bestmove_hash; // hash of the board after bestmove has been done
 } tt_entry_s;
 
 typedef struct {

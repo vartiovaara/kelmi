@@ -18,10 +18,16 @@ eval_t eval_material(const board_s* board, const int phase);
 
 int get_game_phase_value(const board_s* board);
 
-// rates, how good a move could be
-eval_t get_move_predict_score(const board_s* board, const move_s* move);
+// Sets move predict values for move
+void set_move_predict_scores(const board_s* restrict board, move_s* restrict move);
+
+// Gets the cheapest piece from pieces.
+// Only considers pieces that are also on select_mask
+// If multiple pieces of the same value is found, lowest by index is returned
+// If no pieces are found, empty bitboard is returned
+BitBoard get_cheapest_piece(const board_s* board, unsigned int side, BitBoard select_mask);
 
 // SCORE IS FOR move->side SIDE NOT FOR WHITE ONLY
-eval_t see(board_s* restrict board, const move_s* move);
+eval_t see(const board_s* restrict board, const move_s* restrict move);
 
 #endif // EVAL_H

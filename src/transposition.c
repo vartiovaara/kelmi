@@ -10,7 +10,7 @@
 #include "defs.h"
 
 // transposition tables will be split in this many "buckets"
-#define N_BUCKETS 8
+#define N_BUCKETS 16
 
 
 tt_s tt_normal; // transposition table for normal positions
@@ -20,7 +20,7 @@ tt_s tt_q; // transposition table for quiescense search
 void allocate_table(tt_s* tt, size_t n);
 void free_table(tt_s* tt);
 size_t get_entry_index(const tt_s* tt, uint64_t hash);
-void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, uint8_t search_depth, uint8_t node_depth, uint8_t from, uint8_t to, uint8_t promoteto);
+void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, int16_t node_depth, uint16_t move);
 
 
 void allocate_table(tt_s* tt, size_t n) {
@@ -35,14 +35,16 @@ void allocate_table(tt_s* tt, size_t n) {
 
 	tt->n_entries = n / N_BUCKETS;
 
-	tt->entries = calloc(N_BUCKETS, sizeof (tt_entry_s*));
+	//tt->entries = calloc(N_BUCKETS, sizeof (tt_entry_s*));
+	tt->entries = malloc(N_BUCKETS * sizeof (tt_entry_s*));
 	
 	if (!tt->entries)
 		goto ALLOCATE_TABLE_ALLOC_ERROR;
 
 	
 	for (size_t i = 0; i < N_BUCKETS; i++) {
-		tt->entries[i] = calloc(tt->n_entries, sizeof (tt_entry_s));
+		//tt->entries[i] = calloc(tt->n_entries, sizeof (tt_entry_s));
+		tt->entries[i] = malloc(tt->n_entries * sizeof (tt_entry_s));
 		if (!tt->entries[i])
 			goto ALLOCATE_TABLE_ALLOC_ERROR;
 	}
@@ -67,17 +69,21 @@ size_t get_entry_index(const tt_s* tt, uint64_t hash) {
 }
 
 
-void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, uint8_t search_depth, uint8_t node_depth, uint8_t from, uint8_t to, uint8_t promoteto) {
-	assert(from < 64);
-	assert(to < 64);
+void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, int16_t node_depth, uint16_t move) {
+	assert(COMPACT_MOVE_FROM(move) < 64);
+	assert(COMPACT_MOVE_TO(move) < 64);
 
 	entry->hash = hash;
 	entry->eval = eval;
-	entry->search_depth = search_depth;
-	entry->node_depth = node_depth;
+	//entry->search_depth = search_depth;
+	//entry->node_depth = node_depth;
+	entry->depth = node_depth;
+	entry->bestmove = move;
+	/*
 	entry->bestmove_from = from;
 	entry->bestmove_to = to;
 	entry->bestmove_promoteto = promoteto;
+	*/
 }
 
 tt_entry_s* probe_table(tt_s* tt, uint64_t hash) {
@@ -88,7 +94,7 @@ tt_entry_s* probe_table(tt_s* tt, uint64_t hash) {
 		
 		tt_entry_s* current_entry = &(tt->entries[i][index]);
 
-		if (!current_entry->bestmove_from)
+		if (!current_entry->bestmove)
 			continue; // entry didn't exist
 		
 		if (current_entry->hash != hash)
@@ -113,13 +119,13 @@ bool retrieve_entry(tt_s* restrict tt, tt_entry_s* restrict entry, uint64_t hash
 }
 
 // TODO: Implement qsearch replacement strategy
-void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint8_t node_depth, uint8_t from, uint8_t to, uint8_t promoteto, bool qsearch) {
-	assert(from < 64);
-	assert(to < 64);
+void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint64_t bestmove_hash, int16_t node_depth, uint16_t move) {
+	assert(COMPACT_MOVE_FROM(move) < 64);
+	assert(COMPACT_MOVE_TO(move) < 64);
 
 	tt_entry_s entry;
 	memset(&entry, 0, sizeof (tt_entry_s));
-	make_tt_entry(&entry, hash, eval, search_depth, node_depth, from, to, promoteto);
+	make_tt_entry(&entry, hash, eval, node_depth, move);
 
 	const size_t index = get_entry_index(tt, hash);
 
@@ -131,7 +137,7 @@ void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint
 	for (size_t i = 0; i < N_BUCKETS; i++) {
 		if (tt->entries[i][index].hash != hash)
 			continue;
-		if (tt->entries[i][index].bestmove_from != 0x0)
+		if (tt->entries[i][index].bestmove != 0x0)
 			continue;
 		
 		need_to_replace = false;

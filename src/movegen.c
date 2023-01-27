@@ -78,34 +78,73 @@ bool is_side_attacking_sq(const board_s* board, const BitBoard sq, const unsigne
 }
 
 
-BitBoard get_attackers(const board_s* board, const BitBoard sq, const unsigned int side) {
+BitBoard get_attackers(const board_s* board, const BitBoard sq, const unsigned int side, const BitBoard ignoremask) {
 	assert(popcount(sq) == 1);
 
 	const unsigned int pos = lowest_bitindex(sq);
 
 	BitBoard attackers = 0x0;
 
+	const BitBoard selectmask = ~ignoremask; // these squares are considered
+
 	// Check knights
-	attackers |= board->pieces[side][KNIGHT] & piecelookup(pos, KNIGHT, 0);
+	attackers |= board->pieces[side][KNIGHT] & piecelookup(pos, KNIGHT, 0) & selectmask;
 	
 	// Check pawns
-	attackers |= board->pieces[side][PAWN] & piecelookup(pos, PAWN, OPPOSITE_SIDE(side));
+	attackers |= board->pieces[side][PAWN] & piecelookup(pos, PAWN, OPPOSITE_SIDE(side)) & selectmask;
 	
 	// Kings
 	// NOTE: Does not check if attacked square is of a king 
-	attackers |= board->pieces[side][KING] & piecelookup(pos, KING, 0);
+	attackers |= board->pieces[side][KING] & piecelookup(pos, KING, 0) & selectmask;
 
 	// Check bishops and diagonal queen attacks
-	const BitBoard bishop_mask = piecelookup(pos, BISHOP, 0);
+	const BitBoard bishop_mask = piecelookup(pos, BISHOP, 0) & selectmask;
 	const BitBoard bishop_squares = Bmagic(pos, board->every_piece & bishop_mask);
 	attackers |= bishop_squares & (board->pieces[side][BISHOP] | board->pieces[side][QUEEN]);
 	
 	// Check rooks and horizontal queen attacks
-	const BitBoard rook_mask = piecelookup(pos, ROOK, 0);
+	const BitBoard rook_mask = piecelookup(pos, ROOK, 0) & selectmask;
 	const BitBoard rook_squares = Rmagic(pos, board->every_piece & rook_mask);
 	attackers |= rook_squares & (board->pieces[side][ROOK] | board->pieces[side][QUEEN]);
 	
-	return false;
+	//return false;
+	return attackers;
+}
+
+
+BitBoard get_seeing_pieces(const board_s* board, BitBoard sq, BitBoard ignoremask) {
+	assert(popcount(sq) == 1);
+	const unsigned int pos = lowest_bitindex(sq);
+
+	BitBoard attackers = 0x0;
+
+	const BitBoard selectmask = ~ignoremask; // these squares are considered
+
+	// Check knights
+	attackers |= (board->pieces[WHITE][KNIGHT] | board->pieces[BLACK][KNIGHT]) & piecelookup(pos, KNIGHT, 0) & selectmask;
+	
+	// Check pawns
+	attackers |= board->pieces[WHITE][PAWN] & piecelookup(pos, PAWN, BLACK) & selectmask;
+	attackers |= board->pieces[BLACK][PAWN] & piecelookup(pos, PAWN, WHITE) & selectmask;
+	
+	// Kings
+	// NOTE: Does not check if attacked square is of a king 
+	attackers |= (board->pieces[WHITE][KING] | board->pieces[BLACK][KING]) & piecelookup(pos, KING, 0) & selectmask;
+
+	// Check bishops and diagonal queen attacks
+	const BitBoard bishop_mask = piecelookup(pos, BISHOP, 0) & selectmask;
+	const BitBoard bishop_squares = Bmagic(pos, board->every_piece & bishop_mask);
+	attackers |= bishop_squares & (board->pieces[WHITE][BISHOP] | board->pieces[WHITE][QUEEN]) & selectmask;
+	attackers |= bishop_squares & (board->pieces[BLACK][BISHOP] | board->pieces[BLACK][QUEEN]) & selectmask;
+	
+	// Check rooks and horizontal queen attacks
+	const BitBoard rook_mask = piecelookup(pos, ROOK, 0) & selectmask;
+	const BitBoard rook_squares = Rmagic(pos, board->every_piece & rook_mask);
+	attackers |= rook_squares & (board->pieces[WHITE][ROOK] | board->pieces[WHITE][QUEEN]) & selectmask;
+	attackers |= rook_squares & (board->pieces[BLACK][ROOK] | board->pieces[BLACK][QUEEN]) & selectmask;
+	
+	//return false;
+	return attackers;
 }
 
 
@@ -280,7 +319,8 @@ movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb
 		// moves.moves[i].old_castling_flags = board->castling;
 		// moves.moves[i].old_en_passant = board->en_passant;
 		
-		moves.moves[i].move_score = get_move_predict_score(board, moves.moves + i);
+		//moves.moves[i].move_score = get_move_predict_score(board, moves.moves + i);
+		set_move_predict_scores(board, moves.moves + i);
 	}
 	return moves;
 }
