@@ -28,6 +28,8 @@ void uci(FILE* f);
 // Make sure that str is at least 6 characters long (a1b1q + \0) 
 void move_to_uci_notation(const move_s* restrict move, char* restrict str);
 
+void uci_notation_to_move(const board_s* board, move_s* move, const char* ucimove);
+
 // 6 bits from + 6 bits to + 1 bit promote flag + 3 bits promoteto = 16 bits = 2 bytes
 // Make sure that str is at least 6 characters long (a1b1q + \0)
 void compact_move_to_uci_notation(const uint16_t move, char* str);

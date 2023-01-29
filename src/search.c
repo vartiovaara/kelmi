@@ -193,7 +193,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		// (how many depth are supposed to be under the entry)  >= ( vs how many under this node)
 		//if (entry->search_depth - entry->node_depth >= (signed int)search_depth - ((signed int)search_depth - depth) &&
 		//     depth - search_depth != 0) { // and don't replace root node
-		if (entry->depth > depth && actual_depth) {
+		if (entry->depth >= depth && actual_depth && entry->flags & TT_ENTRY_FLAG_FULL_NODE) {
 			
 			if (stats)
 				stats->nodes++;
@@ -265,19 +265,15 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	
 
 	bool do_null_move = false;
-	if (depth > NULL_MOVE_PRUNING_R(depth) + 1 && search_depth-depth > 0 && !initially_in_check && !is_null_prune)
+	if (depth > NULL_MOVE_PRUNING_R(depth) + 1 && !initially_in_check && actual_depth > 0 && !is_null_prune)
 		do_null_move = true;
-
-	BitBoard bestmove_from = 0x0;
-	BitBoard bestmove_to = 0x0;
-	unsigned int bestmove_promoteto = 0;
 	
 	move_s* best_move_here = NULL;
 
 	// Go through every piece and create the moves
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
 	for (size_t i = 0; i < n_pieces; i++) {
-		all_moves[i] = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy));
+		all_moves[i] = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy), true);
 		
 		n_all_moves += all_moves[i].n;
 
@@ -409,11 +405,39 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		
 			int depth_modifier = 0;
 
-			// if (move->move_score == EVAL_MAX && actual_depth < search_depth - 4 && depth < 3)
+			// if (move->move_score == EVAL_MAX && actual_depth < search_depth - 4 && depth < 5)
 			// 	depth_modifier++;
-			if (move && !initially_in_check) {
-				 if ((depth == 3 || depth == 4) && alpha != EVAL_MIN && beta != EVAL_MAX) {
-				 	eval_t qeval = q_search(board, stats, search_depth, depth - 1, 0, alpha, beta);
+			if (move && !initially_in_check && move->move_score != EVAL_MAX) {
+				// if(move->flags & FLAG_CAPTURE && best_move_here && alpha != EVAL_MIN && beta != EVAL_MAX) {
+				// 	// Futility pruning on capture moves
+				// 	//const eval_t ab = (initial_side == WHITE ? alpha : beta);
+				// 	if (initial_side == WHITE) {
+				// 		if (move->move_see <= alpha - 90 && depth == 1)
+				// 			goto REGULAR_SEARCH_SKIP_MOVE;
+				// 		if (move->move_see <= alpha - 500 && depth == 2)
+				// 			goto REGULAR_SEARCH_SKIP_MOVE;
+				// 	}
+				// 	else {
+				// 		if (move->move_see >= beta + 90 && depth == 1)
+				// 			goto REGULAR_SEARCH_SKIP_MOVE;
+				// 		if (move->move_see >= beta + 500 && depth == 2)
+				// 			goto REGULAR_SEARCH_SKIP_MOVE;
+				// 	}
+				// }
+				if ((depth == 2) && alpha != EVAL_MIN && beta != EVAL_MAX && best_move_here) {
+					// const eval_t qeval = q_search(board, stats, search_depth, depth - 1, 0, alpha, beta);
+
+					// Futility pruning on non-capture moves
+					//const eval_t ab = (initial_side == WHITE ? alpha : beta);
+					// if (initial_side == WHITE) {
+					// 	if (qeval <= alpha - 400)
+					// 		goto REGULAR_SEARCH_SKIP_MOVE;
+					// }
+					// else {
+					// 	if (qeval >= beta + 400)
+					// 		goto REGULAR_SEARCH_SKIP_MOVE;
+					// }
+
 
 					//if (initial_side == WHITE) {
 					// if (qeval < alpha && qeval > beta && actual_depth < search_depth - 2)
@@ -422,8 +446,16 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 					// 	depth_modifier -= 1;
 					// }
 					//}
-					if (!(qeval < alpha && qeval > beta))
-						depth_modifier -= 1;
+					// if (!(qeval < alpha && qeval > beta))
+					// 	depth_modifier -= 1;
+					// eval_t a = alpha;
+					// eval_t b = beta;
+					// if (initial_side == WHITE)
+					// 	a = MAX(qeval, alpha);
+					// else
+					// 	b = MIN(qeval, beta);
+					// if (b <= a)
+					// 	depth_modifier -= 1;
 					/*
 					else {
 						if (qeval > beta )
@@ -437,18 +469,18 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 					//  	depth_modifier -= 1;
 					
 					
-					// if (move_see < -200 && depth < 3)
+					// if (move->move_see <= -600 && depth == 3)
 					// 	depth_modifier--;
-					// if (move->move_see <= -900 && depth == 5)
+					// if (move->move_see <= -900 && depth == 4)
 					// 	depth_modifier--;
-					if (move->move_see <= -700 && depth == 4)
-						depth_modifier--;
-					if (move->move_see <= -200 && (depth == 3))
-						depth_modifier--;
+					// if (move->move_see <= -500 && depth == 3)
+					// 	depth_modifier--;
+					// if (move->move_see <= -200 && (depth == 3))
+					// 	depth_modifier--;
 					// else if (move_see > 600 && depth > 1 && depth < 3)
 					// 	depth_modifier++;
-					if (move->move_see < -40 && depth <= 2)
-						depth_modifier--;
+					// if (move->move_see < -200 && depth == 2)
+					// 	depth_modifier--;
 					/*
 					if (depth < 2 && depth_modifier >= 0) {
 						eval_t material = eval_material(board, get_game_phase_value(board));
@@ -467,31 +499,30 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 					}
 					*/
 				}
-				if (move->flags & FLAG_PROMOTE)
+				if (move->flags & FLAG_PROMOTE && (move->promoteto == QUEEN || move->promoteto == KNIGHT))
 					depth_modifier++;
 			}
 
-			if (depth_modifier <= 0 && actual_depth < search_depth - 1) { // && depth < 2) {
-				if (is_in_check(board, board->sidetomove))
-					depth_modifier += 1;
-			}
+			// if (depth_modifier <= 0 && actual_depth < search_depth - 1) { // && depth < 2) {
+			// 	if (is_in_check(board, board->sidetomove))
+			// 		depth_modifier += 1;
+			// }
+
+			// if (depth_modifier != 0) {
+			// 	if (depth - 1 + depth_modifier <= 0 && move->move_score < 400 && best_move_here)
+			// 		goto REGULAR_SEARCH_SKIP_MOVE;
+			// }
 
 			eval = regular_search(board, NULL, stats, pv, history_n_at_root, time1, time_available, search_depth, depth-1+depth_modifier, actual_depth + 1, is_null_prune, alpha, beta);
 			//printf("info string %f\n", eval);
 
 			// if move was better, store it instead.
 			// Or if no legal moves have been stored to yet; store it now
-			if (is_eval_better(eval, bestmove_eval, initial_side) || bestmove_from == 0) {
+			if (is_eval_better(eval, bestmove_eval, initial_side) || !best_move_here) {
 				assert(popcount(move->from) == 1);
 				assert(popcount(move->to) == 1);
 				bestmove_eval = eval;
-				bestmove_from = move->from;
-				bestmove_to = move->to;
-				if (move->flags & FLAG_PROMOTE)
-					bestmove_promoteto = move->promoteto;
-				else
-					bestmove_promoteto = 0x0;
-				
+
 				if (bestmove)
 					memcpy(bestmove, move, sizeof (move_s));
 				
@@ -551,6 +582,8 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		
 		//if (pv)
 		//	pv->n_moves[search_depth - depth] = 0;
+		if (!is_null_prune && best_move_here)
+			store_move(&tt_normal, board->hash, bestmove_eval, 0x0, depth, encode_compact_move(best_move_here), false);
 		
 		goto REGULAR_SEARCH_SEARCH_END;
 	}
@@ -586,7 +619,7 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	}
 
 	if (!is_null_prune)
-		store_move(&tt_normal, board->hash, bestmove_eval, 0x0, depth, encode_compact_move(best_move_here));
+		store_move(&tt_normal, board->hash, bestmove_eval, 0x0, depth, encode_compact_move(best_move_here), true);
 
 	REGULAR_SEARCH_SEARCH_END:
 
@@ -610,7 +643,7 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 	// if (depth <= 0)
 	// 	return eval(board);
 
-	assert(depth < 0);
+	//assert(depth < 0);
 
 	// Looking up entries here slows search around 300knps
 	// TODO: Do more testing in future for this
@@ -689,6 +722,8 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 	// 		beta = better_eval(beta, stand_pat, board->sidetomove);
 	// }
 	//}
+
+	const eval_t eval_here = eval(board);
 	
 	
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
@@ -699,7 +734,7 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 	unsigned int n_legal_moves_done = 0;
 
 	// Stores the best move for board->sidetomove
-	eval_t bestmove_eval = (board->sidetomove == WHITE ? EVAL_MIN : EVAL_MAX); // set to worst possible
+	eval_t bestmove_eval = eval_here; // (board->sidetomove == WHITE ? EVAL_MIN : EVAL_MAX); // set to worst possible
 
 	// I think the right term is fail-low?? Not sure
 	// This set to true if beta <= alpha
@@ -727,7 +762,7 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 	// Go through every piece and create the moves
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
 	for (size_t i = 0; i < n_pieces; i++) {
-		all_moves[i] = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy));
+		all_moves[i] = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy), true);
 
 		n_all_moves += all_moves[i].n;
 
@@ -805,23 +840,23 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 		if (move->flags & FLAG_CAPTURE) {
 			//eval_t move_see = see(board, move);
 
-			assert(-(eval_t)depth - 1 >= 0);
+			//ssert(-(eval_t)depth - 1 >= 0);
 
-			// if (move->move_see > 0)
-			// 	failed_q_prune = false;
+			if (move->move_see >= 0)
+				failed_q_prune = false;
 			
 			// if (move->move_see < -100)
 			// 	failed_q_prune = true;
-			if (board->sidetomove == WHITE) {
-				const int phase = get_game_phase_value(board);
-				if (eval_material(board, phase) + move->move_see + Q_SEARCH_PRUNE_TRESHOLD > alpha)
-					failed_q_prune = false;
-			}
-			else {
-				const int phase = get_game_phase_value(board);
-				if (eval_material(board, phase) - move->move_see - Q_SEARCH_PRUNE_TRESHOLD < beta)
-					failed_q_prune = false;
-			}
+			// if (board->sidetomove == WHITE) {
+			// 	const int phase = get_game_phase_value(board);
+			// 	if (eval_material(board, phase) + move->move_see + Q_SEARCH_PRUNE_TRESHOLD > alpha)
+			// 		failed_q_prune = false;
+			// }
+			// else {
+			// 	const int phase = get_game_phase_value(board);
+			// 	if (eval_material(board, phase) - move->move_see - Q_SEARCH_PRUNE_TRESHOLD < beta)
+			// 		failed_q_prune = false;
+			// }
 			
 
 			//if (move->piece_captured == PAWN && move->to & (move->side == BLACK ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B))
@@ -829,7 +864,7 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 			//else if (move->fromtype == KING)
 			//	failed_q_prune = false;
 		}
-		if (move->flags & FLAG_PROMOTE)
+		if (move->flags & FLAG_PROMOTE && (move->promoteto == QUEEN || move->promoteto == KNIGHT))
 			failed_q_prune = false;
 		// else
 		// 	failed_q_prune = true;
@@ -856,7 +891,7 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 
 		// Quiescence pruning after move-make
 
-		// if (failed_q_prune && qdepth < 2) {
+		// if (failed_q_prune && qdepth < 1) {
 		// 	if (is_in_check(board, board->sidetomove)) {
 		// 		failed_q_prune = false;
 		// 	}
@@ -927,8 +962,10 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 	}
 
 	if (n_fail_q_prune == n_legal_moves_done) {
-		return eval(board);
+		return eval_here; //eval(board);
 	}
+	// if (bestmove_eval == (initial_side == WHITE ? EVAL_MIN : EVAL_MAX))
+	// 	return eval(board);
 	
 	return bestmove_eval;
 }

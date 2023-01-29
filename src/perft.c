@@ -180,7 +180,7 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 	// go through every piece
 	for (unsigned int i = 0; i < npieces; i++) {
 		// generate moves
-		movelist_s moves = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy));
+		movelist_s moves = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy), false);
 		
 		// if there aren't any moves, cont now.
 		// otherwise we'd be freeing memory that has never

@@ -10,7 +10,7 @@
 #include "defs.h"
 
 // transposition tables will be split in this many "buckets"
-#define N_BUCKETS 16
+#define N_BUCKETS 8
 
 
 tt_s tt_normal; // transposition table for normal positions
@@ -20,7 +20,7 @@ tt_s tt_q; // transposition table for quiescense search
 void allocate_table(tt_s* tt, size_t n);
 void free_table(tt_s* tt);
 size_t get_entry_index(const tt_s* tt, uint64_t hash);
-void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, int16_t node_depth, uint16_t move);
+void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, int16_t node_depth, uint16_t move, bool full_node);
 
 
 void allocate_table(tt_s* tt, size_t n) {
@@ -69,7 +69,7 @@ size_t get_entry_index(const tt_s* tt, uint64_t hash) {
 }
 
 
-void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, int16_t node_depth, uint16_t move) {
+void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, int16_t node_depth, uint16_t move, bool full_node) {
 	assert(COMPACT_MOVE_FROM(move) < 64);
 	assert(COMPACT_MOVE_TO(move) < 64);
 
@@ -79,6 +79,8 @@ void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, int16_t node_d
 	//entry->node_depth = node_depth;
 	entry->depth = node_depth;
 	entry->bestmove = move;
+	entry->flags = 0x0;
+	entry->flags |= TT_ENTRY_FLAG_FULL_NODE * full_node;
 	/*
 	entry->bestmove_from = from;
 	entry->bestmove_to = to;
@@ -119,13 +121,13 @@ bool retrieve_entry(tt_s* restrict tt, tt_entry_s* restrict entry, uint64_t hash
 }
 
 // TODO: Implement qsearch replacement strategy
-void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint64_t bestmove_hash, int16_t node_depth, uint16_t move) {
+void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint64_t bestmove_hash, int16_t node_depth, uint16_t move, bool full_node) {
 	assert(COMPACT_MOVE_FROM(move) < 64);
 	assert(COMPACT_MOVE_TO(move) < 64);
 
 	tt_entry_s entry;
 	memset(&entry, 0, sizeof (tt_entry_s));
-	make_tt_entry(&entry, hash, eval, node_depth, move);
+	make_tt_entry(&entry, hash, eval, node_depth, move, full_node);
 
 	const size_t index = get_entry_index(tt, hash);
 

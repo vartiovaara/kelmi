@@ -377,21 +377,22 @@ eval_t eval_material(const board_s* board, const int phase) {
 	eval_t res = 0;
 
 	// Compare pawns
-	const unsigned int n_pawns_w = popcount(board->pieces[WHITE][PAWN]);
-	const unsigned int n_pawns_b = popcount(board->pieces[BLACK][PAWN]);
+	const int n_pawns_w = popcount(board->pieces[WHITE][PAWN]);
+	const int n_pawns_b = popcount(board->pieces[BLACK][PAWN]);
 	res += (n_pawns_w - n_pawns_b) * GET_PIECE_VALUE(PAWN, phase);
 
 	// Compare knights
 	//unsigned int n_pawns_w = popcount(board->pieces[WHITE][PAWN]);
 	//unsigned int n_pawns_b = popcount(board->pieces[BLACK][PAWN]);
 	//res += (float)(n_pawns_w - n_pawns_b);
-	res += 
-		(popcount(board->pieces[WHITE][KNIGHT])
-		- popcount(board->pieces[BLACK][KNIGHT])) * GET_PIECE_VALUE(KNIGHT, phase);
+	 
+	const int n_knights_w = popcount(board->pieces[WHITE][KNIGHT]);
+	const int n_knights_b = popcount(board->pieces[BLACK][KNIGHT]);
+	res += (n_knights_w - n_knights_b) * GET_PIECE_VALUE(KNIGHT, phase);
 
 	// Compare bishops
-	const unsigned int n_bishops_w = popcount(board->pieces[WHITE][BISHOP]);
-	const unsigned int n_bishops_b = popcount(board->pieces[BLACK][BISHOP]);
+	const int n_bishops_w = popcount(board->pieces[WHITE][BISHOP]);
+	const int n_bishops_b = popcount(board->pieces[BLACK][BISHOP]);
 	res += (n_bishops_w - n_bishops_b) * GET_PIECE_VALUE(BISHOP, phase);
 	// Add in bishop pairs (half a pawn more)
 	if (n_bishops_w > 1)
@@ -400,13 +401,13 @@ eval_t eval_material(const board_s* board, const int phase) {
 		res += -EVAL_BPAIR_VALUE;
 
 	// Compare rooks
-	const unsigned int n_rooks_w = popcount(board->pieces[WHITE][ROOK]);
-	const unsigned int n_rooks_b = popcount(board->pieces[BLACK][ROOK]);
+	const int n_rooks_w = popcount(board->pieces[WHITE][ROOK]);
+	const int n_rooks_b = popcount(board->pieces[BLACK][ROOK]);
 	res += (n_rooks_w - n_rooks_b) * GET_PIECE_VALUE(ROOK, phase);
 
 	// Compare queens
-	const unsigned int n_queens_w = popcount(board->pieces[WHITE][QUEEN]);
-	const unsigned int n_queens_b = popcount(board->pieces[BLACK][QUEEN]);
+	const int n_queens_w = popcount(board->pieces[WHITE][QUEEN]);
+	const int n_queens_b = popcount(board->pieces[BLACK][QUEEN]);
 	res += (n_queens_w - n_queens_b) * GET_PIECE_VALUE(QUEEN, phase);
 
 	// Maybe not needed???
@@ -585,7 +586,7 @@ eval_t eval_movable_squares(const board_s* board) {
 	BitBoard w_pieces = board->all_pieces[WHITE];
 	while (w_pieces) {
 		const BitBoard piece = pop_bitboard(&w_pieces);
-		movelist_s moves = get_pseudo_legal_squares(board, piece);
+		movelist_s moves = get_pseudo_legal_squares(board, piece, false);
 		res += moves.n * EVAL_MOVABLE_SQUARES_MULT;
 		if (moves.n)
 			free(moves.moves);
@@ -594,7 +595,7 @@ eval_t eval_movable_squares(const board_s* board) {
 	BitBoard b_pieces = board->all_pieces[BLACK];
 	while (b_pieces) {
 		const BitBoard piece = pop_bitboard(&b_pieces);
-		movelist_s moves = get_pseudo_legal_squares(board, piece);
+		movelist_s moves = get_pseudo_legal_squares(board, piece, false);
 		res -= moves.n * EVAL_MOVABLE_SQUARES_MULT;
 		if (moves.n)
 			free(moves.moves);
@@ -789,21 +790,21 @@ eval_t see(const board_s* restrict board, const move_s* restrict move) {
 
 	eval_t gain[32];
 	int d = 0;
-	// Get the attackers and defenders while ignoring the already made capture piece
-	// as we assume that piece has already been moved to the square
-	// (it hasn't really)
-	BitBoard removed_pieces = move->from;
+	
+	// pieces that have done a capture get added here
+	// so that they may be ignored by get_seeing_pieces()
+	BitBoard removed_pieces = move->to;
+
 	BitBoard attackdef = get_seeing_pieces(board, move->to, removed_pieces);
 
-	unsigned int current_side = OPPOSITE_SIDE(move->side);
-	BitBoard current_attacker = get_cheapest_piece(board, current_side, attackdef);
-	// pieces that have done a capture get added here
-	// so that they may be ignored by get_attackers()
+	unsigned int current_side = move->side;
+	BitBoard current_attacker = move->from; //get_cheapest_piece(board, current_side, attackdef);
 
 	gain[0] = GET_PIECE_VALUE(move->piece_captured, phase);
 
-	if (!current_attacker)
-		return gain[0];
+
+	// if (!current_attacker)
+	// 	return gain[0];
 
 	do {
 		d++;
@@ -820,7 +821,7 @@ eval_t see(const board_s* restrict board, const move_s* restrict move) {
 	} while (current_attacker);
 
 	while (--d)
-		gain[d-1] = -MAX(-gain[d-1], gain[0]);
-	
+		gain[d-1] = -MAX(-gain[d-1], gain[d]);
+
 	return gain[0];
 }

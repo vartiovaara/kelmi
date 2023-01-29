@@ -147,9 +147,9 @@ To make a move, give it in uci format."
 #define EVAL_ROOK_MATERIAL_VALUE 620//563
 #define EVAL_QUEEN_MATERIAL_VALUE 950
 #define EVAL_MATERIAL_IMBALANCE_ACCENTUATE_MULT 1
-#define EVAL_BPAIR_VALUE 50
+#define EVAL_BPAIR_VALUE 10
 #define EVAL_STACKED_PAWNS_PUNISHMENT 19 // applied for every stacked pawn
-#define EVAL_ROOK_OPEN_FILE 15
+#define EVAL_ROOK_OPEN_FILE 5
 #define EVAL_MOVABLE_SQUARES_MULT 1
 #define EVAL_CASTLING_RIGHTS_Q 4
 #define EVAL_CASTLING_RIGHTS_K 15
@@ -175,7 +175,7 @@ To make a move, give it in uci format."
 // enter in graphical calculator
 // depth in q-search is always -1 or less
 //#define Q_SEARCH_PRUNE_TRESHOLD(depth) ((eval_t)(Q_SEARCH_INITIAL_PRUNE_TRESHOLD + (-(eval_t)depth - 1)*0)) // (int)powf(-1 - depth, 0.7))
-#define Q_SEARCH_PRUNE_TRESHOLD (200) //100 // 78
+#define Q_SEARCH_PRUNE_TRESHOLD (70) //100 // 78
 
 #define Q_SEARCH_STANDPAT_PRUNING_DEPTH_TRESHOLD (0)
 
@@ -195,7 +195,7 @@ To make a move, give it in uci format."
 
 #define UCI_INPUT_BUFFER_SIZE 4096
 
-//#define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+#define DEFAULT_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 //#define DEFAULT_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
 //#define DEFAULT_FEN "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
 //#define DEFAULT_FEN "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
@@ -205,7 +205,7 @@ To make a move, give it in uci format."
 //#define DEFAULT_FEN "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"
 //#define DEFAULT_FEN "q2k2q1/2nqn2b/1n1P1n1b/2rnr2Q/1NQ1QN1Q/3Q3B/2RQR2B/Q2K2Q1 w - - 0 1"
 //#define DEFAULT_FEN "1r6/p2r1p1p/6p1/2b1kp2/2Bn3P/2N5/PP1R1PP1/4K2R w K - 4 27"
-#define DEFAULT_FEN "r5k1/pp2pr1p/2n3p1/1qP3Q1/4P3/4KN2/P4PPP/b1B4R w - - 6 16"
+//#define DEFAULT_FEN "r5k1/pp2pr1p/2n3p1/1qP3Q1/4P3/4KN2/P4PPP/b1B4R w - - 6 16"
 
 /*
  * Typedefs
@@ -274,8 +274,9 @@ enum uci_searchtype_e {
 };
 
 enum tt_entry_flags_e {
-	TT_ENTRY_FLAG_PROMOTION = 0x1 << 0,
-	TT_ENTRY_FLAG_CUT_NODE  = 0x1 << 1
+	TT_ENTRY_FLAG_FULL_NODE = 0x1 << 0
+	//TT_ENTRY_FLAG_PROMOTION = 0x1 << 0,
+	//TT_ENTRY_FLAG_CUT_NODE  = 0x1 << 1
 	//TT_ENTRY_FLAG_EXIST     = 0x1 << 0,
 	//TT_ENTRY_FLAG_FAIL_HIGH = 0x1 << 1,
 	//TT_ENTRY_FLAG_FAIL_LOW  = 0x1 << 2

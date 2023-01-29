@@ -244,6 +244,10 @@ int parse_position_command(board_s* board, char* input, size_t n) {
 
 	while (uci_move) {
 		move_s move;
+
+		uci_notation_to_move(board, &move, uci_move);
+
+		/*
 		memset(&move, 0, sizeof(move_s));
 
 		// is move promotion?
@@ -264,6 +268,7 @@ int parse_position_command(board_s* board, char* input, size_t n) {
 
 		move.old_castling_flags = board->castling;
 		move.old_en_passant = board->en_passant;
+		*/
 		makemove(board, &move);
 		append_to_move_history(board, &move);
 
@@ -392,6 +397,31 @@ void compact_move_to_uci_notation(const uint16_t move, char* str) {
 
 	str[4] = '\0';
 }
+
+
+void uci_notation_to_move(const board_s* board, move_s* move, const char* ucimove) {
+	memset(move, 0, sizeof(move_s));
+
+	// is move promotion?
+	if (strlen(ucimove) > 4) {
+		move->flags |= FLAG_PROMOTE;
+		move->promoteto = piece_from_char(ucimove[4]);
+	}
+
+	move->from = SQTOBB(algsqtoint(ucimove));
+	move->to = SQTOBB(algsqtoint(ucimove + 2));
+	move->side = get_piece_side(board, move->from);
+	move->fromtype = get_piece_type(board, move->side, move->from);
+
+	set_move_flags(move, board);
+
+	if (move->flags & FLAG_CAPTURE)
+		move->piece_captured = get_piece_type(board, OPPOSITE_SIDE(move->side), move->to);
+
+	move->old_castling_flags = board->castling;
+	move->old_en_passant = board->en_passant;
+}
+
 
 
 size_t divide_string(char** restrict fields, char* restrict s, const char* delim) {

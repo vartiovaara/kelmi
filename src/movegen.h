@@ -33,6 +33,6 @@ void create_move(const board_s* board, move_s* move, BitBoard from, BitBoard to,
 
 // generates all the squares the specified piece could move
 // currently just pseudo-legal so doesn't check for
-movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb);
+movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb, bool set_move_ordering);
 
 #endif // ATTACK_H

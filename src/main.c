@@ -11,6 +11,8 @@
 #include "board.h"
 #include "uci.h"
 #include "transposition.h"
+#include "eval.h"
+#include "movegen.h"
 
 #include "defs.h"
 
@@ -56,9 +58,20 @@ int main(void) {
 	puts(HELP_MESSAGE);
 	
 	init_all();
+
+	/*
+	board_s board = boardfromfen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");//"1k1r3q/1ppn3p/p4b2/4p3/8/P2N2P1/1PP1R1BP/2K1Q3 w - - 0 1");//DEFAULT_FEN);
+	printboard(&board);
+
+
+	move_s move;
+	uci_notation_to_move(&board, &move, "d5e6"); //"d3e5" "e2e5" "g2b7"
+
+	//printbitboard(get_seeing_pieces(&board, move.to, move.from));
+
+	printf("%i\n", see(&board, &move));
+	*/
 	
-	//board_s board = boardfromfen(DEFAULT_FEN);
-	//printboard(&board);
 
 	/*
 	for (int i = 0; i < 8; i++) {

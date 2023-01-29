@@ -132,14 +132,14 @@ BitBoard get_seeing_pieces(const board_s* board, BitBoard sq, BitBoard ignoremas
 	attackers |= (board->pieces[WHITE][KING] | board->pieces[BLACK][KING]) & piecelookup(pos, KING, 0) & selectmask;
 
 	// Check bishops and diagonal queen attacks
-	const BitBoard bishop_mask = piecelookup(pos, BISHOP, 0) & selectmask;
-	const BitBoard bishop_squares = Bmagic(pos, board->every_piece & bishop_mask);
+	const BitBoard bishop_mask = piecelookup(pos, BISHOP, 0); // & selectmask;
+	const BitBoard bishop_squares = Bmagic(pos, (board->every_piece & selectmask) & bishop_mask);
 	attackers |= bishop_squares & (board->pieces[WHITE][BISHOP] | board->pieces[WHITE][QUEEN]) & selectmask;
 	attackers |= bishop_squares & (board->pieces[BLACK][BISHOP] | board->pieces[BLACK][QUEEN]) & selectmask;
 	
 	// Check rooks and horizontal queen attacks
-	const BitBoard rook_mask = piecelookup(pos, ROOK, 0) & selectmask;
-	const BitBoard rook_squares = Rmagic(pos, board->every_piece & rook_mask);
+	const BitBoard rook_mask = piecelookup(pos, ROOK, 0); // & selectmask;
+	const BitBoard rook_squares = Rmagic(pos, (board->every_piece & selectmask) & rook_mask);
 	attackers |= rook_squares & (board->pieces[WHITE][ROOK] | board->pieces[WHITE][QUEEN]) & selectmask;
 	attackers |= rook_squares & (board->pieces[BLACK][ROOK] | board->pieces[BLACK][QUEEN]) & selectmask;
 	
@@ -249,7 +249,7 @@ void create_move(const board_s* board, move_s* move, BitBoard from, BitBoard to,
 }
 
 
-movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb) {
+movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb, bool set_move_ordering) {
 	assert(popcount(piecebb));
 
 	const unsigned int side = get_piece_side(board, piecebb);
@@ -320,7 +320,8 @@ movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb
 		// moves.moves[i].old_en_passant = board->en_passant;
 		
 		//moves.moves[i].move_score = get_move_predict_score(board, moves.moves + i);
-		set_move_predict_scores(board, moves.moves + i);
+		if (set_move_ordering)
+			set_move_predict_scores(board, moves.moves + i);
 	}
 	return moves;
 }
