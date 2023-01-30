@@ -206,6 +206,8 @@ To make a move, give it in uci format."
 //#define DEFAULT_FEN "q2k2q1/2nqn2b/1n1P1n1b/2rnr2Q/1NQ1QN1Q/3Q3B/2RQR2B/Q2K2Q1 w - - 0 1"
 //#define DEFAULT_FEN "1r6/p2r1p1p/6p1/2b1kp2/2Bn3P/2N5/PP1R1PP1/4K2R w K - 4 27"
 //#define DEFAULT_FEN "r5k1/pp2pr1p/2n3p1/1qP3Q1/4P3/4KN2/P4PPP/b1B4R w - - 6 16"
+//#define DEFAULT_FEN "8/8/3k4/1Rp5/P1Pp2K1/8/8/8 w - - 1 64"
+
 
 /*
  * Typedefs
@@ -427,7 +429,7 @@ typedef struct {
 	uint8_t bestmove_to;
 	uint8_t bestmove_promoteto;
 	*/
-	uint64_t bestmove_hash; // hash of the board after bestmove has been done
+	//uint64_t bestmove_hash; // hash of the board after bestmove has been done
 } tt_entry_s;
 
 typedef struct {

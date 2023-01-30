@@ -150,6 +150,12 @@ void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint64_t bestmove_hash, in
 	// FIXME: Make a replacement stratgy
 	if (need_to_replace)
 		bucket_n = tt->counter++ % N_BUCKETS;
+	else {
+		if (tt->entries[bucket_n][index].depth > node_depth)
+			return; // already had a node with bigger depth here
+		if (!full_node && tt->entries[bucket_n][index].flags & TT_ENTRY_FLAG_FULL_NODE)
+			return; // already had a full node here
+	}
 
 	memcpy(&(tt->entries[bucket_n][index]), &entry, sizeof (tt_entry_s));
 }

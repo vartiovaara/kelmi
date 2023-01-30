@@ -580,6 +580,7 @@ eval_t eval_rook_open_file(const board_s* board) {
 
 // TODO: Make those fucking attack maps
 // FIXME: you lazy fuck
+/*
 eval_t eval_movable_squares(const board_s* board) {
 	eval_t res = 0;
 
@@ -603,6 +604,7 @@ eval_t eval_movable_squares(const board_s* board) {
 
 	return res;
 }
+*/
 
 
 eval_t eval_king_guard(const board_s* board) {
@@ -748,8 +750,10 @@ void set_move_predict_scores(const board_s* restrict board, move_s* restrict mov
 
 	if (move->flags & FLAG_PROMOTE) {
 		//if (psqt_values[move->promoteto]) {
-		move->move_score -= (psqt[move->fromtype][0][from_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->fromtype][0][from_sq])/PHASE_TOTAL; // FIXME: Taper this shit
-		move->move_score += (psqt[move->promoteto][0][to_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->promoteto][0][to_sq])/PHASE_TOTAL;
+		eval_t psqt_diff = 0;
+		psqt_diff -= (psqt[move->fromtype][0][from_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->fromtype][0][from_sq])/PHASE_TOTAL; // FIXME: Taper this shit
+		psqt_diff += (psqt[move->promoteto][0][to_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->promoteto][0][to_sq])/PHASE_TOTAL;
+		move->move_score += psqt_diff / 4;
 		//}
 	}
 	else {

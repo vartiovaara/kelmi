@@ -249,7 +249,7 @@ void create_move(const board_s* board, move_s* move, BitBoard from, BitBoard to,
 }
 
 
-movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb, bool set_move_ordering) {
+void get_pseudo_legal_moves(const board_s* restrict board, movelist_s* restrict moves, const BitBoard piecebb, bool set_move_ordering) {
 	assert(popcount(piecebb));
 
 	const unsigned int side = get_piece_side(board, piecebb);
@@ -259,34 +259,38 @@ movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb
 
 	// now we have all of the proper "to" squares
 	// now we just have to assign flags and properly encode them
-	movelist_s moves;
-	moves.n = popcount(to);
+	//movelist_s moves;
+	moves->n = popcount(to);
 	
-	if (moves.n == 0)
-		return moves; // skip everything as there is no moves
+	if (moves->n == 0)
+		return; // skip everything as there is no moves
 
 	bool promote = false;
 	// Check if piece is about to promote
 	// this check works becouse a pawn can't have promotions and non-promotions intermixed
 	if (piece_type == PAWN && piecebb & (side == WHITE ? W_PROMOTE_FROM_MASK : B_PROMOTE_FROM_MASK)) {
 		promote = true;
-		moves.n *= N_PROM_PIECES;
+		moves->n *= N_PROM_PIECES;
 	}
 
-	moves.moves = malloc(sizeof(move_s) * moves.n);
-	if (!moves.moves) {
-		fprintf(stderr, "malloc failed at pseudo_legal_squares()\n");
-		exit(1);
-	}
+	//moves->moves = malloc(sizeof(move_s) * moves->n);
+	assert(moves->moves);
+	//assert(LENGTH(moves->moves) >= moves->n);
+
+	// if (!moves->moves) {
+	// 	fprintf(stderr, "malloc failed at pseudo_legal_squares()\n");
+	// 	exit(1);
+	// }
+
 	const uint8_t promote_piece_codes[N_PROM_PIECES] = {QUEEN, ROOK, BISHOP, KNIGHT};
 	BitBoard last_pop = 0x0;
 
 	// TODO: move ordering would be done here and taken into account in search
-	for (unsigned int i = 0; i < moves.n; i++) {
+	for (unsigned int i = 0; i < moves->n; i++) {
 		//moves.moves[i].from = piecebb;
 		//moves.moves[i].fromtype = piece_type;
 		//moves.moves[i].side = side;
-		moves.moves[i].flags = 0x0;
+		moves->moves[i].flags = 0x0;
 
 		BitBoard from = piecebb;
 		BitBoard to_sq;
@@ -308,7 +312,7 @@ movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb
 		else
 			to_sq = pop_bitboard(&to); //moves.moves[i].to = pop_bitboard(&to);
 		
-		create_move(board, moves.moves + i, from, to_sq, promoteto);
+		create_move(board, moves->moves + i, from, to_sq, promoteto);
 
 		// set flags
 		//set_move_flags(moves.moves + i, board);
@@ -321,9 +325,9 @@ movelist_s get_pseudo_legal_squares(const board_s* board, const BitBoard piecebb
 		
 		//moves.moves[i].move_score = get_move_predict_score(board, moves.moves + i);
 		if (set_move_ordering)
-			set_move_predict_scores(board, moves.moves + i);
+			set_move_predict_scores(board, moves->moves + i);
 	}
-	return moves;
+	// return moves;
 }
 
 

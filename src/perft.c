@@ -177,10 +177,13 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 	//board_s boardcopy;// = *board;
 	//memcpy(&boardcopy, board, sizeof (board_s)); // for some reason, it's faster with memcpy
 
+	move_s moves_array[32];
+	movelist_s moves;
+	moves.moves = moves_array;
 	// go through every piece
 	for (unsigned int i = 0; i < npieces; i++) {
 		// generate moves
-		movelist_s moves = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy), false);
+		get_pseudo_legal_moves(board, &moves, pop_bitboard(&pieces_copy), false);
 		
 		// if there aren't any moves, cont now.
 		// otherwise we'd be freeing memory that has never
@@ -260,7 +263,7 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 			continue;
 		}
 
-		free(moves.moves);
+		// free(moves.moves);
 	}
 	
 	// No moves were made?

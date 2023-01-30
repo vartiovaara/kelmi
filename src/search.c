@@ -18,11 +18,18 @@
 #include "defs.h"
 
 
+#define MAX_DEPTH 99
+
 
 // Private functions
 uint16_t encode_compact_move(const move_s* move);
 eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, pv_s* restrict pv, const size_t history_n_at_root, const clock_t time1, const clock_t time_available, const int search_depth, const int depth, const int actual_depth, const bool is_null_prune, eval_t alpha, eval_t beta);
 eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, unsigned int qdepth, eval_t alpha, eval_t beta);
+
+
+// Private variables
+BitBoard killer_moves[MAX_DEPTH][2][2]; // [ply][first / second][from / to]
+
 
 
 eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bestmove, FILE* restrict f) {
@@ -31,23 +38,24 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 	//if (uci->action == UCI_PONDER)
 	//	goto THINK_PONDER;
 
+	memset(killer_moves, 0, MAX_DEPTH*2*2 * sizeof (BitBoard));
+
 	move_s move = {0};
 	eval_t move_eval = 0;
 
-	
 	pv_s pv = {0};
+
+	search_stats_s stats;
 
 	// Total memory usage of the pv with max_depth 99 is as such:
 	//2bytes×((99×99)/2) + 99×8bytes = 10.593kB
 
-	const size_t max_depth = 99;
-
-	pv.n_moves = calloc(max_depth, sizeof (size_t));
-	pv.pv = calloc(max_depth, sizeof (uint16_t*));
-	for (size_t i = 0; i < max_depth; i++) {
-		pv.pv[i] = calloc(max_depth - i, sizeof (uint16_t));
+	pv.n_moves = calloc(MAX_DEPTH, sizeof (size_t));
+	pv.pv = calloc(MAX_DEPTH, sizeof (uint16_t*));
+	for (size_t i = 0; i < MAX_DEPTH; i++) {
+		pv.pv[i] = calloc(MAX_DEPTH - i, sizeof (uint16_t));
 	}
-	pv.depth_allocated = max_depth;
+	pv.depth_allocated = MAX_DEPTH;
 
 	// from: https://www.talkchess.com/forum3/viewtopic.php?t=51135
 	unsigned int predicted_moves_left = 20; // originally 15
@@ -63,13 +71,14 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 	for (int depth = 1; 1; depth++) {
 		const time_t last_search_time = clock();
 
-		memset(pv.n_moves, 0, max_depth * sizeof (size_t));
+		memset(pv.n_moves, 0, MAX_DEPTH * sizeof (size_t));
+		memset(&stats, 0, sizeof (search_stats_s));
 		
 		for (size_t i = 0; i < pv.depth_allocated; i++)
 			memset(pv.pv[i], 0, (pv.depth_allocated - i) * sizeof (uint16_t));
 
 		// Normal search (alpha is maximizing and beta minimizing)
-		eval_t current_eval = regular_search(board, &move, NULL, &pv, board->history_n, t, time_allotted, depth, depth, 0, false, EVAL_MIN, EVAL_MAX);
+		eval_t current_eval = regular_search(board, &move, &stats, &pv, board->history_n, t, time_allotted, depth, depth, 0, false, EVAL_MIN, EVAL_MAX);
 
 		if (clock() - t >= time_allotted)
 			break;
@@ -92,8 +101,9 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 		}
 		pv_str[current_str_index] = '\0';
 		
-
-		uci_write(f, "info depth %i score cp %i pv %s\n", depth, move_eval, pv_str);
+		const unsigned long long nps = (unsigned long long)((double)stats.nodes/((double)(clock() - last_search_time)/(double)CLOCKS_PER_SEC));
+		const unsigned int search_time = (unsigned int)(((double)(clock() - t)/(double)CLOCKS_PER_SEC)*1000);
+		uci_write(f, "info depth %i score cp %i time %u nodes %llu nps %d pv %s\n", depth, move_eval, search_time, stats.nodes, nps, pv_str);
 
 		// mate
 		if (move_eval == EVAL_MAX || move_eval == EVAL_MIN)
@@ -108,7 +118,7 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 	}
 
 	//free(pv.pv.moves);
-	for (size_t i = 0; i < max_depth; i++) {
+	for (size_t i = 0; i < MAX_DEPTH; i++) {
 		//pv.pv[i] = calloc(max_depth - i, sizeof (uint16_t));
 		free(pv.pv[i]);
 	}
@@ -132,6 +142,7 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 eval_t search_with_stats(board_s* restrict board, move_s* restrict bestmove, const unsigned int depth, search_stats_s* restrict stats) {
 	memset(stats, 0, sizeof (search_stats_s));
 
+	memset(killer_moves, 0, MAX_DEPTH*2*2 * sizeof (BitBoard));
 
 	stats->n_plies = depth;
 
@@ -174,8 +185,11 @@ uint16_t encode_compact_move(const move_s* move) {
 
 // always when calling set was_horizon_node to NULL 
 eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, pv_s* restrict pv, const size_t history_n_at_root, const clock_t time1, const clock_t time_available, const int search_depth, const int depth, const int actual_depth, const bool is_null_prune, eval_t alpha, eval_t beta) {
-	if (stats && depth >= 0 && depth <= search_depth)
-		stats->n_positions[stats->n_plies - depth]++;
+	if (stats && depth >= 0 && depth <= search_depth) {
+		if (stats->n_positions) {
+			stats->n_positions[stats->n_plies - depth]++;
+		}
+	}
 	
 	if (time_available) {
 		if (clock() - time1 > time_available)
@@ -183,18 +197,27 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	}
 	
 	bool tt_entry_found = false;
-	tt_entry_s tt_entry;
+	//tt_entry_s tt_entry;
+	uint16_t tt_entry_bestmove = 0x0;
 	tt_entry_s* entry = probe_table(&tt_normal, board->hash);
 	
 	if (entry) {
 		if (stats)
 			stats->hashtable_hits++;
+
+		// Small check for hash collisions
+		if (!(SQTOBB(COMPACT_MOVE_FROM(entry->bestmove)) & board->all_pieces[board->sidetomove]))
+			goto REGULAR_SEARCH_HASH_MOVE_COLLISION;
+		if (entry->bestmove & COMPACT_MOVE_PROMOTE_FLAG) {
+			if (!(SQTOBB(COMPACT_MOVE_FROM(entry->bestmove)) & board->pieces[board->sidetomove][PAWN]))
+				goto REGULAR_SEARCH_HASH_MOVE_COLLISION;
+		}
 		
 		// (how many depth are supposed to be under the entry)  >= ( vs how many under this node)
 		//if (entry->search_depth - entry->node_depth >= (signed int)search_depth - ((signed int)search_depth - depth) &&
 		//     depth - search_depth != 0) { // and don't replace root node
 		if (entry->depth >= depth && actual_depth && entry->flags & TT_ENTRY_FLAG_FULL_NODE) {
-			
+
 			if (stats)
 				stats->nodes++;
 
@@ -204,20 +227,27 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 				pv->pv[actual_depth][0] = entry->bestmove;
 			}
 
+			// TODO: See if the bounds of the entry need to be >= the bounds of this node
 			return entry->eval;
 		}
+		// TODO: Figure out if this is safe when tt entry window is bigger or equal to current
+		// else if (entry->depth >= depth && actual_depth) {
+		// 	if (board->sidetomove == WHITE) {
+		// 		if (beta <= MAX(alpha, entry->eval))
+		// 			return entry->eval;
+		// 	}
+		// 	else {
+		// 		if (MIN(beta, entry->eval) <= alpha)
+		// 			return entry->eval;
+		// 	}
+		// }
 
 		tt_entry_found = true;
-		memcpy(&tt_entry, entry, sizeof (tt_entry_s));
+		tt_entry_bestmove = entry->bestmove;
+		// memcpy(&tt_entry, entry, sizeof (tt_entry_s));
 	}
-	
+	REGULAR_SEARCH_HASH_MOVE_COLLISION:
 
-	/*while (entry) {
-		if (stats)
-			stats->hashtable_hits++;
-		
-
-	}*/
 
 	if (depth <= 0) {
 		if (pv && !is_null_prune)
@@ -254,26 +284,34 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	BitBoard every_piece_copy = board->every_piece;
 #endif // NDEBUG
 
-	movelist_s* all_moves = calloc(n_pieces, sizeof (movelist_s));
+	//movelist_s* all_moves = calloc(n_pieces, sizeof (movelist_s));
+	assert(n_pieces <= 16);
+
+	// This being not alloc() slows search sometimes. WHY????
+	// Maybe preallocate these and pass them in a struct or something?
+	// TODO: Do more testing on why this is so slow
+	// [from piece][move]
+	move_s move_arrays[16][30];
+	movelist_s all_moves[16];
 	unsigned int n_all_moves = 0;
 	
 	// !!!!REMEMBER TO FREE!!!!
 	// for tracking, which moves have already been selected (selection sort kinda)
 	//bool** move_visited = calloc(n_pieces, sizeof (bool*)); //[piece_index][move_index]
-	bool move_visited[16][30];
+	bool move_visited[16][30]; // 28 is the max movable squares for a queen, 30 for safety
 	memset(&move_visited, 0, 16*30* sizeof (bool));
 	
 
-	bool do_null_move = false;
-	if (depth > NULL_MOVE_PRUNING_R(depth) + 1 && !initially_in_check && actual_depth > 0 && !is_null_prune)
-		do_null_move = true;
-	
-	move_s* best_move_here = NULL;
+	unsigned int tt_entry_from = COMPACT_MOVE_FROM(tt_entry_bestmove);
+	unsigned int tt_entry_to = COMPACT_MOVE_TO(tt_entry_bestmove);
+	unsigned int tt_entry_promoteto = COMPACT_MOVE_PROMOTETO(tt_entry_bestmove);
 
 	// Go through every piece and create the moves
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
 	for (size_t i = 0; i < n_pieces; i++) {
-		all_moves[i] = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy), true);
+		all_moves[i].moves = move_arrays[i];
+
+		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&pieces_copy), true);
 		
 		n_all_moves += all_moves[i].n;
 
@@ -282,11 +320,26 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 		
 		// if tt entry was found for this board, set the score for the saved move to best
 		// this means that move stored in tt will always be preferred and done first
-		unsigned int tt_entry_from = COMPACT_MOVE_FROM(tt_entry.bestmove);
-		unsigned int tt_entry_to = COMPACT_MOVE_TO(tt_entry.bestmove);
-		unsigned int  tt_entry_promoteto = COMPACT_MOVE_PROMOTETO(tt_entry.bestmove);
-		if (tt_entry_found) {
-			for (size_t j = 0; j < all_moves[i].n; j++) {
+		for (size_t j = 0; j < all_moves[i].n; j++) {
+			// Killer moves
+			if (!(all_moves[i].moves[j].flags & FLAG_CAPTURE)) {
+				for (int k = 0; k < 2; k++) {
+					if (all_moves[i].moves[j].from == killer_moves[actual_depth][k][0]
+						&&all_moves[i].moves[j].to == killer_moves[actual_depth][k][1]) {
+						all_moves[i].moves[j].move_score += 20;
+						break;
+					}
+					if (actual_depth > 1) {
+						if (all_moves[i].moves[j].from == killer_moves[actual_depth-2][k][0]
+							&&all_moves[i].moves[j].to == killer_moves[actual_depth-2][k][1]) {
+							all_moves[i].moves[j].move_score += 18;
+							break;
+						}
+					}
+				}
+			}
+			if (tt_entry_found) {
+				assert(tt_entry_bestmove);
 
 				if (all_moves[i].moves[j].from == SQTOBB(tt_entry_from)) {
 
@@ -303,12 +356,20 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 			}
 		}
 	}
+
+	// Now all moves have been generated and checked for hash- and killer moves
 	
 	if (stats)
 		stats->n_moves_generated += n_all_moves;
+	
+	move_s* best_move_here = NULL;
 
 	eval_t last_best_move = EVAL_MAX;
 
+	bool do_null_move = false;
+	if (depth > NULL_MOVE_PRUNING_R(depth) + 1 && !initially_in_check && actual_depth > 0 && !is_null_prune)
+		do_null_move = true;
+	
 	// Go through every move
 	// +1 becouse of null move
 	if (do_null_move)
@@ -530,16 +591,36 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 			}
 		}
 
+		eval_t killer_store_treshold; // will be equivelant to nega-max beta
+
 		// alpha is maximizing and beta is minimizing
-		if (initial_side == WHITE)
+		if (initial_side == WHITE) {
 			alpha = better_eval(alpha, eval, WHITE);
-		else
+			killer_store_treshold = beta;
+		}
+		else {
 			beta = better_eval(beta, eval, BLACK);
+			killer_store_treshold = alpha;
+		}
 		
 		if (beta <= alpha) {
 			fail_low = true;
-			if (stats && depth > 0 && depth <= search_depth)
-				stats->fail_hard_cutoffs[stats->n_plies - depth]++;
+			if (stats && depth > 0 && depth <= search_depth) {
+				if (stats->fail_hard_cutoffs)
+					stats->fail_hard_cutoffs[stats->n_plies - depth]++;
+			}
+
+			if (move && !is_null_prune) {
+				if (!(move->flags & FLAG_CAPTURE)) {
+					if (is_eval_better(eval, killer_store_treshold, initial_side)) {
+						killer_moves[actual_depth][1][0] = killer_moves[actual_depth][0][0];
+						killer_moves[actual_depth][1][1] = killer_moves[actual_depth][0][1];
+						killer_moves[actual_depth][0][0] = move->from;
+						killer_moves[actual_depth][0][1] = move->to;
+					}
+				}
+			}
+
 			unmakemove(board);
 			break; // at least 1 legal move has to have been made so we can just break search
 		}
@@ -567,39 +648,37 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 	assert(board->every_piece == every_piece_copy);
 
 	if (time_available) {
-		if (clock() - time1 > time_available) {
-			//return 0; // every node henceforth will also return early
-			goto REGULAR_SEARCH_SEARCH_END;
-		}
+		if (clock() - time1 > time_available)
+			return 0; // every node henceforth will also return early
 	}
 
 	// alpha-beta pruning
 	if (fail_low) {
-		if (initial_side == WHITE)
-			bestmove_eval = alpha; //return alpha;
-		else
-			bestmove_eval = beta; //return beta;
-		
 		//if (pv)
 		//	pv->n_moves[search_depth - depth] = 0;
 		if (!is_null_prune && best_move_here)
 			store_move(&tt_normal, board->hash, bestmove_eval, 0x0, depth, encode_compact_move(best_move_here), false);
-		
-		goto REGULAR_SEARCH_SEARCH_END;
+
+		if (initial_side == WHITE)
+			return alpha;
+		else
+			return beta;
 	}
 
 	// No moves were made??
 	if (!n_legal_moves_done) {
-		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
-			// store the worst value possible for checkmate
-			bestmove_eval = (is_eval_better(EVAL_MAX, EVAL_MIN, board->sidetomove) ? EVAL_MIN : EVAL_MAX);
-		}
-		else { // is a stalemate (wasn't in check and no legal moves)
-			bestmove_eval = 0;
-		}
+		
 		if (pv && !is_null_prune)
 			pv->n_moves[actual_depth] = 0;
-		goto REGULAR_SEARCH_SEARCH_END;
+		
+		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
+			// store the worst value possible for checkmate
+			return (is_eval_better(EVAL_MAX, EVAL_MIN, board->sidetomove) ? EVAL_MIN : EVAL_MAX);
+		}
+		else { // is a stalemate (wasn't in check and no legal moves)
+			return 0;
+		}
+		//goto REGULAR_SEARCH_SEARCH_END;
 		//return bestmove_eval;
 		//store_move(&tt_normal, board->hash, bestmove_eval, search_depth, (search_depth - depth), )
 	}
@@ -620,18 +699,6 @@ eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search
 
 	if (!is_null_prune)
 		store_move(&tt_normal, board->hash, bestmove_eval, 0x0, depth, encode_compact_move(best_move_here), true);
-
-	REGULAR_SEARCH_SEARCH_END:
-
-	// Free this stuff
-	for (unsigned int i = 0; i < n_pieces; i++) {
-		if (all_moves[i].n) {
-			free(all_moves[i].moves);
-			//free(move_visited[i]);
-		}
-	}
-	free(all_moves);
-	//free(move_visited);
 
 	return bestmove_eval;
 }
@@ -750,24 +817,23 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 	
 	const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
 	
-	// !!!!REMEMBER TO FREE!!!!
 	// for tracking, which moves have already been selected (selection sort kinda)
-	//bool** move_visited = calloc(n_pieces, sizeof (bool*)); //[piece_index][move_index]
-	bool move_visited[16][30];
+	bool move_visited[16][30]; // 28 is the max movable squares for a queen, 30 for safety
 	memset(&move_visited, 0, 16*30 * sizeof (bool));
 
-	movelist_s* all_moves = calloc(n_pieces, sizeof (movelist_s));
+	move_s move_arrays[16][30];
+	movelist_s all_moves[16];
+
 	unsigned int n_all_moves = 0;
 
 	// Go through every piece and create the moves
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
 	for (size_t i = 0; i < n_pieces; i++) {
-		all_moves[i] = get_pseudo_legal_squares(board, pop_bitboard(&pieces_copy), true);
+		all_moves[i].moves = move_arrays[i];
+
+		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&pieces_copy), true);
 
 		n_all_moves += all_moves[i].n;
-
-		//if (all_moves[i].n)
-			//move_visited[i] = calloc(all_moves[i].n, sizeof (bool));
 	}
 	
 	if (stats)
@@ -928,16 +994,6 @@ eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const u
 		Q_SEARCH_SKIP_MOVE:
 		unmakemove(board);
 	}
-
-	// Free this stuff
-	for (unsigned int i = 0; i < n_pieces; i++) {
-		if (all_moves[i].n) {
-			free(all_moves[i].moves);
-			//free(move_visited[i]);
-		}
-	}
-	free(all_moves);
-	//free(move_visited);
 
 	assert(board->every_piece == every_piece_copy);
 

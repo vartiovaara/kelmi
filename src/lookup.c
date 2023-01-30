@@ -388,5 +388,6 @@ void compute_hash_rand() {
 	}
 	// uint64_t hash_rand_sidetomove[2];
 	hash_rand_sidetomove[0] = genrand64_int64(); // TODO: Have other just be 0x0?? investigate
-	hash_rand_sidetomove[1] = genrand64_int64();
+	//hash_rand_sidetomove[1] = genrand64_int64();
+	hash_rand_sidetomove[1] = 0x0;
 }
