@@ -49,6 +49,13 @@ To make a move, give it in uci format."
 // Compact move promote flag
 #define COMPACT_MOVE_PROMOTE_FLAG 0x8 // 0b0000_0000_0000_1000 = 0x8
 
+
+#define TOP_HALF_MASK    0xffffffff00000000
+#define BOTTOM_HALF_MASK 0x00000000ffffffff
+#define RIGHT_HALF_MASK  0xf0f0f0f0f0f0f0f0
+#define LEFT_HALF_MASK   0x0f0f0f0f0f0f0f0f
+
+
 // Border masks
 #define TOP_MASK    0xff00000000000000
 #define RIGHT_MASK  0x8080808080808080
@@ -134,6 +141,18 @@ To make a move, give it in uci format."
 #define MV_SW(sq, n) MV_S(MV_W(sq, n), n)
 #define MV_NW(sq, n) MV_N(MV_W(sq, n), n)
 
+// Direction
+// https://www.chessprogramming.org/Direction
+#define DIRECTION_N 8
+#define DIRECTION_NE 9
+#define DIRECTION_E 1
+#define DIRECTION_SE (-7)
+#define DIRECTION_S (-8)
+#define DIRECTION_SW (-9)
+#define DIRECTION_W (-1)
+#define DIRECTION_NW 7
+
+
 // Eval type max and min
 #define EVAL_MAX INT_MAX
 #define EVAL_MIN INT_MIN
@@ -169,7 +188,7 @@ To make a move, give it in uci format."
 #define MV_SCORE_CHECK 500
 #define MV_SCORE_CAPTURER_VALUE_DIVIDE 5
 
-#define NULL_MOVE_PRUNING_R(depth) ((signed int)depth > 9 ? 4 : (((signed int)depth > 6) ? 3 : 2))
+#define NULL_MOVE_PRUNING_R(depth) ((signed int)depth > 9 ? 4 : (((signed int)depth > 6) ? 4 : 3))
 
 //#define Q_SEARCH_INITIAL_PRUNE_TRESHOLD -100 // (MV_SCORE_MOVE_WEIGHT_PAWN)
 // enter in graphical calculator
@@ -207,7 +226,12 @@ To make a move, give it in uci format."
 //#define DEFAULT_FEN "1r6/p2r1p1p/6p1/2b1kp2/2Bn3P/2N5/PP1R1PP1/4K2R w K - 4 27"
 //#define DEFAULT_FEN "r5k1/pp2pr1p/2n3p1/1qP3Q1/4P3/4KN2/P4PPP/b1B4R w - - 6 16"
 //#define DEFAULT_FEN "8/8/3k4/1Rp5/P1Pp2K1/8/8/8 w - - 1 64"
-
+//#define DEFAULT_FEN "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1"
+//#define DEFAULT_FEN "8/2p5/3p4/KP5r/1R2Pp1k/8/6P1/8 b - - 0 1"
+//#define DEFAULT_FEN "rnb1kbnr/pp1pp1pp/1qp2p2/8/Q1P5/N7/PP1PPPPP/1RB1KBNR b Kkq - 2 4"
+//#define DEFAULT_FEN "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
+//#define DEFAULT_FEN "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"
+//#define DEFAULT_FEN "1r3rk1/3q1ppp/3p4/p1pNpP2/PpP1P1P1/1P3Q2/6KP/5R2 w - - 0 1"
 
 /*
  * Typedefs
@@ -224,7 +248,8 @@ typedef signed long big_eval_t;  // IF THIS IS CHANGED; CHANGE THE MAX AND MIN D
 
 enum side_e {
 	WHITE,
-	BLACK
+	BLACK,
+	SIDE_NONE
 };
 
 enum piece_e {
@@ -354,15 +379,45 @@ typedef struct board_s {
 	BitBoard pieces[2][N_PIECES]; // [side][piece_type]
 	BitBoard every_piece; // holds all the pieces
 	BitBoard all_pieces[2]; // [side]
+
+	// [side] holds the pinned pieces of that side
+	//BitBoard pinned_pieces[2]; // [side]
+
+	// WHITE, BLACK or SIDE_NONE
+	uint8_t side_in_check;
+	//__attribute__ ((aligned))
+	// Only one check mask needed as only 1 side can be in check
+	//BitBoard check_mask;
+
+	// holds 3 last board hashes
+	// new hash will be added when fiftym_counter % 2 == 0
+	//uint64_t repeated_positions[6];
+
+	// Holds last 6 moves made
+	// Is used for checking draw by repeat
+	//uint16_t repeated_moves[6];
+
+	// Holds last 3 board hashes
+	// hashes added when (fiftym_counter % 2 == 0)
+	//uint64_t last_positions[3];
+
+
+
 	uint8_t sidetomove; // see side_e enum
 	BitBoard en_passant; // 0x0 if no en passant
 	uint8_t castling; // see castling_e enum
 	uint8_t fiftym_counter; // 50-move rule counter
 	uint8_t fullmoves;
 	uint64_t hash; // hash of current position
+	
+	unsigned int rep_stack_n;
+	uint64_t rep_stack[1024];
 
+#ifndef NDEBUG
+	// Moves will be copied to movehistory only in debug builds
 	unsigned int history_n; // aka n of moves in movehistory
 	movelist_s movehistory; // movelist_s.n = n of moves allocated
+#endif // NDEBUG
 } board_s;
 
 // Defines perft results
@@ -371,6 +426,7 @@ typedef struct {
 	unsigned int n_plies; // Number of plies computed
 	unsigned long long* n_positions; // malloc -> Number of positions in nth ply
 	unsigned long long nodes;
+	unsigned long long n_leaves;
 
 	// "advanced" information
 	unsigned long long* captures;
@@ -433,7 +489,7 @@ typedef struct {
 } tt_entry_s;
 
 typedef struct {
-	tt_entry_s** entries; // [bucket][entry]
+	tt_entry_s** restrict entries; // [bucket][entry]
 	size_t n_buckets; // n of buckets
 	size_t n_entries; // n entries per bucket
 	unsigned int counter; // FIXME: counter to be used for just random replacement

@@ -15,6 +15,9 @@
 # Ignore vscode shit
 .vscode
 
+# Ignore valgrind stuff
+callgrind.out.*
+
 
 ### Start github c .gitignore template ###
 

@@ -26,12 +26,12 @@ void resetboard(board_s* board);
  * Moves a piece from from to to
  * Doesn't "perform" a move (change en_passant, whiteturn etc.)
  */
-void movepiece(board_s* board, const unsigned int type, const BitBoard from, const BitBoard to);
+//void movepiece(board_s* board, const unsigned int type, const BitBoard from, const BitBoard to);
 
-void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type);
+//void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type);
 
 // Adds a piece for a side and type
-void addpiece(board_s*, const BitBoard pos, const unsigned int side, const unsigned int type);
+//void addpiece(board_s*, const BitBoard pos, const unsigned int side, const unsigned int type);
 
 // Performs a move. Do not use with wrong side piece.
 // NOTE: Currently relies heavily on board->sidetomove in logic
@@ -39,7 +39,7 @@ void addpiece(board_s*, const BitBoard pos, const unsigned int side, const unsig
 void makemove(board_s* restrict board, const move_s* restrict move);
 
 // Undoes the latest move done (function not done)
-void unmakemove(board_s* board);
+void unmakemove(board_s* restrict board, const move_s* restrict move);
 
 /*
  * Performs a castling. See castling_e enum in defs.h.
@@ -47,7 +47,7 @@ void unmakemove(board_s* board);
  * DOES NOT RESTORE CASTLING RIGHTS WHEN UNDOING CASTLING
  * If undo is set to true, function undoes castling instead
  */
-void move_castling_pieces(board_s* restrict board, const move_s* restrict move, const bool undo);
+//void move_castling_pieces(board_s* restrict board, const move_s* restrict move, const bool undo);
 
 // Finds, which one of the bitboards holds the piece.
 // exit(1) on not found
@@ -55,6 +55,9 @@ unsigned int get_piece_type(const board_s* board, const unsigned int side, const
 
 // Returns, what side the piece is
 unsigned int get_piece_side(const board_s* board, const BitBoard piecebb);
+
+
+#ifndef NDEBUG
 
 void set_move_history_size(board_s* board, const size_t size);
 
@@ -68,6 +71,12 @@ void restore_board(board_s* restrict to, board_s* restrict from);
 
 void write_move_history(const board_s* board, FILE* f);
 
+#endif // NDEBUG
+
+
 uint64_t calculate_board_hash(const board_s* board);
+
+// Uses board move history to make decision.
+bool is_draw_by_repetition(const board_s* board);
 
 #endif // BOARD_H

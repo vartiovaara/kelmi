@@ -132,6 +132,17 @@ inline BitBoard lowest_bitboard(const BitBoard bb) {
 }
 
 
+inline BitBoard highest_bitindex(const BitBoard bb) {
+	#if UINT_MAX==18446744073709551615ULL
+	return 63 - __builtin_clz(bb);
+	#elif ULONG_MAX==18446744073709551615ULL
+	return 63 - __builtin_clzl(bb);
+	#elif ULLONG_MAX>=18446744073709551615ULL
+	return 63 - __builtin_clzll(bb);
+	#endif
+}
+
+
 inline unsigned int popcount(const BitBoard x) {
 	// See: http://0x80.pl/articles/sse-popcount.html
 	// See: https://en.wikipedia.org/wiki/Hamming_weight#Efficient_implementation

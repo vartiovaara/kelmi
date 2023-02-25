@@ -270,7 +270,7 @@ int parse_position_command(board_s* board, char* input, size_t n) {
 		move.old_en_passant = board->en_passant;
 		*/
 		makemove(board, &move);
-		append_to_move_history(board, &move);
+		//append_to_move_history(board, &move);
 
 		uci_move = strtok(NULL, " ");
 	}
@@ -312,7 +312,9 @@ void uci(FILE* f) {
 			continue;
 
 		if (!strcmp(input, "ucinewgame")) {
+#ifndef NDEBUG
 			free_move_history(&board);
+#endif // NDEBUG
 			resetboard(&board);
 		}
 		else if (!strncmp(input, "position", 8)) {

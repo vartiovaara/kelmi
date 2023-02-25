@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <assert.h>
 
 #include "search.h"
 
@@ -31,7 +32,7 @@ const unsigned long long expected_perft[] = {
 
 // Private functions
 
-void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE* f);
+void search(board_s* restrict board, const unsigned int depth, pertf_result_s* restrict res, FILE* restrict f);
 
 
 
@@ -72,7 +73,9 @@ void perft(board_s* board, const unsigned int depth) {
 	//FILE* f = fopen("history", "w+");
 
 	clock_t t = clock();
-	
+
+	//__builtin_prefetch(board, 1, 3);
+	//__builtin_prefetch(board, 0, 3);
 	search(board, depth, &res, NULL);
 	
 	t = clock() - t;
@@ -80,6 +83,7 @@ void perft(board_s* board, const unsigned int depth) {
 
 	//fclose(f);
 
+	printf("\n%llu leaves\n", res.n_leaves);
 	printf("%llu nodes searched in %3fs\n", res.nodes, time_taken);
 	printf("%f Nps\n\n", (float)res.nodes/time_taken);
 
@@ -151,7 +155,7 @@ void pruned_perft(board_s* board, const unsigned int depth) {
  * according to board_s.sidetomove.
  * Check perft_result_s
  */
-void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE* f) {
+void search(board_s* restrict board, const unsigned int depth, pertf_result_s* restrict res, FILE* restrict f) {
 	res->n_positions[res->n_plies - depth]++;
 
 	// is position a last one
@@ -159,12 +163,16 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 		goto SEARCH_LAST_NODE;
 	}
 
+
 	// for distincting stalemate and checkmate
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
+	//const bool initially_in_check = (board->side_in_check == board->sidetomove); //is_in_check(board, board->sidetomove);
 
 	// for checking, if any moves were made
 	// NOTE: Index might overflow and shit the bed
 	const unsigned long long initial_nodes = res->n_positions[(res->n_plies - depth) + 1];
+
+	//unsigned long long initial_leaves = res->n_leaves;
 
 	// for checking if position is a checkmate
 	unsigned long long skipped_because_of_checks = 0;
@@ -184,6 +192,8 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 	for (unsigned int i = 0; i < npieces; i++) {
 		// generate moves
 		get_pseudo_legal_moves(board, &moves, pop_bitboard(&pieces_copy), false);
+
+		assert(moves.n < LENGTH(moves_array));
 		
 		// if there aren't any moves, cont now.
 		// otherwise we'd be freeing memory that has never
@@ -195,8 +205,13 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 		for (unsigned int j = 0; j < moves.n; j++) {
 			res->nodes++;
 
+			//__builtin_prefetch(&moves.moves[j], 0, 1);
+
+			if (!moves.moves[j].from)
+				continue;
+
 			// Check if castling is valid
-			if (moves.moves[j].flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
+			if (__builtin_expect(moves.moves[j].flags & (FLAG_KCASTLE | FLAG_QCASTLE), 0)) {
 				if (initially_in_check)
 					continue; // can not castle while in check
 				
@@ -223,13 +238,21 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 			//append_to_move_history(board, &moves.moves[j]);
 
 			// check if that side got itself in check (or couldn't get out of one)
-			if (is_in_check(board, initial_side)) {
-				skipped_because_of_checks++;
-				goto SEARCH_SKIP_MOVE;
-			}
+			//if (moves.moves[j].fromtype == KING) {
+				if (is_in_check(board, initial_side)) {
+					skipped_because_of_checks++;
+					goto SEARCH_SKIP_MOVE;
+				}
+			//}
+
+			// if (is_in_check(board, board->sidetomove))
+			// 	board->side_in_check = board->sidetomove;
+			// else
+			// 	board->side_in_check = SIDE_NONE;
 
 
 			// MOVE WILL BE DONE
+
 
 			// En passant will be considered a capture only in stats.
 			// See: https://www.chessprogramming.org/Perft_Results#Initial_Position
@@ -238,6 +261,7 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 			
 			// this statistic is expensive. only count it in debug builds
 			#ifndef NDEBUG
+			//if (board->side_in_check == board->sidetomove)
 			if (is_in_check(board, board->sidetomove))
 				res->checks[(res->n_plies - depth)+1]++;
 			#endif
@@ -252,11 +276,21 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 				res->promotions[(res->n_plies - depth)+1]++;
 
 
+			const unsigned long long initial_leaves = res->n_leaves;
+
 			search(board, depth-1, res, f);
+
+			if (__builtin_expect(res->n_plies - depth == 0, 0)) {
+				char move_str[6];
+				move_to_uci_notation(&moves.moves[j], move_str);
+				//printf("%s: %llu\n", move_str, res->n_positions[(res->n_plies - depth) + 1] - initial_nodes);
+				printf("%s: %llu\n", move_str, res->n_leaves - initial_leaves);
+				//initial_leaves = res->n_leaves;
+			}
 
 			SEARCH_SKIP_MOVE: // if move was illegal, go here
 			//restore_board(board, &boardcopy);
-			unmakemove(board);
+			unmakemove(board, &moves.moves[j]);
 			//memcpy(board, &boardcopy, sizeof (board_s)); // restore board
 			//*board = boardcopy;
 			SEARCH_SKIP_MOVE_PRE_MAKE:
@@ -283,10 +317,13 @@ void search(board_s* board, const unsigned int depth, pertf_result_s* res, FILE*
 	SEARCH_LAST_NODE:
 
 	res->nodes++;
+	res->n_leaves++;
 
+#ifndef NDEBUG
 	if (!f)
 		return;
 
 	// Write history to file
 	write_move_history(board, f);
+#endif // NDEBUG
 }

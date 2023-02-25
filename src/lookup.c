@@ -6,6 +6,7 @@
 #include "lookup.h"
 
 #include "random.h"
+#include "bitboard.h"
 
 #include "defs.h"
 
@@ -25,11 +26,31 @@ BitBoard* lookup[N_PIECES]; //[piece_e]
 // see eval.c
 BitBoard kingguardlookup[64];
 
+/*
+// South attacks will be just vert-flipped north attacks
+BitBoard b_ray_lookup_ne[64];
+// BitBoard b_ray_lookup_se[64];
+BitBoard b_ray_lookup_nw[64];
+// BitBoard b_ray_lookup_sw[64];
+
+// // s and w attacks will be just vert-flipped n and e attacks
+BitBoard r_ray_lookup_n[64];
+BitBoard r_ray_lookup_e[64];
+BitBoard r_ray_lookup_s[64];
+BitBoard r_ray_lookup_w[64];
+*/
+
+
 // These are public
 uint64_t hash_rand_piece[2][N_PIECES][64];
 uint64_t hash_rand_castle[2*2*2*2]; // castle flags use only 4 bits
 uint64_t hash_rand_enpassant[64];
 uint64_t hash_rand_sidetomove[2];
+
+BitBoard ray_attacks[64][64]; // [from][to]
+
+// is from the perspective of white
+BitBoard passed_pawn_opponent_mask[64]; // [sq]
 
 
 
@@ -44,7 +65,11 @@ void compute_knight_lookup();
 void compute_white_pawn_lookup();
 void compute_black_pawn_lookup();
 
+void compute_ray_lookups();
+
 void compute_king_guard_lookup();
+
+void compute_passed_pawn_lookup();
 
 void compute_hash_rand();
 
@@ -81,20 +106,67 @@ BitBoard king_guard_lookup(unsigned int pos) {
 }
 
 
+/*
+BitBoard ray_attack_b(unsigned int from, unsigned int to) {
+	assert(from < 64);
+	assert(to < 64);
+
+	BitBoard ray = 0x0;
+
+	const int diff = (int)to - from;
+
+	if (diff % DIRECTION_NE == 0)
+		ray = b_ray_lookup_ne[from];
+	else if (diff % DIRECTION_NW == 0)
+		ray = b_ray_lookup_nw[from];
+
+	if (diff < 0)
+		return flip_vertical(ray);
+	return ray;
+}
+
+BitBoard ray_attack_r(unsigned int from, unsigned int to) {
+	assert(from < 64);
+	assert(to < 64);
+
+	BitBoard ray = 0x0;
+
+	const int diff = (int)to - from;
+
+	if (diff % DIRECTION_N == 0)
+		ray = r_ray_lookup_n[from];
+	else if (from/8 == to/8) // are on the same rank
+		ray = r_ray_lookup_e[from];
+
+	if (diff < 0)
+		return flip_vertical(ray);
+	return ray;
+}
+*/
+
+
 
 void reset_lookups() {
-	memset(&rows, 0, sizeof rows);
-	memset(&columns, 0, sizeof columns);
-	memset(&kinglookup, 0, sizeof kinglookup);
-	memset(&rooklookup, 0, sizeof rooklookup);
-	memset(&bishoplookup, 0, sizeof bishoplookup);
-	memset(&knightlookup, 0, sizeof knightlookup);
-	memset(&pawnlookup, 0, sizeof pawnlookup);
-	memset(&lookup, 0, sizeof lookup);
-	memset(&kingguardlookup, 0, sizeof kingguardlookup);
-	memset(&hash_rand_piece, 0, sizeof hash_rand_piece);
-	memset(&hash_rand_castle, 0, sizeof hash_rand_castle);
-	memset(&hash_rand_enpassant, 0, sizeof hash_rand_enpassant);
+	memset(rows, 0, sizeof rows);
+	memset(columns, 0, sizeof columns);
+	memset(kinglookup, 0, sizeof kinglookup);
+	memset(rooklookup, 0, sizeof rooklookup);
+	memset(bishoplookup, 0, sizeof bishoplookup);
+	memset(knightlookup, 0, sizeof knightlookup);
+	memset(pawnlookup, 0, sizeof pawnlookup);
+	memset(lookup, 0, sizeof lookup);
+	memset(kingguardlookup, 0, sizeof kingguardlookup);
+	memset(hash_rand_piece, 0, sizeof hash_rand_piece);
+	memset(hash_rand_castle, 0, sizeof hash_rand_castle);
+	memset(hash_rand_enpassant, 0, sizeof hash_rand_enpassant);
+	/*
+	memset(r_ray_lookup_n, 0, sizeof r_ray_lookup_n);
+	memset(r_ray_lookup_e, 0, sizeof r_ray_lookup_e);
+	memset(b_ray_lookup_ne, 0, sizeof b_ray_lookup_ne);
+	memset(b_ray_lookup_nw, 0, sizeof b_ray_lookup_nw);
+	*/
+	memset(ray_attacks, 0, sizeof ray_attacks);
+	memset(passed_pawn_opponent_mask, 0, sizeof passed_pawn_opponent_mask);
 }
 
 void compute_lookups() {
@@ -108,6 +180,8 @@ void compute_lookups() {
 	compute_black_pawn_lookup();
 	compute_king_guard_lookup();
 	compute_hash_rand();
+	compute_ray_lookups();
+	compute_passed_pawn_lookup();
 }
 
 void set_lookup_pointers() {
@@ -326,6 +400,135 @@ void compute_black_pawn_lookup() {
 }
 
 
+void compute_ray_lookups() {
+
+	for (unsigned int from = 0; from < 64; from++) {
+
+		const BitBoard frombb = SQTOBB(from);
+		
+		const int dir[] = {9, 1,-7,-8,-9,-1, 7, 8};
+
+		for (unsigned int i = 0; i < LENGTH(dir); i++) {
+
+			if (frombb & TOP_MASK && (dir[i] == DIRECTION_NW || dir[i] == DIRECTION_N || dir[i] == DIRECTION_NE))
+				continue;
+			if (frombb & BOTTOM_MASK && (dir[i] == DIRECTION_SE || dir[i] == DIRECTION_S || dir[i] == DIRECTION_SW))
+				continue;
+			if (frombb & RIGHT_MASK && (dir[i] == DIRECTION_E || dir[i] == DIRECTION_NE || dir[i] == DIRECTION_SE))
+				continue;
+			if (frombb & LEFT_MASK && (dir[i] == DIRECTION_SW || dir[i] == DIRECTION_W || dir[i] == DIRECTION_NW))
+				continue;
+			
+
+			BitBoard curr_bb;
+			if (dir[i] > 0)
+				curr_bb = frombb << dir[i];
+			else
+				curr_bb = frombb >> -dir[i];
+			
+			BitBoard tobb = curr_bb;
+			int to = from + dir[i];
+			assert(curr_bb);
+			while (true) {
+				ray_attacks[from][to] = tobb;
+
+				if (curr_bb & TOP_MASK && (dir[i] == DIRECTION_NW || dir[i] == DIRECTION_N || dir[i] == DIRECTION_NE))
+					break;
+				if (curr_bb & BOTTOM_MASK && (dir[i] == DIRECTION_SE || dir[i] == DIRECTION_S || dir[i] == DIRECTION_SW))
+					break;
+				if (curr_bb & RIGHT_MASK && (dir[i] == DIRECTION_E || dir[i] == DIRECTION_NE || dir[i] == DIRECTION_SE))
+					break;
+				if (curr_bb & LEFT_MASK && (dir[i] == DIRECTION_SW || dir[i] == DIRECTION_W || dir[i] == DIRECTION_NW))
+					break;
+				
+				if (dir[i] > 0)
+					curr_bb <<= dir[i];
+				else
+					curr_bb >>= -dir[i];
+
+				tobb |= curr_bb; // add next square
+				to += dir[i];
+			}
+			//ray_attacks[from]
+		}
+	}
+
+	// essentially just bishop lookup computing code copied here
+	// for (unsigned int i = 0; i < 64; i++) {
+	// 	const BitBoard pos = SQTOBB(i);
+
+	// 	// north-east
+	// 	BitBoard c_pos = pos;
+	// 	B_RAY_NE:
+	// 	if (!(c_pos & TOP_MASK) && !(c_pos & RIGHT_MASK)) {
+	// 		c_pos <<= 9;
+	// 		b_ray_lookup_ne[i] |= c_pos;
+	// 		goto B_RAY_NE;
+	// 	}
+	// 	/*
+	// 	// south-east
+	// 	c_pos = pos;
+	// 	B_RAY_SE:
+	// 	if(!(c_pos & RIGHT_MASK) && !(c_pos & BOTTOM_MASK)) {
+	// 		c_pos >>= 7;
+	// 		bishoplookup[i] |= c_pos;
+	// 		goto B_RAY_SE;
+	// 	}
+	// 	// south-west
+	// 	c_pos = pos;
+	// 	B_RAY_SW:
+	// 	if(!(c_pos & BOTTOM_MASK) && !(c_pos & LEFT_MASK)) {
+	// 		c_pos >>= 9;
+	// 		bishoplookup[i] |= c_pos;
+	// 		goto B_RAY_SW;
+	// 	}
+	// 	*/
+	// 	// north-west
+	// 	c_pos = pos;
+	// 	B_RAY_NW:
+	// 	if(!(c_pos & TOP_MASK) && !(c_pos & LEFT_MASK)) {
+	// 		c_pos <<= 7;
+	// 		b_ray_lookup_nw[i] |= c_pos;
+	// 		goto B_RAY_NW;
+	// 	}
+	// }
+
+	// for (unsigned int i = 0; i < 64; i++) {
+	// 	const BitBoard pos = SQTOBB(i);
+
+	// 	/*
+	// 	// Left moves
+	// 	for (int x = (i%8); x > 0; x--) {
+	// 		rooklookup[i] |= pos>>x;
+	// 	}
+	// 	*/
+	// 	// Right moves
+	// 	for (int x = 7-(i%8); x > 0; x--) {
+	// 		r_ray_lookup_e[i] |= pos<<x;
+	// 	}
+	// 	// Top moves
+	// 	BitBoard c_pos = pos;
+	// 	R_RAY_TOP:
+	// 	if (!(c_pos & TOP_MASK)) {
+	// 		c_pos <<= 8;
+	// 		r_ray_lookup_n[i] |= c_pos;
+	// 		goto R_RAY_TOP;
+	// 	}
+	// 	/*
+	// 	// Bottom moves
+	// 	c_pos = pos;
+	// 	ROOK_BOTTOM:
+	// 	if (!(c_pos & BOTTOM_MASK)) {
+	// 		c_pos >>= 8;
+	// 		rooklookup[i] |= c_pos;
+	// 		goto ROOK_BOTTOM;
+	// 	}
+	// 	*/
+	// }
+}
+
+
+
 // TODO: Confirm validity
 void compute_king_guard_lookup() {
 	for (unsigned int i = 0; i < 64; i++) {
@@ -366,6 +569,28 @@ void compute_king_guard_lookup() {
 		 * 1 1 1 1 1
 		 */
 	}
+}
+
+
+void compute_passed_pawn_lookup() {
+	for (int sq = 0; sq < 64; sq++) {
+		BitBoard starting_squares = SQTOBB(sq);
+		if (!(SQTOBB(sq) & LEFT_MASK))
+			starting_squares |= SQTOBB(sq + DIRECTION_W);
+		if (!(SQTOBB(sq) & RIGHT_MASK))
+			starting_squares |= SQTOBB(sq + DIRECTION_E);
+
+		while (starting_squares) {
+			BitBoard c_pos = pop_bitboard(&starting_squares);
+			ROOK_TOP:
+			if (!(c_pos & TOP_MASK)) {
+				c_pos <<= 8;
+				passed_pawn_opponent_mask[sq] |= c_pos;
+				goto ROOK_TOP;
+			}
+		}
+	}
+	//passed_pawn_opponent_mask;
 }
 
 

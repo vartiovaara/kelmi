@@ -20,6 +20,9 @@ unsigned int lowest_bitindex(const BitBoard bb);
 // Returns the lowest bit as a bitboard
 BitBoard lowest_bitboard(const BitBoard bb);
 
+// Returns the index of the highest bit set
+BitBoard highest_bitindex(const BitBoard bb);
+
 unsigned int popcount(const BitBoard bb);
 
 BitBoard flip_vertical(const BitBoard bb);

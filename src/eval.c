@@ -23,7 +23,7 @@ const eval_t eval_material_value[N_PIECES] = {
 	[BISHOP] = EVAL_BISHOP_MATERIAL_VALUE,
 	[ROOK] = EVAL_ROOK_MATERIAL_VALUE,
 	[QUEEN] = EVAL_QUEEN_MATERIAL_VALUE,
-	[KING] = EVAL_MAX // not really needed as king is never needed in any eval
+	[KING] = EVAL_MAX>>1 // not really needed as king is never needed in any eval
 };
 
 const eval_t mv_move_weight[N_PIECES] = {
@@ -121,10 +121,10 @@ eval_t psqt_king_guard_pieces[64] = {
 	 0,   0,   0,   0,   0,   0,   0,   0,
 	 0,   0,   0,   0,   0,   0,   0,   0,
 	 0,   0,   0,   0,   0,   0,   0,   0,
-	 8,   0,  17,   0,   8,   0,   0,   0,
-	 2,  30,  38,  30,   2,   0,   0,   0,
-	15,  31,   0,  38,  15,   0,   0,   0,
-	 0,  35,  32,  35,   0,   0,   0,   0,
+	 4,   0,  12,   0,   1,   0,   0,   0,
+	 1,  15,  17,  14,   2,   0,   0,   0,
+	15,  16,   0,  14,   9,   0,   0,   0,
+	 0,  16,  14,  13,   0,   0,   0,   0,
 	 8,   0,  15,   0,   8,   0,   0,   0,
 };
 
@@ -296,7 +296,7 @@ const eval_t piece_values[2][6] = { // [mg/eg][piece]
 		[BISHOP] = 365,
 		[ROOK] = 477,
 		[QUEEN] = 1025,
-		[KING] = EVAL_MAX // Not really needed
+		[KING] = EVAL_MAX>>1 // Not really needed
 	},
 	{
 		[PAWN] = 94,
@@ -304,7 +304,7 @@ const eval_t piece_values[2][6] = { // [mg/eg][piece]
 		[BISHOP] = 297,
 		[ROOK] = 512,
 		[QUEEN] = 936,
-		[KING] = EVAL_MAX // Not really needed
+		[KING] = EVAL_MAX>>1 // Not really needed
 	}
 };
 
@@ -318,7 +318,7 @@ const unsigned int pieces_ordered_by_cheapness[N_PIECES] = {
 	KING
 };
 
-#define GET_PIECE_VALUE(piece, phase) ((int)((phase * piece_values[0][piece] + (PHASE_TOTAL - phase) * piece_values[1][piece]) / PHASE_TOTAL))
+#define GET_PIECE_VALUE(piece, phase) ((int)(((PHASE_TOTAL - phase) * piece_values[0][piece] + phase * piece_values[1][piece]) / PHASE_TOTAL))
 
 
 /*
@@ -327,16 +327,25 @@ const unsigned int pieces_ordered_by_cheapness[N_PIECES] = {
 
 // evaluation functions
 //eval_t eval_material(const board_s* board, const int phase); // public
-eval_t eval_stacked_pawns(const board_s* board);
-eval_t eval_psqt(const board_s* board, const int phase);
-eval_t eval_rook_open_file(const board_s* board);
-eval_t eval_movable_squares(const board_s* board);
-eval_t eval_king_guard(const board_s* board);
-eval_t eval_castling_rights(const board_s* board);
-eval_t eval_tempo_bonus(const board_s* board);
+static eval_t eval_stacked_pawns(const board_s* board);
+static eval_t eval_psqt(const board_s* board, const int phase);
+static eval_t eval_rook_open_file(const board_s* board);
+static eval_t eval_movable_squares(const board_s* board);
+static eval_t eval_pawn_structure(const board_s* board);
+static eval_t eval_passed_pawn(const board_s* board, const int phase);
+static eval_t eval_pawn_shield(const board_s* board);
+static eval_t eval_king_guard(const board_s* board);
+static eval_t eval_castling_rights(const board_s* board);
+static eval_t eval_tempo_bonus(const board_s* board);
+static eval_t eval_knight_outpost(const board_s* board, int phase);
 
 //int get_game_phase_value(const board_s* board); // public
 
+
+/*
+ * Private structs
+ */
+// TODO: Make a struct wherein stuff calculated during different eval stages will be collected to
 
 
 
@@ -348,7 +357,7 @@ inline bool is_eval_better(eval_t a, eval_t b, unsigned int side) {
 	return ((side == WHITE) ? a > b : a < b);
 }
 
-inline eval_t eval(const board_s* board) {
+eval_t eval(const board_s* board) {
 
 	// TODO: Incrementally updated?
 	const int phase = MIN(get_game_phase_value(board), PHASE_TOTAL);
@@ -359,10 +368,13 @@ inline eval_t eval(const board_s* board) {
 	eval += eval_stacked_pawns(board);
 	eval += eval_psqt(board, phase);
 	eval += eval_rook_open_file(board);
-	//eval += eval_movable_squares(board);
+	eval += eval_movable_squares(board);
+	eval += eval_pawn_structure(board);
+	eval += eval_passed_pawn(board, phase);
 	//eval += eval_king_guard(board);
-	eval += eval_castling_rights(board);
+	//eval += eval_castling_rights(board);
 	//eval += eval_tempo_bonus(board);
+	eval += eval_knight_outpost(board, phase);
 
 	return eval;
 	
@@ -426,7 +438,7 @@ eval_t eval_material(const board_s* board, const int phase) {
 	return res;
 }
 
-eval_t eval_stacked_pawns(const board_s* board) {
+static eval_t eval_stacked_pawns(const board_s* board) {
 	eval_t res = 0;
 
 	// TODO: Maybe there is a more efficient way of doing this
@@ -452,7 +464,7 @@ eval_t eval_stacked_pawns(const board_s* board) {
 	return res;
 }
 
-eval_t eval_psqt(const board_s* board, const int phase) {
+static eval_t eval_psqt(const board_s* board, const int phase) {
 	eval_t res = 0;
 
 
@@ -460,11 +472,13 @@ eval_t eval_psqt(const board_s* board, const int phase) {
 	int eg[2] = {0, 0};
 
 	for (unsigned int i = 0; i < N_PIECES; i++) {
-		BitBoard pieces_w = board->pieces[WHITE][i];
+		BitBoard pieces_w = flip_vertical(board->pieces[WHITE][i]);
 		while (pieces_w) {
 			const unsigned int piece = pop_bit(&pieces_w);
-			mg[WHITE] += psqt[i][0][FLIP_PSQT_SQ(piece)];
-			eg[WHITE] += psqt[i][1][FLIP_PSQT_SQ(piece)];
+			//mg[WHITE] += psqt[i][0][FLIP_PSQT_SQ(piece)];
+			//eg[WHITE] += psqt[i][1][FLIP_PSQT_SQ(piece)];
+			mg[WHITE] += psqt[i][0][piece];
+			eg[WHITE] += psqt[i][1][piece];
 		}
 		
 		BitBoard pieces_b = board->pieces[BLACK][i];
@@ -478,7 +492,7 @@ eval_t eval_psqt(const board_s* board, const int phase) {
 	int mg_score = mg[WHITE] - mg[BLACK];
 	int eg_score = eg[WHITE] - eg[BLACK];
 
-	return (mg_score * phase + eg_score * (PHASE_TOTAL - phase)) / PHASE_TOTAL;
+	return (mg_score * (PHASE_TOTAL - phase) + eg_score * phase) / PHASE_TOTAL;
 
 
 	
@@ -544,7 +558,7 @@ eval_t eval_psqt(const board_s* board, const int phase) {
 	return res;
 }
 
-eval_t eval_rook_open_file(const board_s* board) {
+static eval_t eval_rook_open_file(const board_s* board) {
 	eval_t res = 0;
 
 	// white
@@ -580,34 +594,136 @@ eval_t eval_rook_open_file(const board_s* board) {
 
 // TODO: Make those fucking attack maps
 // FIXME: you lazy fuck
-/*
-eval_t eval_movable_squares(const board_s* board) {
+static eval_t eval_movable_squares(const board_s* board) {
 	eval_t res = 0;
 
-	BitBoard w_pieces = board->all_pieces[WHITE];
+	// movelist_s moves;
+	// move_s move[30];
+
+
+	BitBoard w_pieces = board->all_pieces[WHITE] & ~(board->pieces[WHITE][KING]);
 	while (w_pieces) {
 		const BitBoard piece = pop_bitboard(&w_pieces);
-		movelist_s moves = get_pseudo_legal_squares(board, piece, false);
-		res += moves.n * EVAL_MOVABLE_SQUARES_MULT;
-		if (moves.n)
-			free(moves.moves);
+		const BitBoard movable_squares = get_pseudo_legal_squares(board, WHITE, get_piece_type(board, WHITE, piece), piece);
+		// Pawn mobility matters less than everything else
+		// if (piece & board->pieces[WHITE][PAWN])
+		// 	res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT / 2;
+		// else
+		// 	res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
+		res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
+		// TODO: Do pawns on their own
+		// if (moves.n)
+		// 	free(moves.moves);
 	}
 
-	BitBoard b_pieces = board->all_pieces[BLACK];
+	BitBoard b_pieces = board->all_pieces[BLACK] & ~(board->pieces[BLACK][KING]);
 	while (b_pieces) {
 		const BitBoard piece = pop_bitboard(&b_pieces);
-		movelist_s moves = get_pseudo_legal_squares(board, piece, false);
-		res -= moves.n * EVAL_MOVABLE_SQUARES_MULT;
-		if (moves.n)
-			free(moves.moves);
+		const BitBoard movable_squares = get_pseudo_legal_squares(board, BLACK, get_piece_type(board, BLACK, piece), piece);
+		// Pawn mobility matters less than everything else
+		// if (piece & board->pieces[BLACK][PAWN])
+		// 	res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT / 2;
+		// else
+		// 	res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
+		res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
+		// if (moves.n)
+		// 	free(moves.moves);
 	}
 
 	return res;
 }
-*/
 
 
-eval_t eval_king_guard(const board_s* board) {
+static eval_t eval_pawn_structure(const board_s* board) {
+	eval_t res = 0;
+
+	res += popcount(board->pieces[WHITE][PAWN] & MV_NE((board->pieces[WHITE][PAWN] & ~RIGHT_MASK), 1))*5;
+	res += popcount(board->pieces[WHITE][PAWN] & MV_NW((board->pieces[WHITE][PAWN] & ~LEFT_MASK), 1))*5;
+	res -= popcount(board->pieces[BLACK][PAWN] & MV_SE((board->pieces[BLACK][PAWN] & ~RIGHT_MASK), 1))*5;
+	res -= popcount(board->pieces[BLACK][PAWN] & MV_SW((board->pieces[BLACK][PAWN] & ~LEFT_MASK), 1))*5;
+
+	BitBoard pawns_w_copy = board->pieces[WHITE][PAWN];
+	while (pawns_w_copy) {
+		const BitBoard current_piece = pop_bitboard(&pawns_w_copy);
+		const unsigned int current_piece_index = lowest_bitindex(current_piece);
+
+		if (!(current_piece & LEFT_MASK)) {
+			if (columnlookup(current_piece_index + DIRECTION_W) & board->pieces[WHITE][PAWN])
+				res += 4;
+		}
+		if (!(current_piece & RIGHT_MASK)) {
+			if (columnlookup(current_piece_index + DIRECTION_E) & board->pieces[WHITE][PAWN])
+				res += 4;
+		}
+	}
+	BitBoard pawns_b_copy = board->pieces[BLACK][PAWN];
+	while (pawns_b_copy) {
+		const BitBoard current_piece = pop_bitboard(&pawns_b_copy);
+		const unsigned int current_piece_index = lowest_bitindex(current_piece);
+
+		if (!(current_piece & LEFT_MASK)) {
+			if (columnlookup(current_piece_index + DIRECTION_W) & board->pieces[BLACK][PAWN])
+				res -= 4;
+		}
+		if (!(current_piece & RIGHT_MASK)) {
+			if (columnlookup(current_piece_index + DIRECTION_E) & board->pieces[BLACK][PAWN])
+				res -= 4;
+		}
+	}
+
+	return res;
+}
+
+
+static eval_t eval_passed_pawn(const board_s* board, const int phase) {
+	eval_t res = 0;
+
+	const eval_t passed_pawn_value = (15 * (PHASE_TOTAL - phase) + 30 * phase) / PHASE_TOTAL;
+
+	BitBoard pawns_w_copy = board->pieces[WHITE][PAWN];
+
+	while (pawns_w_copy) {
+		const BitBoard current_piece = pop_bitboard(&pawns_w_copy);
+		const unsigned int current_piece_index = lowest_bitindex(current_piece);
+
+		if (passed_pawn_opponent_mask[current_piece_index] & board->pieces[BLACK][PAWN])
+			continue;
+		else if (popcount(board->pieces[WHITE][PAWN] & columnlookup(current_piece_index)) > 1) {
+			// check if this pawn is the lower stacked pawn, then not considered a passed pawn
+			if (lowest_bitboard(board->pieces[WHITE][PAWN] & columnlookup(current_piece_index)) == current_piece)
+				continue;
+		}
+
+		res += passed_pawn_value;
+	}
+
+	BitBoard pawns_b_copy = board->pieces[BLACK][PAWN];
+
+	while (pawns_b_copy) {
+		const BitBoard current_piece = pop_bitboard(&pawns_b_copy);
+		const unsigned int current_piece_index = lowest_bitindex(current_piece);
+
+		if (flip_vertical(passed_pawn_opponent_mask[lowest_bitindex(flip_vertical(current_piece))]) & board->pieces[WHITE][PAWN])
+			continue;
+		else if (popcount(board->pieces[BLACK][PAWN] & columnlookup(current_piece_index)) > 1) {
+			// check if this pawn is the lower stacked pawn, then not considered a passed pawn
+			if (highest_bitindex(board->pieces[BLACK][PAWN] & columnlookup(current_piece_index)) == current_piece_index)
+				continue;
+		}
+
+		res -= passed_pawn_value;
+	}
+
+	return res;
+}
+
+
+static eval_t eval_pawn_shield(const board_s* board) {
+
+}
+
+
+static eval_t eval_king_guard(const board_s* board) {
 	eval_t res = 0;
 
 	// signed because delta later might go negative
@@ -631,7 +747,7 @@ eval_t eval_king_guard(const board_s* board) {
 }
 
 
-eval_t eval_castling_rights(const board_s* board) {
+static eval_t eval_castling_rights(const board_s* board) {
 	eval_t res = 0;
 
 	res += (board->castling & WKCASTLE) * EVAL_CASTLING_RIGHTS_K;
@@ -645,11 +761,33 @@ eval_t eval_castling_rights(const board_s* board) {
 
 // FIXME: Make computer-side tracking. Function can't work otherwise
 // https://www.chessprogramming.org/Tempo
-eval_t eval_tempo_bonus(const board_s* board) {
+static eval_t eval_tempo_bonus(const board_s* board) {
 	if (board->sidetomove == WHITE)
 		return EVAL_TEMPO_BONUS;
 	return -EVAL_TEMPO_BONUS;
 }
+
+
+static eval_t eval_knight_outpost(const board_s* board, int phase) {
+	eval_t res = 0;
+
+	const eval_t outpost_value = (12 * (PHASE_TOTAL - phase) + 3 * phase) / PHASE_TOTAL;
+
+	BitBoard w_knights_copy = board->pieces[WHITE][KNIGHT] & TOP_HALF_MASK;
+	while (w_knights_copy) {
+		BitBoard piece = pop_bitboard(&w_knights_copy);
+		res += outpost_value * ((piecelookup(lowest_bitindex(piece), PAWN, BLACK) & board->pieces[WHITE][PAWN]) > 0);
+	}
+
+	BitBoard b_knights_copy = board->pieces[BLACK][KNIGHT] & BOTTOM_HALF_MASK;
+	while (b_knights_copy) {
+		BitBoard piece = pop_bitboard(&b_knights_copy);
+		res -= outpost_value * ((piecelookup(lowest_bitindex(piece), PAWN, WHITE) & board->pieces[BLACK][PAWN]) > 0);
+	}
+
+	return res;
+}
+
 
 
 // 0 = start, PHASE_TOTAL = end
@@ -697,6 +835,12 @@ void set_move_predict_scores(const board_s* restrict board, move_s* restrict mov
 		move->move_score += move_see;
 		if (move_see > 0)
 			move->move_score += 20;
+		else
+			move->move_score += -move_see;
+	}
+
+	if (move->flags & FLAG_ENPASSANT) {
+		move->move_score += 50;
 	}
 
 	/*
@@ -751,14 +895,14 @@ void set_move_predict_scores(const board_s* restrict board, move_s* restrict mov
 	if (move->flags & FLAG_PROMOTE) {
 		//if (psqt_values[move->promoteto]) {
 		eval_t psqt_diff = 0;
-		psqt_diff -= (psqt[move->fromtype][0][from_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->fromtype][0][from_sq])/PHASE_TOTAL; // FIXME: Taper this shit
-		psqt_diff += (psqt[move->promoteto][0][to_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->promoteto][0][to_sq])/PHASE_TOTAL;
+		psqt_diff -= (psqt[move->fromtype][0][from_sq]*((PHASE_TOTAL-phase)) + phase*psqt[move->fromtype][0][from_sq])/PHASE_TOTAL; // FIXME: Taper this shit
+		psqt_diff += (psqt[move->promoteto][0][to_sq]*((PHASE_TOTAL-phase)) + phase*psqt[move->promoteto][0][to_sq])/PHASE_TOTAL;
 		move->move_score += psqt_diff / 4;
 		//}
 	}
 	else {
-		move->move_score -= (psqt[move->fromtype][0][from_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->fromtype][0][from_sq])/PHASE_TOTAL;
-		move->move_score += (psqt[move->fromtype][0][to_sq]*(phase) + (PHASE_TOTAL-phase)*psqt[move->fromtype][0][to_sq])/PHASE_TOTAL;
+		move->move_score -= (psqt[move->fromtype][0][from_sq]*((PHASE_TOTAL-phase)) + phase*psqt[move->fromtype][0][from_sq])/PHASE_TOTAL;
+		move->move_score += (psqt[move->fromtype][0][to_sq]*((PHASE_TOTAL-phase)) + phase*psqt[move->fromtype][0][to_sq])/PHASE_TOTAL;
 	}
 	//}
 	

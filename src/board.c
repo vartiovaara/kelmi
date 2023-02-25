@@ -18,9 +18,17 @@ Stuff about boards and bitboards.
 #include "bitboard.h"
 #include "algebraic.h"
 #include "lookup.h"
+#include "movegen.h"
 
 #include "defs.h"
 
+
+
+//void makemove_pawn(board_s* restrict board, const move_s* restrict move);
+static void movepiece(board_s* board, const unsigned int type, const BitBoard from, const BitBoard to);
+static void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type);
+static void addpiece(board_s*, const BitBoard pos, const unsigned int side, const unsigned int type);
+static void move_castling_pieces(board_s* restrict board, const move_s* restrict move, const bool undo);
 
 
 
@@ -201,6 +209,14 @@ board_s boardfromfen(const char* fen_str) {
 	// set board hash
 	board.hash = calculate_board_hash(&board);
 
+	// set side in check
+	if (is_in_check(&board, WHITE))
+		board.side_in_check = WHITE;
+	else if (is_in_check(&board, BLACK))
+		board.side_in_check = BLACK;
+	else
+		board.side_in_check = SIDE_NONE;
+
 	/*
 #ifndef NDEBUG
 	printf("Start FEN parsing debug info\n");
@@ -226,7 +242,7 @@ void resetboard(board_s* board) {
 /*
 TODO: Test the eligibility of this function
 */
-void movepiece(board_s* board, const unsigned int type, const BitBoard from, const BitBoard to) {
+static void movepiece(board_s* board, const unsigned int type, const BitBoard from, const BitBoard to) {
 	assert(popcount(to) == 1);
 	assert(popcount(from) == 1);
 	assert(to ^ board->every_piece); //??
@@ -239,14 +255,20 @@ void movepiece(board_s* board, const unsigned int type, const BitBoard from, con
 	unsigned int side = get_piece_side(board, from);
 	
 	
+	// FIXME: Why the fuck would the ^= (from | to) not work. Crash at Fine #70
 	removepiece(board, from, side, type);
 	addpiece(board, to, side, type);
+	//board->pieces[side][type] ^= from | to;
+	//board->all_pieces[side] ^= from | to;
+	//board->every_piece ^= from | to;
+	//board->hash ^= hash_rand_piece[side][type][lowest_bitindex(from)];
+	//board->hash ^= hash_rand_piece[side][type][lowest_bitindex(to)];
 
 	assert(board->every_piece == (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
 }
 
 
-void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type) {
+static void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type) {
 	assert(popcount(pos) == 1);
 	assert(side == WHITE || side == BLACK);
 	assert(type < N_PIECES);
@@ -255,11 +277,14 @@ void removepiece(board_s* board, const BitBoard pos, const unsigned int side, co
 	board->pieces[side][type] &= ~pos;
 	board->all_pieces[side] &= ~pos;
 	board->every_piece &= ~pos;
+	//board->pieces[side][type] ^= pos;
+	//board->all_pieces[side] ^= pos;
+	//board->every_piece ^= pos;
 	board->hash ^= hash_rand_piece[side][type][lowest_bitindex(pos)];
 }
 
 
-void addpiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type) {
+static void addpiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type) {
 	assert(popcount(pos) == 1);
 	assert(side == WHITE || side == BLACK);
 	assert(type < N_PIECES);
@@ -271,11 +296,30 @@ void addpiece(board_s* board, const BitBoard pos, const unsigned int side, const
 	board->hash ^= hash_rand_piece[side][type][lowest_bitindex(pos)];
 }
 
+/*
+void makemove_pawn(board_s* restrict board, const move_s* restrict move) {
+	// If move was a promotion, remove it and add the relevant piece to its place
+	if (move->flags & FLAG_PROMOTE) {
+		assert(move->fromtype == PAWN);
+
+		removepiece(board, move->from, move->side, PAWN);
+		addpiece(board, move->to, move->side, move->promoteto);
+		//pieces_moved = true;
+		return;
+	}
+	
+	// Set en passant target square
+	if (move->flags & FLAG_DOUBLEPUSH) {
+		board->en_passant = (move->side==WHITE ? MV_S(move->to, 1) : MV_N(move->to, 1));
+	}
+}
+*/
 
 // TODO: Finish this function
 void makemove(board_s* restrict board, const move_s* restrict move) {
 	assert(popcount(board->en_passant) <= 1);
 	assert(board->castling < 2*2*2*2);
+
 
 
 	// remove castling from zobrish hash
@@ -291,6 +335,10 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 
 	if (move == NULL)
 		goto MAKEMOVE_NULLMOVE;
+	
+	// __builtin_prefetch(&board->pieces[move->side][move->fromtype], 1, 1);
+	// __builtin_prefetch(&board->all_pieces[move->side], 1, 1);
+	// __builtin_prefetch(&board->every_piece, 1, 1);
 	
 
 	assert(popcount(move->from) == 1);
@@ -311,57 +359,52 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 		removepiece(board, move->to, OPPOSITE_SIDE(move->side), move->piece_captured);
 	}
 
-	// If move was a promotion, remove it and add the relevant piece to its place
-	if (move->flags & FLAG_PROMOTE) {
-		assert(move->fromtype == PAWN);
+	if (move->fromtype == PAWN) {
+		// Both flags set shouldn't be set
+		assert(popcount(move->flags & (FLAG_DOUBLEPUSH | FLAG_ENPASSANT)) < 2);
 
-		removepiece(board, move->from, move->side, PAWN);
-		addpiece(board, move->to, move->side, move->promoteto);
-		pieces_moved = true;
+		// If move was a promotion, remove it and add the relevant piece to its place
+		if (move->flags & FLAG_PROMOTE) {
+			assert(move->fromtype == PAWN);
+
+			removepiece(board, move->from, move->side, PAWN);
+			addpiece(board, move->to, move->side, move->promoteto);
+			pieces_moved = true;
+		}
+		else if (move->flags & FLAG_DOUBLEPUSH) { // Set en passant target square
+			board->en_passant = (move->side==WHITE ? MV_S(move->to, 1) : MV_N(move->to, 1));
+		}
+		else if (move->flags & FLAG_ENPASSANT) { // Perform En passant
+			const BitBoard piece_to_remove = (move->side == WHITE ? MV_S(move->to, 1) : MV_N(move->to, 1));
+			
+			assert(piece_to_remove & board->pieces[OPPOSITE_SIDE(move->side)][PAWN]);
+
+			removepiece(board, piece_to_remove, OPPOSITE_SIDE(move->side), PAWN);
+		}
 	}
-
-	// Set en passant target square
-	if (move->flags & FLAG_DOUBLEPUSH) {
-		board->en_passant = (move->side==WHITE ? MV_S(move->to, 1) : MV_N(move->to, 1));
-	}
-
-	// Both flags set shouldn't be set
-	assert(popcount(move->flags & (FLAG_DOUBLEPUSH | FLAG_ENPASSANT)) < 2);
-
-	// Perform En passant
-	if (move->flags & FLAG_ENPASSANT) {
-		const BitBoard piece_to_remove = (move->side == WHITE ? MV_S(move->to, 1) : MV_N(move->to, 1));
-		
-		assert(piece_to_remove & board->pieces[OPPOSITE_SIDE(move->side)][PAWN]);
-
-		removepiece(board, piece_to_remove, OPPOSITE_SIDE(move->side), PAWN);
-	}
-
-	// Do castling
-	if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
-		move_castling_pieces(board, move, false);
-		pieces_moved = true;
-	}
-	
-	// Revoking of castling rights by rook move
-	if (move->fromtype == ROOK && board->castling) {
+	else if (move->fromtype == ROOK && board->castling) { // Revoking of castling rights by rook move
 		// check which rook was moved and change correct flags
 		if (board->sidetomove == WHITE) {
 			if (move->from & RIGHT_MASK)
 				board->castling &= ~WKCASTLE;
-			if (move->from & LEFT_MASK)
+			else if (move->from & LEFT_MASK)
 				board->castling &= ~WQCASTLE;
 		}
 		else {
 			if (move->from & RIGHT_MASK)
 				board->castling &= ~BKCASTLE;
-			if (move->from & LEFT_MASK)
+			else if (move->from & LEFT_MASK)
 				board->castling &= ~BQCASTLE;
 		}
 	}
+	else if (__builtin_expect(move->fromtype == KING, 0)) {
+		// Do castling
+		if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
+			move_castling_pieces(board, move, false);
+			pieces_moved = true;
+		}
 
-	// Revoking of castling rights by king move
-	if (move->fromtype == KING && board->castling && !(move->flags & (FLAG_KCASTLE | FLAG_QCASTLE))) {
+		// Revoking of castling rights by king move
 		if (move->side == WHITE)
 			board->castling &= ~(WKCASTLE | WQCASTLE);
 		else
@@ -375,7 +418,9 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 	// change side to move
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
 
+#ifndef NDEBUG
 	append_to_move_history(board, move);
+#endif // NDEBUG
 
 
 	// add castling rights back to zobrist hash
@@ -387,6 +432,12 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 	
 	// add sidetomove to zobrist hash
 	board->hash ^= hash_rand_sidetomove[board->sidetomove];
+
+	// Increment fullmove clock
+	board->fullmoves += (move->side == BLACK);
+
+	assert(board->rep_stack_n < LENGTH(board->rep_stack) - 1);
+	board->rep_stack[board->rep_stack_n++] = board->hash;
 
 
 	assert(calculate_board_hash(board) == board->hash);
@@ -398,7 +449,7 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 	MAKEMOVE_NULLMOVE:
 	
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
-	board->en_passant = 0x0;
+	//board->en_passant = 0x0;
 
 	// add castling rights back to zobrist hash
 	board->hash ^= hash_rand_castle[board->castling];
@@ -410,14 +461,16 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 	// add sidetomove to zobrist hash
 	board->hash ^= hash_rand_sidetomove[board->sidetomove];
 
+#ifndef NDEBUG
 	append_to_move_history(board, NULL); // this function saves en_passant for null moves so do this first 
+#endif // NDEBUG
 }
 
 
 // TODO: Finish this function
-void unmakemove(board_s* board) {
+void unmakemove(board_s* restrict board, const move_s* restrict move) {
 	// Get the reference to the last move
-	const move_s* move = board->movehistory.moves + (board->history_n - 1);
+	//const move_s* move = board->movehistory.moves + (board->history_n - 1);
 
 	// remove castling from zobrish hash
 	board->hash ^= hash_rand_castle[board->castling];
@@ -429,22 +482,16 @@ void unmakemove(board_s* board) {
 	// remove sidetomove from zobrist hash
 	board->hash ^= hash_rand_sidetomove[board->sidetomove];
 
-	if (!move->from && !move->to)
+	//if (!move->from && !move->to)
+	if (!move)
 		goto UNMAKEMOVE_NULLMOVE;
 
 	// restore a normal move
-	const uint8_t non_normal_move_flag_mask = FLAG_CAPTURE | FLAG_KCASTLE | FLAG_QCASTLE | FLAG_ENPASSANT | FLAG_PROMOTE;
-	if (!(move->flags & non_normal_move_flag_mask)) {
-		movepiece(board, move->fromtype, move->to, move->from);
-		goto UNMAKEMOVE_PIECES_MOVED;
-	}
-	
-	// restore a capture, when move was not a promotion
-	if (move->flags & FLAG_CAPTURE && !(move->flags & FLAG_PROMOTE)) {
-		movepiece(board, move->fromtype, move->to, move->from);
-		addpiece(board, move->to, OPPOSITE_SIDE(move->side), move->piece_captured);
-		goto UNMAKEMOVE_PIECES_MOVED;
-	}
+	// const uint8_t non_normal_move_flag_mask = FLAG_CAPTURE | FLAG_KCASTLE | FLAG_QCASTLE | FLAG_ENPASSANT | FLAG_PROMOTE;
+	// if (!(move->flags & non_normal_move_flag_mask)) {
+	// 	movepiece(board, move->fromtype, move->to, move->from);
+	// 	goto UNMAKEMOVE_PIECES_MOVED;
+	// }
 	
 	// restore a promote, works even if move was capture
 	if (move->flags & FLAG_PROMOTE) {
@@ -454,18 +501,23 @@ void unmakemove(board_s* board) {
 			addpiece(board, move->to, OPPOSITE_SIDE(move->side), move->piece_captured); // add back captured
 		goto UNMAKEMOVE_PIECES_MOVED;
 	}
-	
-	// restore a castle
-	if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
+	else if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) { // restore a castle
 		move_castling_pieces(board, move, true);
 		goto UNMAKEMOVE_PIECES_MOVED;
 	}
-	
-	// restore en passant
-	if (move->flags & FLAG_ENPASSANT) {
+	else if (move->flags & FLAG_CAPTURE) { // restore a capture, when move was not a promotion
+		movepiece(board, move->fromtype, move->to, move->from);
+		addpiece(board, move->to, OPPOSITE_SIDE(move->side), move->piece_captured);
+		goto UNMAKEMOVE_PIECES_MOVED;
+	}
+	else if (move->flags & FLAG_ENPASSANT) { // restore en passant
 		const BitBoard piece_removed = (move->side == WHITE ? MV_S(move->to, 1) : MV_N(move->to, 1));
 		movepiece(board, PAWN, move->to, move->from);
 		addpiece(board, piece_removed, OPPOSITE_SIDE(move->side), PAWN);
+		goto UNMAKEMOVE_PIECES_MOVED;
+	}
+	else {
+		movepiece(board, move->fromtype, move->to, move->from);
 		goto UNMAKEMOVE_PIECES_MOVED;
 	}
 
@@ -478,9 +530,14 @@ void unmakemove(board_s* board) {
 	// Restore castling rights
 	board->castling = move->old_castling_flags;
 
+#ifndef NDEBUG
 	// Decrease history size
 	board->history_n--;
-	
+#endif // NDEBUG
+
+	// Decrement fullmove clock
+	board->fullmoves -= (move->side == BLACK);
+
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
 
 	// add castling to zobrish hash
@@ -493,6 +550,8 @@ void unmakemove(board_s* board) {
 	// add sidetomove to zobrist hash
 	board->hash ^= hash_rand_sidetomove[board->sidetomove];
 
+	board->rep_stack_n--;
+
 	assert(calculate_board_hash(board) == board->hash);
 
 	return;
@@ -502,8 +561,10 @@ void unmakemove(board_s* board) {
 	UNMAKEMOVE_NULLMOVE:
 
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
-	board->en_passant = move->old_en_passant;
+
+#ifndef NDEBUG
 	board->history_n--;
+#endif // NDEBUG
 
 	// add castling to zobrish hash
 	board->hash ^= hash_rand_castle[board->castling];
@@ -546,10 +607,11 @@ unsigned int get_piece_side(const board_s* board, const BitBoard piecebb) {
 
 
 // TODO: Test the eligibility of this logic and the constants.
-void move_castling_pieces(board_s* restrict board, const move_s* restrict move, const bool undo) {
+static void move_castling_pieces(board_s* restrict board, const move_s* restrict move, const bool undo) {
 	assert(popcount(move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) == 1); // ensure only 1 of the flags is set
 	
 
+	/*
 	if (!undo) {
 		// Revoke castling sides castling perms
 		if (move->side == WHITE) //(WKCASTLE | WQCASTLE))
@@ -557,6 +619,7 @@ void move_castling_pieces(board_s* restrict board, const move_s* restrict move, 
 		else
 			board->castling &= ~(BKCASTLE | BQCASTLE);
 	}
+	*/
 
 	BitBoard king_from = 0x0;
 	BitBoard king_to = 0x0;
@@ -626,6 +689,8 @@ void move_castling_pieces(board_s* restrict board, const move_s* restrict move, 
 	movepiece(board, ROOK, rook_from, rook_to);
 }
 
+// Movehistory is not used in non-debug builds
+#ifndef NDEBUG
 
 void set_move_history_size(board_s* board, const size_t size) {
 	assert(size > 0);
@@ -696,6 +761,9 @@ void write_move_history(const board_s* board, FILE* f) {
 	}
 	fputs("\n", f);
 }
+
+#endif // NDEBUG
+
 
 
 // TODO: Test eligibility
