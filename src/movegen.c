@@ -25,18 +25,18 @@ Attack stuff.
 /*
  * Private functions
  */
-BitBoard pseudo_legal_squares_k(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece);
-BitBoard pseudo_legal_squares_n(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece);
-BitBoard pseudo_legal_squares_q(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece);
-BitBoard pseudo_legal_squares_b(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece);
-BitBoard pseudo_legal_squares_r(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece);
-BitBoard pseudo_legal_squares_p(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece);
+BitBoard pseudo_legal_squares_k(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends);
+BitBoard pseudo_legal_squares_n(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends);
+BitBoard pseudo_legal_squares_q(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends);
+BitBoard pseudo_legal_squares_b(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends);
+BitBoard pseudo_legal_squares_r(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends);
+BitBoard pseudo_legal_squares_p(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends);
 
 
 /*
  * Private data
  */
-BitBoard (*pseudo_legal_squares[N_PIECES])(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece) = {
+BitBoard (*pseudo_legal_squares[N_PIECES])(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends) = {
 	[KING] = pseudo_legal_squares_k,
 	[QUEEN] = pseudo_legal_squares_q,
 	[ROOK] = pseudo_legal_squares_r,
@@ -172,7 +172,7 @@ bool promote_available(const board_s* board, const unsigned int side) {
 
 	BitBoard pawns_about_to_promote = board->pieces[side][PAWN] & (side == WHITE ? W_PROMOTE_FROM_MASK : B_PROMOTE_FROM_MASK);
 	while (pawns_about_to_promote) {
-		if (pseudo_legal_squares_p(board->all_pieces[WHITE], board->all_pieces[BLACK], side, pop_bitboard(&pawns_about_to_promote)) & TOP_MASK)
+		if (pseudo_legal_squares_p(board->all_pieces[WHITE], board->all_pieces[BLACK], side, pop_bitboard(&pawns_about_to_promote), true) & TOP_MASK)
 			return true;
 	}
 	return false;
@@ -268,13 +268,22 @@ void create_move(const board_s* board, move_s* move, BitBoard from, BitBoard to,
 }
 
 
+void construct_null_move(const board_s* restrict board, move_s* restrict move) {
+	move->from = 0x0;
+	move->to = 0x0;
+	move->old_castling_flags = board->castling;
+	move->old_en_passant = board->en_passant;
+}
+
+
+
 void get_pseudo_legal_moves(const board_s* restrict board, movelist_s* restrict moves, const BitBoard piecebb, bool set_move_ordering) {
 	assert(popcount(piecebb) == 1);
 
 	const unsigned int side = get_piece_side(board, piecebb);
 	const unsigned int piece_type = get_piece_type(board, side, piecebb);
 
-	BitBoard to = (*pseudo_legal_squares[piece_type])(board->all_pieces[WHITE], board->all_pieces[BLACK], side, piecebb);
+	BitBoard to = (*pseudo_legal_squares[piece_type])(board->all_pieces[WHITE], board->all_pieces[BLACK], side, piecebb, true);
 
 	// Add castling (represented by moving 2 squares)
 	if (piece_type == KING) {
@@ -509,8 +518,8 @@ void get_pseudo_legal_moves(const board_s* restrict board, movelist_s* restrict 
 	// return moves;
 }
 
-BitBoard get_pseudo_legal_squares(const board_s* restrict board, unsigned int side, unsigned int piece_type, BitBoard piecebb) {
-	return (*pseudo_legal_squares[piece_type])(board->all_pieces[WHITE], board->all_pieces[BLACK], side, piecebb);
+BitBoard get_pseudo_legal_squares(const board_s* restrict board, unsigned int side, unsigned int piece_type, BitBoard piecebb, bool mask_defends) {
+	return (*pseudo_legal_squares[piece_type])(board->all_pieces[WHITE], board->all_pieces[BLACK], side, piecebb, mask_defends);
 }
 
 /*
@@ -519,28 +528,28 @@ BitBoard get_legal_moves(const board_s* restrict board, unsigned int side, unsig
 }
 */
 
-BitBoard pseudo_legal_squares_k(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece) {
+BitBoard pseudo_legal_squares_k(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends) {
 	assert(popcount(piece) == 1);
 	BitBoard squares = piecelookup(lowest_bitindex(piece), KING, 0);
 	// don't eat own pieces
-	squares &= ~(side == WHITE ? w_occupancy : b_occupancy);
+	squares &= ~(side == WHITE ? w_occupancy : b_occupancy) | (0xffffffffffffffff * !mask_defends);
 	
 	return squares;
 }
 
 
-BitBoard pseudo_legal_squares_n(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece) {
+BitBoard pseudo_legal_squares_n(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends) {
 	BitBoard squares = piecelookup(lowest_bitindex(piece), KNIGHT, 0);
 	// don't eat own pieces
-	squares &= ~(side == WHITE ? w_occupancy : b_occupancy); 
+	squares &= ~(side == WHITE ? w_occupancy : b_occupancy) | (0xffffffffffffffff * !mask_defends); 
 	return squares;
 }
 
 
-BitBoard pseudo_legal_squares_q(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece) {
+BitBoard pseudo_legal_squares_q(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends) {
 	const unsigned int piece_index = lowest_bitindex(piece);
 	const BitBoard squares = Qmagic(piece_index, piecelookup(piece_index, QUEEN, 0) & (w_occupancy | b_occupancy));
-	return squares & ~(side == WHITE ? w_occupancy : b_occupancy); // don't go on own pieces
+	return squares & (~(side == WHITE ? w_occupancy : b_occupancy) | (0xffffffffffffffff * !mask_defends)); // don't go on own pieces
 
 	/*
 	BitBoard squares = 0x0;
@@ -632,10 +641,10 @@ BitBoard pseudo_legal_squares_q(BitBoard w_occupancy, BitBoard b_occupancy, cons
 }
 
 
-BitBoard pseudo_legal_squares_b(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece) {
+BitBoard pseudo_legal_squares_b(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends) {
 	const unsigned int piece_index = lowest_bitindex(piece);
 	const BitBoard squares = Bmagic(piece_index, piecelookup(piece_index, BISHOP, 0) & (w_occupancy | b_occupancy));
-	return squares & ~(side == WHITE ? w_occupancy : b_occupancy); // don't go on own pieces
+	return squares & (~(side == WHITE ? w_occupancy : b_occupancy) | (0xffffffffffffffff * !mask_defends)); // don't go on own pieces
 
 	/*
 	BitBoard squares = 0x0;
@@ -687,10 +696,10 @@ BitBoard pseudo_legal_squares_b(BitBoard w_occupancy, BitBoard b_occupancy, cons
 }
 
 
-BitBoard pseudo_legal_squares_r(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece) {
+BitBoard pseudo_legal_squares_r(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends) {
 	const unsigned int piece_index = lowest_bitindex(piece);
 	const BitBoard squares = Rmagic(piece_index, piecelookup(piece_index, ROOK, 0) & (w_occupancy | b_occupancy));
-	return squares & ~(side == WHITE ? w_occupancy : b_occupancy); // don't go on own pieces
+	return squares & (~(side == WHITE ? w_occupancy : b_occupancy) | (0xffffffffffffffff * !mask_defends)); // don't go on own pieces
 	
 	/*
 	BitBoard squares = 0x0;
@@ -741,7 +750,7 @@ BitBoard pseudo_legal_squares_r(BitBoard w_occupancy, BitBoard b_occupancy, cons
 }
 
 
-BitBoard pseudo_legal_squares_p(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece) {
+BitBoard pseudo_legal_squares_p(BitBoard w_occupancy, BitBoard b_occupancy, const unsigned int side, const BitBoard piece, bool mask_defends) {
 	//BitBoard squares = 0x0;
 	//const unsigned int opposite_side = OPPOSITE_SIDE(side);
 

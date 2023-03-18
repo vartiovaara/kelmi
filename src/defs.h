@@ -155,9 +155,9 @@ To make a move, give it in uci format."
 
 // Eval type max and min
 #define EVAL_MAX INT_MAX
-#define EVAL_MIN INT_MIN
+#define EVAL_MIN -INT_MAX //INT_MIN
 #define BIG_EVAL_MAX LONG_MAX
-#define BIG_EVAL_MIN LONG_MIN
+#define BIG_EVAL_MIN -LONG_MAX //LONG_MIN
 
 // Eval values
 #define EVAL_PAWN_MATERIAL_VALUE 100
@@ -167,7 +167,7 @@ To make a move, give it in uci format."
 #define EVAL_QUEEN_MATERIAL_VALUE 950
 #define EVAL_MATERIAL_IMBALANCE_ACCENTUATE_MULT 1
 #define EVAL_BPAIR_VALUE 10
-#define EVAL_STACKED_PAWNS_PUNISHMENT 19 // applied for every stacked pawn
+#define EVAL_STACKED_PAWNS_PUNISHMENT 7 // applied for every stacked pawn
 #define EVAL_ROOK_OPEN_FILE 5
 #define EVAL_MOVABLE_SQUARES_MULT 1
 #define EVAL_CASTLING_RIGHTS_Q 4
@@ -188,7 +188,7 @@ To make a move, give it in uci format."
 #define MV_SCORE_CHECK 500
 #define MV_SCORE_CAPTURER_VALUE_DIVIDE 5
 
-#define NULL_MOVE_PRUNING_R(depth) ((signed int)depth > 9 ? 4 : (((signed int)depth > 6) ? 4 : 3))
+#define NULL_MOVE_PRUNING_R(depth) ((depth > 6) ? 3 : 2)
 
 //#define Q_SEARCH_INITIAL_PRUNE_TRESHOLD -100 // (MV_SCORE_MOVE_WEIGHT_PAWN)
 // enter in graphical calculator
@@ -489,7 +489,7 @@ typedef struct {
 } tt_entry_s;
 
 typedef struct {
-	tt_entry_s** restrict entries; // [bucket][entry]
+	tt_entry_s** entries; // [bucket][entry]
 	size_t n_buckets; // n of buckets
 	size_t n_entries; // n entries per bucket
 	unsigned int counter; // FIXME: counter to be used for just random replacement

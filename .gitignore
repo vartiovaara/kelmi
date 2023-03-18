@@ -17,6 +17,7 @@
 
 # Ignore valgrind stuff
 callgrind.out.*
+cachegrind.out.*
 
 
 ### Start github c .gitignore template ###

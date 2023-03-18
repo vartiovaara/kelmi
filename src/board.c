@@ -333,7 +333,8 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 	board->hash ^= hash_rand_sidetomove[board->sidetomove];
 
 
-	if (move == NULL)
+	//if (move == NULL)
+	if (!move->from && !move->to)
 		goto MAKEMOVE_NULLMOVE;
 	
 	// __builtin_prefetch(&board->pieces[move->side][move->fromtype], 1, 1);
@@ -449,7 +450,7 @@ void makemove(board_s* restrict board, const move_s* restrict move) {
 	MAKEMOVE_NULLMOVE:
 	
 	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
-	//board->en_passant = 0x0;
+	board->en_passant = 0x0;
 
 	// add castling rights back to zobrist hash
 	board->hash ^= hash_rand_castle[board->castling];
@@ -482,8 +483,8 @@ void unmakemove(board_s* restrict board, const move_s* restrict move) {
 	// remove sidetomove from zobrist hash
 	board->hash ^= hash_rand_sidetomove[board->sidetomove];
 
-	//if (!move->from && !move->to)
-	if (!move)
+	//if (!move)
+	if (!move->from && !move->to)
 		goto UNMAKEMOVE_NULLMOVE;
 
 	// restore a normal move
@@ -565,6 +566,9 @@ void unmakemove(board_s* restrict board, const move_s* restrict move) {
 #ifndef NDEBUG
 	board->history_n--;
 #endif // NDEBUG
+
+	board->castling = move->old_castling_flags;
+	board->en_passant = move->old_en_passant;
 
 	// add castling to zobrish hash
 	board->hash ^= hash_rand_castle[board->castling];

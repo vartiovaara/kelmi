@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <string.h>
 
 #include "eval.h"
 #include "bitboard.h"
@@ -35,86 +36,6 @@ const eval_t mv_move_weight[N_PIECES] = {
 	[KING] = MV_SCORE_MOVE_WEIGHT_KING
 };
 
-
-/*
-	  A   B    C    D    E    F    G     H*/
-/*const eval_t psqt_pawn[64] = {
-	  0,   0,   0,   0,   0,   0,   0,   0,
-	  0,   0,   0,   0,   0,   0,   0,   0,
-	  5,   0,  11,  10,  10,  11,   0,   5,
-	  4,   0,  13,  14,  15,  12,   0,  10,
-	  0,   0,   5,   5,   5,   5,   0,   0,
-	  0,   0,   0,   0,   0,   0,   0,   0,
-	  0,   0,   0,   0,   0,   0,   0,   0,
-	100, 100, 100, 100, 100, 100, 100, 100
-};*/
-
-/*
-eval_t psqt_pawn[64] = {
-	100, 100, 100, 100, 100, 100, 100, 100,
-	 11,  11,  11,  11,  11,  11,  11,  11,
-	 10,  10,  10,  10,  10,  10,  10,  10,
-	 10,   5,   7,  13,  13,   8,   5,   8,
-	  5,  10,  13,  20,  25,  12,  -1,  15,
-	  7,   9,  11,  12,  12,  11,  -1,  11,
-	  0,   0,   3,  -1,  -1,   0,  18,   0,
-	  0,   0,   0,   0,   0,   0,   0,   0
-};
-
-
-eval_t psqt_knight[64] = {
-	-20, -10,  -10,  -10,  -10,  -10,  -10,  -20,
-	-10,  -5,   -5,   -5,   -5,   -5,   -5,  -10,
-	-10,  -5,   15,   15,   15,   15,   -5,  -10,
-	-10,  -5,   15,   15,   15,   15,   -5,  -10,
-	-10,  -5,   15,   15,   15,   15,   -5,  -10,
-	-11,  -5,   10,   15,   15,   15,   -5,  -11,
-	-10,  -5,   -5,   -5,   -5,   -5,   -5,  -10,
-	-20,   0,  -10,  -10,  -10,  -10,    0,  -20
-};
-
-eval_t psqt_bishop[64] = {
-	-29,   4, -82, -37, -25, -42,   7,  -8,
-	-26,  16, -18, -13,  30,  59,  18, -47,
-	-16,  37,  43,  40,  35,  50,  37,  -2,
-	 -4,   5,  19,  50,  37,  37,   7,  -2,
-	 -6,  13,  13,  26,  34,  12,  10,   4,
-	  0,  15,  15,  15,  14,  27,  18,  10,
-	  4,  15,  16,   0,   7,  21,  33,   1,
-	-33,  -3, -14, -21, -13, -12, -39, -21,
-};
-
-eval_t psqt_rook[64] = {
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	15,  15,  15,  20,  20,  15,  15,  15,
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	 0,   0,   0,  10,  10,  10,   0,   0
-};
-
-eval_t psqt_king[64] = {
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	 0,   0,   0,   0,   0,   0,   0,   0,
-	 0,   10,  20,   0, -10,   0,  20,   0
-};
-
-eval_t* psqt_values[N_PIECES] = {
-	[KING] = psqt_king,
-	[QUEEN] = NULL,
-	[ROOK] = psqt_rook,
-	[BISHOP] = psqt_bishop,
-	[KNIGHT] = psqt_knight,
-	[PAWN] = psqt_pawn
-};
-*/
 
 // King is in the 42 index
 eval_t psqt_king_guard_pieces[64] = {
@@ -320,10 +241,62 @@ const unsigned int pieces_ordered_by_cheapness[N_PIECES] = {
 
 #define GET_PIECE_VALUE(piece, phase) ((int)(((PHASE_TOTAL - phase) * piece_values[0][piece] + phase * piece_values[1][piece]) / PHASE_TOTAL))
 
+// From: https://www.chessprogramming.org/King_Safety#Attack_Units
+static const eval_t safety_table[100] = {
+	  0,   0,   1,   2,   3,   5,   7,   9,  12,  15,
+	 18,  22,  26,  30,  35,  39,  44,  50,  56,  62,
+	 68,  75,  82,  85,  89,  97, 105, 113, 122, 131,
+	140, 150, 169, 180, 191, 202, 213, 225, 237, 248,
+	260, 272, 283, 295, 307, 319, 330, 342, 354, 366,
+	377, 389, 401, 412, 424, 436, 448, 459, 471, 483,
+	494, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+	500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+	500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+	500, 500, 500, 500, 500, 500, 500, 500, 500, 500
+};
+
+static const int king_attack_value[N_PIECES] = {
+	[KING] = 1,
+	[QUEEN] = 4, // 5
+	[ROOK] = 2,
+	[BISHOP] = 2,
+	[KNIGHT] = 1, // 2
+	[PAWN] = 0
+};
+
+
+/*
+ * Private structs
+ */
+// TODO: Make a struct wherein stuff calculated during different eval stages will be collected to
+
+typedef struct {
+
+	int phase;
+
+	// piece moves are calculated here
+	// moves on own pieces are stored too.
+	BitBoard moves[2][16];
+
+	// pointer to a bitboard with the pieces movable squares or NULL if no piece
+	BitBoard* piece_moves[64];
+
+	// Number of each piece type per side
+	unsigned int material_amount[2][N_PIECES];
+
+	// Stores the value of attacks on opponent king
+	unsigned int king_attacks[2];
+	unsigned int n_king_attackers[2]; // number of -
+
+} eval_data_s;
+
+
 
 /*
  * Private functions.
  */
+
+static void calculate_eval_data(const board_s* restrict board, eval_data_s* restrict data);
 
 // evaluation functions
 //eval_t eval_material(const board_s* board, const int phase); // public
@@ -335,17 +308,13 @@ static eval_t eval_pawn_structure(const board_s* board);
 static eval_t eval_passed_pawn(const board_s* board, const int phase);
 static eval_t eval_pawn_shield(const board_s* board);
 static eval_t eval_king_guard(const board_s* board);
-static eval_t eval_castling_rights(const board_s* board);
-static eval_t eval_tempo_bonus(const board_s* board);
+static eval_t eval_king_safety(const board_s* restrict board, eval_data_s* restrict eval_data);
 static eval_t eval_knight_outpost(const board_s* board, int phase);
+static eval_t eval_hanging_pieces(const board_s* restrict board, eval_data_s* restrict eval_data);
+
 
 //int get_game_phase_value(const board_s* board); // public
 
-
-/*
- * Private structs
- */
-// TODO: Make a struct wherein stuff calculated during different eval stages will be collected to
 
 
 
@@ -358,6 +327,11 @@ inline bool is_eval_better(eval_t a, eval_t b, unsigned int side) {
 }
 
 eval_t eval(const board_s* board) {
+
+	//eval_data_s eval_data = {0};
+	//memset(&eval_data, 0, sizeof (eval_data_s));
+
+	//calculate_eval_data(board, &eval_data);
 
 	// TODO: Incrementally updated?
 	const int phase = MIN(get_game_phase_value(board), PHASE_TOTAL);
@@ -372,8 +346,7 @@ eval_t eval(const board_s* board) {
 	eval += eval_pawn_structure(board);
 	eval += eval_passed_pawn(board, phase);
 	//eval += eval_king_guard(board);
-	//eval += eval_castling_rights(board);
-	//eval += eval_tempo_bonus(board);
+	//eval += eval_king_safety(board, &eval_data);
 	eval += eval_knight_outpost(board, phase);
 
 	return eval;
@@ -392,11 +365,6 @@ eval_t eval_material(const board_s* board, const int phase) {
 	const int n_pawns_w = popcount(board->pieces[WHITE][PAWN]);
 	const int n_pawns_b = popcount(board->pieces[BLACK][PAWN]);
 	res += (n_pawns_w - n_pawns_b) * GET_PIECE_VALUE(PAWN, phase);
-
-	// Compare knights
-	//unsigned int n_pawns_w = popcount(board->pieces[WHITE][PAWN]);
-	//unsigned int n_pawns_b = popcount(board->pieces[BLACK][PAWN]);
-	//res += (float)(n_pawns_w - n_pawns_b);
 	 
 	const int n_knights_w = popcount(board->pieces[WHITE][KNIGHT]);
 	const int n_knights_b = popcount(board->pieces[BLACK][KNIGHT]);
@@ -406,7 +374,7 @@ eval_t eval_material(const board_s* board, const int phase) {
 	const int n_bishops_w = popcount(board->pieces[WHITE][BISHOP]);
 	const int n_bishops_b = popcount(board->pieces[BLACK][BISHOP]);
 	res += (n_bishops_w - n_bishops_b) * GET_PIECE_VALUE(BISHOP, phase);
-	// Add in bishop pairs (half a pawn more)
+	// Add in bishop pairs
 	if (n_bishops_w > 1)
 		res += EVAL_BPAIR_VALUE;
 	if (n_bishops_b > 1)
@@ -422,12 +390,6 @@ eval_t eval_material(const board_s* board, const int phase) {
 	const int n_queens_b = popcount(board->pieces[BLACK][QUEEN]);
 	res += (n_queens_w - n_queens_b) * GET_PIECE_VALUE(QUEEN, phase);
 
-	// Maybe not needed???
-	// Compare kings
-	//const unsigned int n_kings_w = popcount(board->pieces[WHITE][KING]);
-	//const unsigned int n_kings_b = popcount(board->pieces[BLACK][KING]);
-	//res += (n_kings_w - n_kings_b) * EVAL_MAX;
-
 	// Material imbalance is more accentuated when material is low
 	// This makes the overall playing better but is bad for move ordering
 	if (res > 0)
@@ -437,6 +399,39 @@ eval_t eval_material(const board_s* board, const int phase) {
 
 	return res;
 }
+
+
+static void calculate_eval_data(const board_s* restrict board, eval_data_s* restrict data) {
+	// TODO: Do this in this function
+	data->phase = get_game_phase_value(board);
+
+
+	for (int side = 0; side < 2; side++) {
+
+		unsigned int piece_index = 0; // Holds current piece index of the piece for data->moves
+		
+		for (int piece = 0; piece < N_PIECES; piece++) {
+			// Store material amount
+			data->material_amount[side][piece] = popcount(board->pieces[side][piece]);
+
+			// Store moves for these pieces
+			BitBoard pieces_copy = board->pieces[side][piece];
+			while (pieces_copy) {
+				BitBoard current_piece = pop_bitboard(&pieces_copy);
+				BitBoard moves = get_pseudo_legal_squares(board, side, piece, current_piece, false);
+				data->moves[side][piece_index] = moves;
+				data->piece_moves[lowest_bitindex(current_piece)] = &(data->moves[side][piece_index]);
+				piece_index++;
+
+				
+				BitBoard king_attacks = moves & piecelookup(lowest_bitindex(board->pieces[OPPOSITE_SIDE(side)][KING]), KING, 0);
+				data->king_attacks[side] += king_attack_value[piece] * popcount(king_attacks);
+				if (king_attacks) data->n_king_attackers[side]++;
+			}
+		}
+	}
+}
+
 
 static eval_t eval_stacked_pawns(const board_s* board) {
 	eval_t res = 0;
@@ -465,8 +460,6 @@ static eval_t eval_stacked_pawns(const board_s* board) {
 }
 
 static eval_t eval_psqt(const board_s* board, const int phase) {
-	eval_t res = 0;
-
 
 	int mg[2] = {0, 0};
 	int eg[2] = {0, 0};
@@ -493,69 +486,6 @@ static eval_t eval_psqt(const board_s* board, const int phase) {
 	int eg_score = eg[WHITE] - eg[BLACK];
 
 	return (mg_score * (PHASE_TOTAL - phase) + eg_score * phase) / PHASE_TOTAL;
-
-
-	
-	/*
-	// Remember that the tables are from black. access mirrored for white
-
-	// Pawns
-	BitBoard pawns_w = flip_vertical(board->pieces[WHITE][PAWN]);
-	while (pawns_w) {
-		res += psqt_pawn[pop_bit(&pawns_w)];
-	}
-
-	BitBoard pawns_b = board->pieces[BLACK][PAWN];
-	while (pawns_b) {
-		res -= psqt_pawn[pop_bit(&pawns_b)];
-	}
-
-	// Knights
-	BitBoard knights_w = flip_vertical(board->pieces[WHITE][KNIGHT]);
-	while (knights_w) {
-		res += psqt_knight[pop_bit(&knights_w)];
-	}
-
-	BitBoard knights_b = board->pieces[BLACK][KNIGHT];
-	while (knights_b) {
-		res -= psqt_knight[pop_bit(&knights_b)];
-	}
-
-	// Bishops
-	BitBoard bishops_w = flip_vertical(board->pieces[WHITE][BISHOP]);
-	while (bishops_w) {
-		res += psqt_bishop[pop_bit(&bishops_w)];
-	}
-
-	BitBoard bishops_b = board->pieces[BLACK][BISHOP];
-	while (bishops_b) {
-		res -= psqt_bishop[pop_bit(&bishops_b)];
-	}
-
-	// Rooks
-	BitBoard rooks_w = flip_vertical(board->pieces[WHITE][ROOK]);
-	while (rooks_w) {
-		res += psqt_rook[pop_bit(&rooks_w)];
-	}
-
-	BitBoard rooks_b = board->pieces[BLACK][ROOK];
-	while (rooks_b) {
-		res -= psqt_rook[pop_bit(&rooks_b)];
-	}
-	
-	// Kings
-	BitBoard kings_w = flip_vertical(board->pieces[WHITE][KING]);
-	while (kings_w) {
-		res += psqt_king[pop_bit(&kings_w)];
-	}
-
-	BitBoard kings_b = board->pieces[BLACK][KING];
-	while (kings_b) {
-		res -= psqt_king[pop_bit(&kings_b)];
-	}
-	*/
-
-	return res;
 }
 
 static eval_t eval_rook_open_file(const board_s* board) {
@@ -604,7 +534,7 @@ static eval_t eval_movable_squares(const board_s* board) {
 	BitBoard w_pieces = board->all_pieces[WHITE] & ~(board->pieces[WHITE][KING]);
 	while (w_pieces) {
 		const BitBoard piece = pop_bitboard(&w_pieces);
-		const BitBoard movable_squares = get_pseudo_legal_squares(board, WHITE, get_piece_type(board, WHITE, piece), piece);
+		const BitBoard movable_squares = get_pseudo_legal_squares(board, WHITE, get_piece_type(board, WHITE, piece), piece, true);
 		// Pawn mobility matters less than everything else
 		// if (piece & board->pieces[WHITE][PAWN])
 		// 	res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT / 2;
@@ -619,7 +549,7 @@ static eval_t eval_movable_squares(const board_s* board) {
 	BitBoard b_pieces = board->all_pieces[BLACK] & ~(board->pieces[BLACK][KING]);
 	while (b_pieces) {
 		const BitBoard piece = pop_bitboard(&b_pieces);
-		const BitBoard movable_squares = get_pseudo_legal_squares(board, BLACK, get_piece_type(board, BLACK, piece), piece);
+		const BitBoard movable_squares = get_pseudo_legal_squares(board, BLACK, get_piece_type(board, BLACK, piece), piece, true);
 		// Pawn mobility matters less than everything else
 		// if (piece & board->pieces[BLACK][PAWN])
 		// 	res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT / 2;
@@ -637,10 +567,10 @@ static eval_t eval_movable_squares(const board_s* board) {
 static eval_t eval_pawn_structure(const board_s* board) {
 	eval_t res = 0;
 
-	res += popcount(board->pieces[WHITE][PAWN] & MV_NE((board->pieces[WHITE][PAWN] & ~RIGHT_MASK), 1))*5;
-	res += popcount(board->pieces[WHITE][PAWN] & MV_NW((board->pieces[WHITE][PAWN] & ~LEFT_MASK), 1))*5;
-	res -= popcount(board->pieces[BLACK][PAWN] & MV_SE((board->pieces[BLACK][PAWN] & ~RIGHT_MASK), 1))*5;
-	res -= popcount(board->pieces[BLACK][PAWN] & MV_SW((board->pieces[BLACK][PAWN] & ~LEFT_MASK), 1))*5;
+	res += popcount(board->pieces[WHITE][PAWN] & MV_NE((board->pieces[WHITE][PAWN] & ~RIGHT_MASK), 1))*4;
+	res += popcount(board->pieces[WHITE][PAWN] & MV_NW((board->pieces[WHITE][PAWN] & ~LEFT_MASK), 1))*4;
+	res -= popcount(board->pieces[BLACK][PAWN] & MV_SE((board->pieces[BLACK][PAWN] & ~RIGHT_MASK), 1))*4;
+	res -= popcount(board->pieces[BLACK][PAWN] & MV_SW((board->pieces[BLACK][PAWN] & ~LEFT_MASK), 1))*4;
 
 	BitBoard pawns_w_copy = board->pieces[WHITE][PAWN];
 	while (pawns_w_copy) {
@@ -649,11 +579,11 @@ static eval_t eval_pawn_structure(const board_s* board) {
 
 		if (!(current_piece & LEFT_MASK)) {
 			if (columnlookup(current_piece_index + DIRECTION_W) & board->pieces[WHITE][PAWN])
-				res += 4;
+				res += 3;
 		}
 		if (!(current_piece & RIGHT_MASK)) {
 			if (columnlookup(current_piece_index + DIRECTION_E) & board->pieces[WHITE][PAWN])
-				res += 4;
+				res += 3;
 		}
 	}
 	BitBoard pawns_b_copy = board->pieces[BLACK][PAWN];
@@ -663,11 +593,11 @@ static eval_t eval_pawn_structure(const board_s* board) {
 
 		if (!(current_piece & LEFT_MASK)) {
 			if (columnlookup(current_piece_index + DIRECTION_W) & board->pieces[BLACK][PAWN])
-				res -= 4;
+				res -= 3;
 		}
 		if (!(current_piece & RIGHT_MASK)) {
 			if (columnlookup(current_piece_index + DIRECTION_E) & board->pieces[BLACK][PAWN])
-				res -= 4;
+				res -= 3;
 		}
 	}
 
@@ -747,24 +677,13 @@ static eval_t eval_king_guard(const board_s* board) {
 }
 
 
-static eval_t eval_castling_rights(const board_s* board) {
+static eval_t eval_king_safety(const board_s* restrict board, eval_data_s* restrict eval_data) {
 	eval_t res = 0;
 
-	res += (board->castling & WKCASTLE) * EVAL_CASTLING_RIGHTS_K;
-	res -= (board->castling & BKCASTLE) * EVAL_CASTLING_RIGHTS_K;
-	res += (board->castling & WQCASTLE) * EVAL_CASTLING_RIGHTS_Q;
-	res -= (board->castling & BQCASTLE) * EVAL_CASTLING_RIGHTS_Q;
+	res += safety_table[MIN(eval_data->king_attacks[WHITE] * (eval_data->n_king_attackers[WHITE] > 2 && board->pieces[WHITE][QUEEN]), 99)];
+	res -= safety_table[MIN(eval_data->king_attacks[BLACK] * (eval_data->n_king_attackers[BLACK] > 2 && board->pieces[BLACK][QUEEN]), 99)];
 
 	return res;
-}
-
-
-// FIXME: Make computer-side tracking. Function can't work otherwise
-// https://www.chessprogramming.org/Tempo
-static eval_t eval_tempo_bonus(const board_s* board) {
-	if (board->sidetomove == WHITE)
-		return EVAL_TEMPO_BONUS;
-	return -EVAL_TEMPO_BONUS;
 }
 
 
@@ -789,6 +708,21 @@ static eval_t eval_knight_outpost(const board_s* board, int phase) {
 }
 
 
+static eval_t eval_hanging_pieces(const board_s* restrict board, eval_data_s* restrict eval_data) {
+	eval_t res = 0;
+
+	for (int side = 0; side < 2; side++) {
+
+	}
+
+	return res;
+}
+
+
+
+
+
+
 
 // 0 = start, PHASE_TOTAL = end
 int get_game_phase_value(const board_s* board) {
@@ -809,6 +743,8 @@ int get_game_phase_value(const board_s* board) {
 
 	return phase;
 }
+
+
 
 
 
@@ -892,18 +828,18 @@ void set_move_predict_scores(const board_s* restrict board, move_s* restrict mov
 	 	to_sq = FLIP_PSQT_SQ(to_sq);
 	}
 
+	eval_t psqt_diff = 0;
 	if (move->flags & FLAG_PROMOTE) {
 		//if (psqt_values[move->promoteto]) {
-		eval_t psqt_diff = 0;
-		psqt_diff -= (psqt[move->fromtype][0][from_sq]*((PHASE_TOTAL-phase)) + phase*psqt[move->fromtype][0][from_sq])/PHASE_TOTAL; // FIXME: Taper this shit
-		psqt_diff += (psqt[move->promoteto][0][to_sq]*((PHASE_TOTAL-phase)) + phase*psqt[move->promoteto][0][to_sq])/PHASE_TOTAL;
-		move->move_score += psqt_diff / 4;
+		psqt_diff -= (psqt[move->fromtype][0][from_sq]*((PHASE_TOTAL-phase)) + phase*psqt[move->fromtype][1][from_sq])/PHASE_TOTAL; // FIXME: Taper this shit
+		psqt_diff += (psqt[move->promoteto][0][to_sq]*((PHASE_TOTAL-phase)) + phase*psqt[move->promoteto][1][to_sq])/PHASE_TOTAL;
 		//}
 	}
 	else {
-		move->move_score -= (psqt[move->fromtype][0][from_sq]*((PHASE_TOTAL-phase)) + phase*psqt[move->fromtype][0][from_sq])/PHASE_TOTAL;
-		move->move_score += (psqt[move->fromtype][0][to_sq]*((PHASE_TOTAL-phase)) + phase*psqt[move->fromtype][0][to_sq])/PHASE_TOTAL;
+		psqt_diff -= (psqt[move->fromtype][0][from_sq]*((PHASE_TOTAL-phase)) + phase*psqt[move->fromtype][1][from_sq])/PHASE_TOTAL;
+		psqt_diff += (psqt[move->fromtype][0][to_sq]*((PHASE_TOTAL-phase)) + phase*psqt[move->fromtype][1][to_sq])/PHASE_TOTAL;
 	}
+	move->move_score += psqt_diff / 5;
 	//}
 	
 
