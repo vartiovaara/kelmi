@@ -191,7 +191,7 @@ void search(board_s* restrict board, const unsigned int depth, pertf_result_s* r
 	// go through every piece
 	for (unsigned int i = 0; i < npieces; i++) {
 		// generate moves
-		get_pseudo_legal_moves(board, &moves, pop_bitboard(&pieces_copy), false);
+		get_pseudo_legal_moves(board, &moves, pop_bitboard(&pieces_copy), false, 0x0);
 
 		assert(moves.n < LENGTH(moves_array));
 		

@@ -233,6 +233,9 @@ To make a move, give it in uci format."
 //#define DEFAULT_FEN "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"
 //#define DEFAULT_FEN "1r3rk1/3q1ppp/3p4/p1pNpP2/PpP1P1P1/1P3Q2/6KP/5R2 w - - 0 1"
 
+#define MAX_DEPTH 99
+
+
 /*
  * Typedefs
  */

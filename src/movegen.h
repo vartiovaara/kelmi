@@ -36,7 +36,8 @@ void construct_null_move(const board_s* restrict board, move_s* restrict move);
 
 // generates all the moves the specified piece could move
 // currently just pseudo-legal so doesn't check for
-void get_pseudo_legal_moves(const board_s* restrict board, movelist_s* restrict moves, const BitBoard piecebb, bool set_move_ordering);
+// ignoremask sets what to-squares are ignored. ofc. set to 0x0 for all moves.
+void get_pseudo_legal_moves(const board_s* restrict board, movelist_s* restrict moves, const BitBoard piecebb, bool set_move_ordering, BitBoard ignoremask);
 
 // If mask_defends==true, do not return squares with own pieces
 //BitBoard get_pseudo_legal_squares(const board_s* restrict board, unsigned int side, unsigned int piece_type, BitBoard piecebb);

@@ -15,11 +15,15 @@
 #include "algebraic.h"
 #include "transposition.h"
 #include "lookup.h"
+#include "movefactory.h"
 
 #include "defs.h"
 
 
-#define MAX_DEPTH 99
+
+BitBoard killer_moves[MAX_DEPTH][2][2]; // [ply][first / second][from / to]
+uint64_t hh_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts cutoffs
+uint64_t bf_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts else
 
 
 // Private functions
@@ -31,16 +35,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 static eval_t zw_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, const clock_t start_time, const clock_t time_available, const bool is_null_move, eval_t alpha, eval_t beta);
 static eval_t new_q_search(board_s* restrict board, const int qdepth, search_stats_s* restrict stats, eval_t alpha, eval_t beta);
 
-// Private variables
-BitBoard killer_moves[MAX_DEPTH][2][2]; // [ply][first / second][from / to]
-uint64_t hh_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts cutoffs
-uint64_t bf_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts else
 
-// Private structs
-
-typedef struct {
-	movelist_s moves[16];
-} movestack_s;
 
 
 
@@ -257,7 +252,7 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 	BitBoard all_pieces_copy = board->all_pieces[board->sidetomove];
 	for (size_t i = 0; i < n_pieces && all_pieces_copy; i++) {
 		all_moves[i].moves = move_arrays[i];
-		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true);
+		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true, 0x0);
 
 		n_moves += all_moves[i].n;
 	}
@@ -404,7 +399,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	BitBoard all_pieces_copy = board->all_pieces[board->sidetomove];
 	for (size_t i = 0; i < n_pieces && all_pieces_copy; i++) {
 		all_moves[i].moves = move_arrays[i];
-		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true);
+		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true, 0x0);
 
 		n_moves += all_moves[i].n;
 
@@ -713,7 +708,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	BitBoard all_pieces_copy = board->all_pieces[board->sidetomove];
 	for (size_t i = 0; i < n_pieces && all_pieces_copy; i++) {
 		all_moves[i].moves = move_arrays[i];
-		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true);
+		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true, 0x0);
 
 		n_moves += all_moves[i].n;
 
@@ -955,7 +950,7 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, search_sta
 	BitBoard all_pieces_copy = board->all_pieces[board->sidetomove];
 	for (size_t i = 0; i < n_pieces && all_pieces_copy; i++) {
 		all_moves[i].moves = move_arrays[i];
-		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true);
+		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true, 0x0);
 
 		n_moves += all_moves[i].n;
 	}
@@ -1267,7 +1262,7 @@ static eval_t regular_search(board_s* restrict board, move_s* restrict bestmove,
 	for (size_t i = 0; i < n_pieces; i++) {
 		all_moves[i].moves = move_arrays[i];
 
-		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&pieces_copy), true);
+		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&pieces_copy), true, 0x0);
 		
 		n_all_moves += all_moves[i].n;
 
@@ -1979,7 +1974,7 @@ static eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, 
 	for (size_t i = 0; i < n_pieces; i++) {
 		all_moves[i].moves = move_arrays[i];
 
-		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&pieces_copy), true);
+		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&pieces_copy), true, 0x0);
 
 		n_all_moves += all_moves[i].n;
 

@@ -84,10 +84,10 @@
 
 //the following works only for perfect magic hash or no defenitions above
 //it uses variable shift for each square
-#define VARIABLE_SHIFT // default: off
+//#define VARIABLE_SHIFT // default: off
 
 // default: off?
-#define USE_INLINING /*the MMINLINE keyword is assumed to be available*/
+//#define USE_INLINING /*the MMINLINE keyword is assumed to be available*/
 
 // Following definition of U64 added by me
 #define __64_BIT_INTEGER_DEFINED__
