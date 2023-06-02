@@ -530,6 +530,29 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 		if (move_was_check && ply < 20 && depth < 3)
 			depth_modifier++;
+		
+		// Check for pawn moves that threaten pieces (may trap pieces?)
+		if (move->fromtype == PAWN
+		  && !(move->flags & FLAG_PROMOTE)
+		  && depth_modifier == 0
+		  && depth == 1) {
+			if (piecelookup(lowest_bitindex(move->to), PAWN, move->side) & (board->all_pieces[board->sidetomove] & ~(board->pieces[board->sidetomove][PAWN])))
+				depth_modifier++;
+		}
+
+		if (move->flags & FLAG_CAPTURE
+		  && move->move_see >= 120 + (depth * 90)
+		  && depth <= 4
+		  && depth_modifier == 0) {
+			depth_modifier++;
+		}
+		if (move->flags & FLAG_CAPTURE
+		  && move->move_see <= -40 - (depth * 60)
+		  && n_legal_moves_done > 4
+		  //&& depth <= 6
+		  && depth_modifier == 0) {
+			depth_modifier--;
+		}
 
 
 		eval_t score = EVAL_MIN;
@@ -543,10 +566,15 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		if (full_search)
 			score = -pv_search(board, depth-1+depth_modifier, ply+1, stats, pv, start_time, time_available, -beta, -alpha);
 		else
-			score = -zw_search(board, depth-1+depth_modifier, ply+1, stats, start_time, time_available, false, -alpha-1, -alpha);
+			score = -zw_search(board, depth-1+depth_modifier+(depth <= 2 ? 1 : 0), ply+1, stats, start_time, time_available, false, -alpha-1, -alpha);
 		
 		if (!full_search) {
 			if (score > alpha) {
+				//depth_modifier = (depth_modifier >= 0 ? depth_modifier : -depth_modifier);
+				//depth_modifier = (depth_modifier < 0 ? 0 : depth_modifier);
+				if (depth_modifier < 0 && depth <= 3) {
+					depth_modifier = 1;
+				}
 				full_search = true;
 				goto PV_SEARCH_RE_SEARCH;
 			}
@@ -644,7 +672,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
 
 
-	if (depth <= 2
+	if (depth == 2
 	   && !initially_in_check
 	   && alpha != EVAL_MAX) {
 
@@ -653,6 +681,18 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		if (q_stand_pat + (80 * depth) < alpha || q_stand_pat == EVAL_MAX || q_stand_pat == EVAL_MIN)
 			return q_stand_pat;
 	}
+
+	/*
+	if (depth <= 3
+	   && !initially_in_check
+	   && alpha != EVAL_MAX) {
+
+		//const eval_t q_stand_pat = new_q_search(board, 0, stats, alpha, beta);
+		const eval_t stand_pat = eval(board) * (board->sidetomove == WHITE ? 1 : -1);
+		if (stand_pat + (80 * depth) < alpha) // || q_stand_pat == EVAL_MAX || q_stand_pat == EVAL_MIN)
+			return new_q_search(board, 0, stats, alpha, beta);
+	}
+	*/
 
 	/*
 	// Razoring???
@@ -838,8 +878,23 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 		int depth_modifier = 0;
 
-		if (move_was_check && ply < 20 && depth < 3)
+		if (move_was_check && ply < 10 && depth < 3)
 			depth_modifier++;
+		
+		// if (move->flags & FLAG_CAPTURE
+		//   && move->move_see >= 100 + (depth * 80)
+		//   //&& depth <= 3
+		//   && depth_modifier == 0) {
+		// 	depth_modifier++;
+		// }
+		if (move->flags & FLAG_CAPTURE
+		  && move->move_see <= -40 - (depth * 60)
+		//   && move->move_see <= -1000 + (10 - depth)*100
+		  && n_legal_moves_done > 4
+		  //&& depth <= 3
+		  && depth_modifier == 0) {
+			depth_modifier--;
+		}
 
 		if (!initially_in_check
 		   && !(move->flags & FLAG_CAPTURE)
@@ -860,7 +915,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			// LMR is allowed
 
 			if (n_legal_moves_done > 3) depth_modifier -= 1;
-			//if (depth > 5 && n_legal_moves_done > 7) depth_modifier -= 1;
+			//if (depth >= 4 && n_legal_moves_done > 6) depth_modifier -= 1;
 			//if (depth > 7 && n_legal_moves_done > 12) depth_modifier -= 1;
 		}
 
@@ -1001,7 +1056,7 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, search_sta
 			failed_q_prune = false;
 		
 		// Do moves that check the king and threaten material
-		if (failed_q_prune && qdepth < 5) {
+		if (failed_q_prune && qdepth <= 5) {
 			// See if piece threatens more than one piece (king and something else)
 			// No need to check for promotions here
 			if (popcount(board->all_pieces[board->sidetomove] & get_pseudo_legal_squares(board, move->side, move->fromtype, move->to, true)) > 1) {
@@ -1009,6 +1064,12 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, search_sta
 					failed_q_prune = false;
 				}
 			}
+		}
+
+		// Check for pawn moves that threaten pieces (may trap pieces?)
+		if (failed_q_prune && move->fromtype == PAWN && !(move->flags & FLAG_PROMOTE) && qdepth <= 1) {
+			if (piecelookup(lowest_bitindex(move->to), PAWN, move->side) & (board->all_pieces[board->sidetomove] & ~(board->pieces[board->sidetomove][PAWN])))
+				failed_q_prune = false;
 		}
 		
 		if (failed_q_prune) {
