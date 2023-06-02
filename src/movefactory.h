@@ -32,6 +32,8 @@ typedef struct {
 	bool captures_generated;
 	bool quiet_moves_generated;
 
+	BitBoard ** killer_moves; //[first / second][from / to]
+
 	move_s* special_moves[64];
 	size_t n_special_moves;
 
@@ -59,9 +61,9 @@ typedef struct {
 
 // Initializes a movefactory_s
 //extern void init_movefactory(movefactory_s* restrict factory, const board_s* restrict board, const tt_entry_s* restrict tt_entry);
-extern void init_movefactory(movefactory_s* restrict factory, const board_s* restrict board, const uint16_t* restrict special_moves, const size_t n_special_moves);
+extern void init_movefactory(movefactory_s* restrict factory, BitBoard** restrict killer_moves, const uint16_t* restrict special_moves, const size_t n_special_moves);
 
-extern move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict factory, uint16_t hash_move);
+extern move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict factory);
 
 
 

@@ -60,11 +60,13 @@ static void generate_captures(const board_s* restrict board, movefactory_s* rest
 
 
 
-void init_movefactory(movefactory_s* restrict factory, const board_s* restrict board, const uint16_t* restrict special_moves, const size_t n_special_moves) {
+void init_movefactory(movefactory_s* restrict factory, BitBoard** restrict killer_moves, const uint16_t* restrict special_moves, const size_t n_special_moves) {
 	
 	memset(factory->moves_generated, 0, 64 * sizeof (BitBoard));
 	factory->phase = 0;
 	factory->moves_index = 0;
+	factory->killer_moves = killer_moves;
+	factory->n_special_moves = 0;
 	factory->n_promotions = 0;
 	factory->n_winning_captures = 0;
 	factory->n_losing_captures = 0;
@@ -74,7 +76,7 @@ void init_movefactory(movefactory_s* restrict factory, const board_s* restrict b
 }
 
 
-move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict factory, uint16_t hash_move) {
+move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict factory) {
 	
 	GET_NEXT_MOVE_RESTART:
 
@@ -83,10 +85,11 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 		// Special moves
 		case 0:
 			factory->phase++;
+			goto GET_NEXT_MOVE_RESTART;
 
 			// FIXME: Create the right promotion move according to the hash move
-			if (!hash_move || COMPACT_MOVE_PROMOTE_FLAG & hash_move)
-				goto GET_NEXT_MOVE_RESTART;
+			// if (!hash_move || COMPACT_MOVE_PROMOTE_FLAG & hash_move)
+			// 	goto GET_NEXT_MOVE_RESTART;
 
 
 			//movelist_s mvlist;
@@ -113,7 +116,7 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 				goto GET_NEXT_MOVE_RESTART;
 			}
 
-			return &factory->winning_captures[factory->winning_captures_index++];
+			return factory->winning_captures[factory->winning_captures_index++];
 
 		// Killers
 		case 2:
@@ -137,7 +140,7 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 				goto GET_NEXT_MOVE_RESTART;
 			}
 
-			return &factory->losing_captures[factory->losing_captures_index++];
+			return factory->losing_captures[factory->losing_captures_index++];
 		
 		// Rest of the quiet moves
 		case 5:

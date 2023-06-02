@@ -1,6 +1,6 @@
 CC = cc
 
-SRC = main.c algebraic.c bitboard.c board.c defs.h init.c uci.c lookup.c search.c movegen.c perft.c eval.c transposition.c random.c magicmoves/magicmoves.c
+SRC = main.c algebraic.c bitboard.c board.c defs.h init.c uci.c lookup.c search.c movegen.c movefactory.c perft.c eval.c transposition.c random.c magicmoves/magicmoves.c
 
 CFLAGS = -Wall -Wextra -pedantic -Og -ggdb3 -no-pie -mtune=generic -std=c17
 NDCFLAGS = -DNDEBUG -Wall -Wextra -pedantic -O3 -flto -ftree-vectorize -fdevirtualize-at-ltrans -march=native -mtune=native -std=c17
