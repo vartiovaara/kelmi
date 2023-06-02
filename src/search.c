@@ -664,7 +664,8 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 	// Check for repetitions
 	// -2 so that current position would not trigger if statement
-	for (int i = board->rep_stack_n - 2; i >= 0; i--) {
+	const size_t lower_rep_stack_limit = MAX(((int)board->rep_stack_n) - 2 - 4, 0); // search max 4 moves back
+	for (int i = board->rep_stack_n - 2; i >= lower_rep_stack_limit; i--) {
 		if (board->hash == board->rep_stack[i])
 			return 80 * (board->sidetomove==WHITE ? 1 : -1);
 	}
