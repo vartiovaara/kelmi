@@ -21,10 +21,13 @@ static void generate_captures(const board_s* restrict board, movefactory_s* rest
 	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
 	for (size_t i = 0; pieces_copy; i++) { // loop until pieces_copy with i counter
 		const BitBoard piece = pop_bitboard(&pieces_copy);
+		const unsigned int piece_index = lowest_bitindex(piece);
 
+		// Set up the movelist
 		movelist_s mvlist;
-		//mvlist.moves = factory->capture_moves[i];
 		mvlist.moves = &factory->moves[factory->moves_index];
+
+		// Select the from and to square masks
 
 		// to-squares for capturing and en-passant
 		BitBoard capture_squares = board->all_pieces[OPPOSITE_SIDE(board->sidetomove)];
@@ -32,10 +35,26 @@ static void generate_captures(const board_s* restrict board, movefactory_s* rest
 			capture_squares |= board->en_passant;
 		
 		// Ignore moves that have been generated already.
-		capture_squares &= ~factory->moves_generated[lowest_bitindex(piece)];
+		capture_squares &= ~factory->moves_generated[piece_index];
 		
+
+		// Generate the moves
 		get_pseudo_legal_moves(board, &mvlist, piece, true, ~capture_squares);
 		factory->moves_index += mvlist.n;
+
+		// Mark the current to-squares as generated
+		factory->moves_generated[piece_index] |= capture_squares;
+
+		// Save the captures to winning_captures and losing_captures
+		for (size_t j = 0; j < mvlist.n; j++) {
+			assert(mvlist.moves[j].flags & FLAG_CAPTURE);
+
+			// Save to appropriate list
+			if (mvlist.moves[j].move_score >= 0)
+				factory->winning_captures[factory->n_winning_captures++] = mvlist.moves + j;
+			else
+				factory->losing_captures[factory->n_losing_captures++] = mvlist.moves + j;
+		}
 	}
 }
 
@@ -96,8 +115,10 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 
 			return &factory->winning_captures[factory->winning_captures_index++];
 
-
-
+		// Killers
+		case 2:
+			factory->phase++;
+			goto GET_NEXT_MOVE_RESTART;
 
 		// Best quiet moves
 		case 3:
@@ -117,6 +138,11 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 			}
 
 			return &factory->losing_captures[factory->losing_captures_index++];
+		
+		// Rest of the quiet moves
+		case 5:
+			factory->phase++;
+			goto GET_NEXT_MOVE_RESTART;
 		
 		default:
 			return NULL;
