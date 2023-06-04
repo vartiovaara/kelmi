@@ -559,6 +559,8 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 		bool full_search = false;
 
+		if (depth == 1) full_search = true;
+
 		if (n_legal_moves_done == 1) full_search = true;
 
 		PV_SEARCH_RE_SEARCH:
@@ -566,7 +568,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		if (full_search)
 			score = -pv_search(board, depth-1+depth_modifier, ply+1, stats, pv, start_time, time_available, -beta, -alpha);
 		else
-			score = -zw_search(board, depth-1+depth_modifier+(depth <= 2 ? 1 : 0), ply+1, stats, start_time, time_available, false, -alpha-1, -alpha);
+			score = -zw_search(board, depth-1+depth_modifier+(depth <= 2 ? 0 : 0), ply+1, stats, start_time, time_available, false, -alpha-1, -alpha);
 		
 		if (!full_search) {
 			if (score > alpha) {
@@ -664,11 +666,12 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 	// Check for repetitions
 	// -2 so that current position would not trigger if statement
-	const size_t lower_rep_stack_limit = MAX(((int)board->rep_stack_n) - 2 - 4, 0); // search max 4 moves back
-	for (int i = board->rep_stack_n - 2; i >= lower_rep_stack_limit; i--) {
-		if (board->hash == board->rep_stack[i])
-			return 80 * (board->sidetomove==WHITE ? 1 : -1);
-	}
+	//const size_t lower_rep_stack_limit = MAX(((int)board->rep_stack_n) - 2 - 4, 0); // search max 4 moves back
+	// const size_t lower_rep_stack_limit = 0; // search max 4 moves back
+	// for (int i = board->rep_stack_n - 2; i >= 0; i--) {
+	// 	if (board->hash == board->rep_stack[i])
+	// 		return 80 * (board->sidetomove==WHITE ? 1 : -1);
+	// }
 
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
 
@@ -1055,6 +1058,11 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, search_sta
 		
 		if (failed_q_prune && initially_in_check)
 			failed_q_prune = false;
+
+		if (move->fromtype == PAWN
+		   && move->from & (move->side == WHITE ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B)) {
+			failed_q_prune = false;
+		}
 		
 		// Do moves that check the king and threaten material
 		if (failed_q_prune && qdepth <= 5) {
