@@ -10,6 +10,12 @@
 #include "defs.h"
 
 
+enum GENERATE_TYPE {
+	GENERATE_CAPTURES,
+	GENERATE_QUIET_MOVES
+};
+
+
 static const eval_t good_capture_treshold = -50;
 
 
@@ -47,16 +53,55 @@ static void generate_captures(const board_s* restrict board, movefactory_s* rest
 
 		// Save the captures to winning_captures and losing_captures
 		for (size_t j = 0; j < mvlist.n; j++) {
-			assert(mvlist.moves[j].flags & FLAG_CAPTURE);
+			assert(mvlist.moves[j].flags & FLAG_CAPTURE || mvlist.moves[j].flags & FLAG_ENPASSANT);
 
 			// Save to appropriate list
-			if (mvlist.moves[j].move_score >= 0)
+			if (mvlist.moves[j].move_score >= 0) {
 				factory->winning_captures[factory->n_winning_captures++] = mvlist.moves + j;
-			else
+				//factory->n_winning_captures++;
+			}
+			else {
 				factory->losing_captures[factory->n_losing_captures++] = mvlist.moves + j;
+				//factory->n_losing_captures++;
+			}
 		}
 	}
 }
+
+static void generate_quiet_moves(const board_s* restrict board, movefactory_s* restrict factory) {
+
+	factory->quiet_moves = &factory->moves[factory->moves_index];
+
+	BitBoard pieces_copy = board->all_pieces[board->sidetomove];
+	for (size_t i = 0; pieces_copy; i++) { // loop until pieces_copy with i counter
+		const BitBoard piece = pop_bitboard(&pieces_copy);
+		const unsigned int piece_index = lowest_bitindex(piece);
+
+		// Select the from and to square masks
+
+		// to-squares for capturing and en-passant
+		BitBoard to_squares = ~board->all_pieces[OPPOSITE_SIDE(board->sidetomove)];
+		
+		// Ignore moves that have been generated already.
+		to_squares &= ~factory->moves_generated[piece_index];
+		
+
+		// Set up the movelist
+		movelist_s mvlist;
+		mvlist.moves = &factory->moves[factory->moves_index];
+
+		// Generate the moves
+		get_pseudo_legal_moves(board, &mvlist, piece, true, ~to_squares);
+		factory->moves_index += mvlist.n;
+
+		// Mark the current to-squares as generated
+		factory->moves_generated[piece_index] |= to_squares;
+		
+		// Save the moves to quiet_moves
+		factory->n_quiet_moves += mvlist.n;
+	}
+}
+
 
 
 
@@ -65,14 +110,18 @@ void init_movefactory(movefactory_s* restrict factory, BitBoard** restrict kille
 	memset(factory->moves_generated, 0, 64 * sizeof (BitBoard));
 	factory->phase = 0;
 	factory->moves_index = 0;
+	factory->captures_generated = false;
+	factory->quiet_moves_generated = false;
 	factory->killer_moves = killer_moves;
 	factory->n_special_moves = 0;
 	factory->n_promotions = 0;
 	factory->n_winning_captures = 0;
 	factory->n_losing_captures = 0;
+	factory->n_quiet_moves = 0;
 	factory->promotions_index = 0;
 	factory->winning_captures_index = 0;
 	factory->losing_captures_index = 0;
+	factory->quiet_moves_index = 0;
 }
 
 
@@ -125,7 +174,7 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 
 		// Best quiet moves
 		case 3:
-			if (!factory->quiet_moves_generated)
+			//if (!factory->quiet_moves_generated)
 			factory->phase++;
 			goto GET_NEXT_MOVE_RESTART;
 
@@ -144,8 +193,20 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 		
 		// Rest of the quiet moves
 		case 5:
-			factory->phase++;
-			goto GET_NEXT_MOVE_RESTART;
+
+			if (!factory->quiet_moves_generated) {
+				generate_quiet_moves(board, factory);
+				factory->quiet_moves_generated = true;
+			}
+
+			if (factory->quiet_moves_index >= factory->n_quiet_moves) {
+				factory->phase++;
+				goto GET_NEXT_MOVE_RESTART;
+			}
+			
+			return &factory->quiet_moves[factory->quiet_moves_index++];
+
+
 		
 		default:
 			return NULL;

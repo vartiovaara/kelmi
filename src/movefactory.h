@@ -51,11 +51,15 @@ typedef struct {
 	size_t n_winning_captures;
 	size_t n_losing_captures;
 
+	move_s* quiet_moves;
+	size_t n_quiet_moves;
+
 	// Tracks, witch move is next
 	size_t special_moves_index;
 	size_t promotions_index;
 	size_t winning_captures_index;
 	size_t losing_captures_index;
+	size_t quiet_moves_index;
 
 } movefactory_s;
 
