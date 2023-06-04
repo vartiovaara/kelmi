@@ -20,6 +20,8 @@
 #include "defs.h"
 
 
+#define CONTEMPT_FACTOR 65
+
 
 BitBoard killer_moves[MAX_DEPTH][2][2]; // [ply][first / second][from / to]
 uint64_t hh_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts cutoffs
@@ -263,6 +265,7 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
 	eval_t best_score = EVAL_MIN;
+	bool best_score_is_draw = false;
 	//move_s best_move = NULL;
 
 	eval_t alpha = EVAL_MIN, beta = EVAL_MAX;
@@ -272,6 +275,11 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 		
 		if (!move)
 			break;
+		
+		if (time_available) {
+			if (clock() - time1 >= time_available)
+				return 0; // every node henceforth will also return early
+		}
 		
 		// Check if castling is valid
 		if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
@@ -323,10 +331,17 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 			}
 		}
 
+		bool score_is_draw = false;
+		if (score == 0) {
+			score_is_draw = true;
+			score += CONTEMPT_FACTOR;
+		}
+
 
 		// Without (score == EVAL_MAX) it basically is shit at mating
 		if ((score > best_score && score > alpha && score < beta) || score == EVAL_MAX) {
 			best_score = score;
+			best_score_is_draw = score_is_draw;
 			memcpy(bestmove, move, sizeof (move_s));
 
 			if (pv) {
@@ -344,9 +359,12 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 
 		alpha = MAX(score, alpha);
 
-
-
 		unmakemove(board, move);
+
+		if (time_available) {
+			if (clock() - time1 >= time_available)
+				return 0; // every node henceforth will also return early
+		}
 
 		SEARCH_ROOT_NODE_SKIP_MOVE_PRE_MAKE:
 		continue;
@@ -362,7 +380,7 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 		}
 	}
 
-	return best_score;
+	return best_score - (best_score_is_draw * CONTEMPT_FACTOR);
 }
 
 
@@ -375,12 +393,17 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		//return eval(board) * (board->sidetomove==WHITE ? 1 : -1);
 	}
 
+	if (time_available) {
+			if (clock() - start_time >= time_available)
+				return 0; // every node henceforth will also return early
+	}
+
 	// Check for repetitions
 	// -2 so that current position would not trigger if statement
-	// for (int i = board->rep_stack_n - 2; i >= 0; i--) {
-	// 	if (board->hash == board->rep_stack[i])
-	// 		return 0;
-	// }
+	for (int i = board->rep_stack_n - 2; i >= 0; i--) {
+		if (board->hash == board->rep_stack[i])
+			return 0;
+	}
 
 	if (stats)
 		stats->nodes++;
@@ -490,6 +513,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
 	eval_t best_score = EVAL_MIN;
+	bool best_score_is_draw = false;
 
 	for (size_t i = 0; 1; i++) {
 		// move = get_next_best_move(all_moves, n_pieces, move);
@@ -497,6 +521,11 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		
 		if (!move)
 			break;
+
+		if (time_available && ply < 5) {
+			if (clock() - start_time >= time_available)
+				return 0; // every node henceforth will also return early
+		}
 		
 		// Check if castling is valid
 		if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
@@ -574,6 +603,14 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		else
 			score = -zw_search(board, depth-1+depth_modifier+(depth <= 2 ? 0 : 0), ply+1, stats, start_time, time_available, false, -alpha-1, -alpha);
 		
+		bool score_is_draw = false;
+
+		if (score == 0) {
+			score_is_draw = true;
+			score += CONTEMPT_FACTOR;
+		}
+
+
 		if (!full_search) {
 			if (score > alpha
 			   || (score == EVAL_MAX || score == EVAL_MIN)) {
@@ -634,6 +671,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 				alpha = score;
 			}
 			best_score = score;
+			best_score_is_draw = score_is_draw;
 		}
 
 		PV_SEARCH_SKIP_MOVE_PRE_MAKE:
@@ -651,14 +689,14 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		}
 	}
 
-	return best_score;
+	return best_score - (best_score_is_draw * CONTEMPT_FACTOR);
 }
 
 
 static eval_t zw_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, const clock_t start_time, const clock_t time_available, const bool is_null_move, eval_t alpha, eval_t beta) {
 
 	if (time_available) {
-		if (clock() - start_time > time_available)
+		if (clock() - start_time >= time_available)
 			return 0; // every node henceforth will also return early
 	}
 
@@ -1072,7 +1110,8 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, search_sta
 			failed_q_prune = false;
 
 		if (move->fromtype == PAWN
-		   && move->from & (move->side == WHITE ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B)) {
+		   && move->from & (move->side == WHITE ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B)
+		   && qdepth <= 10) {
 			failed_q_prune = false;
 		}
 		

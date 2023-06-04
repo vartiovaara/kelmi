@@ -349,6 +349,13 @@ eval_t eval(const board_s* board) {
 	//eval += eval_king_safety(board, &eval_data);
 	eval += eval_knight_outpost(board, phase);
 
+	if (eval == 0) {
+		if (board->hash % 2)
+			eval += 1;
+		else
+			eval -= 1;
+	}
+
 	return eval;
 	
 	// NOTE: INTRERESTING this evaluation function gives coherent moves
@@ -522,6 +529,15 @@ static eval_t eval_rook_open_file(const board_s* board) {
 	return res;
 }
 
+
+static const unsigned int movable_squares_types [] = {
+	//KING,
+	QUEEN,
+	ROOK,
+	BISHOP,
+	KNIGHT,
+	//PAWN
+};
 // TODO: Make those fucking attack maps
 // FIXME: you lazy fuck
 static eval_t eval_movable_squares(const board_s* board) {
@@ -531,33 +547,35 @@ static eval_t eval_movable_squares(const board_s* board) {
 	// move_s move[30];
 
 
-	BitBoard w_pieces = board->all_pieces[WHITE] & ~(board->pieces[WHITE][KING]);
-	while (w_pieces) {
-		const BitBoard piece = pop_bitboard(&w_pieces);
-		const BitBoard movable_squares = get_pseudo_legal_squares(board, WHITE, get_piece_type(board, WHITE, piece), piece, true);
-		// Pawn mobility matters less than everything else
-		// if (piece & board->pieces[WHITE][PAWN])
-		// 	res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT / 2;
-		// else
-		// 	res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
-		res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
-		// TODO: Do pawns on their own
-		// if (moves.n)
-		// 	free(moves.moves);
-	}
+	for (unsigned int i = 0; i < LENGTH(movable_squares_types); i++) {
+		BitBoard w_pieces = board->pieces[WHITE][movable_squares_types[i]];//board->all_pieces[WHITE] & ~(board->pieces[WHITE][KING]);
+		while (w_pieces) {
+			const BitBoard piece = pop_bitboard(&w_pieces);
+			const BitBoard movable_squares = get_pseudo_legal_squares(board, WHITE, movable_squares_types[i], piece, true);
+			// Pawn mobility matters less than everything else
+			// if (piece & board->pieces[WHITE][PAWN])
+			// 	res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT / 2;
+			// else
+			// 	res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
+			res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
+			// TODO: Do pawns on their own
+			// if (moves.n)
+			// 	free(moves.moves);
+		}
 
-	BitBoard b_pieces = board->all_pieces[BLACK] & ~(board->pieces[BLACK][KING]);
-	while (b_pieces) {
-		const BitBoard piece = pop_bitboard(&b_pieces);
-		const BitBoard movable_squares = get_pseudo_legal_squares(board, BLACK, get_piece_type(board, BLACK, piece), piece, true);
-		// Pawn mobility matters less than everything else
-		// if (piece & board->pieces[BLACK][PAWN])
-		// 	res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT / 2;
-		// else
-		// 	res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
-		res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
-		// if (moves.n)
-		// 	free(moves.moves);
+		BitBoard b_pieces = board->pieces[BLACK][movable_squares_types[i]];//board->all_pieces[BLACK] & ~(board->pieces[BLACK][KING]);
+		while (b_pieces) {
+			const BitBoard piece = pop_bitboard(&b_pieces);
+			const BitBoard movable_squares = get_pseudo_legal_squares(board, BLACK, movable_squares_types[i], piece, true);
+			// Pawn mobility matters less than everything else
+			// if (piece & board->pieces[BLACK][PAWN])
+			// 	res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT / 2;
+			// else
+			// 	res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
+			res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
+			// if (moves.n)
+			// 	free(moves.moves);
+		}
 	}
 
 	return res;
