@@ -508,7 +508,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	// }
 
 	movefactory_s movefactory;
-	init_movefactory(&movefactory, killer_moves[ply], 0x0, 0);
+	init_movefactory(&movefactory, &killer_moves[ply], 0x0, 0);
 
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
@@ -579,13 +579,13 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		  && depth_modifier == 0) {
 			depth_modifier++;
 		}
-		if (move->flags & FLAG_CAPTURE
-		  && move->move_see <= -40 - (depth * 60)
-		  && n_legal_moves_done > 4
-		  //&& depth <= 6
-		  && depth_modifier == 0) {
-			depth_modifier--;
-		}
+		// if (move->flags & FLAG_CAPTURE
+		//   && move->move_see <= -40 - (depth * 60)
+		//   && n_legal_moves_done > 4
+		//   //&& depth <= 6
+		//   && depth_modifier == 0) {
+		// 	depth_modifier--;
+		// }
 
 
 		eval_t score = EVAL_MIN;
@@ -719,6 +719,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
 
 
+	/*
 	if (depth == 2
 	   && !initially_in_check
 	   && alpha != EVAL_MAX) {
@@ -728,6 +729,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		if (q_stand_pat + (80 * depth) < alpha || q_stand_pat == EVAL_MAX || q_stand_pat == EVAL_MIN)
 			return q_stand_pat;
 	}
+	*/
 
 	/*
 	if (depth <= 3
@@ -882,7 +884,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	// }
 
 	movefactory_s movefactory;
-	init_movefactory(&movefactory, killer_moves[ply], 0x0, 0);
+	init_movefactory(&movefactory, &killer_moves[ply], 0x0, 0);
 
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
@@ -932,14 +934,14 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		if (move_was_check && ply < 10 && depth < 3)
 			depth_modifier++;
 		
-		// if (move->flags & FLAG_CAPTURE
-		//   && move->move_see >= 100 + (depth * 80)
-		//   //&& depth <= 3
-		//   && depth_modifier == 0) {
-		// 	depth_modifier++;
-		// }
 		if (move->flags & FLAG_CAPTURE
-		  && move->move_see <= -40 - (depth * 60)
+		  && move->move_see >= 100 + (depth * 120)
+		  //&& depth <= 3
+		  && depth_modifier == 0) {
+			depth_modifier++;
+		}
+		if (move->flags & FLAG_CAPTURE
+		  && move->move_see <= -20 - (depth * 120)
 		//   && move->move_see <= -1000 + (10 - depth)*100
 		  && n_legal_moves_done > 4
 		  //&& depth <= 3
@@ -1103,8 +1105,8 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, search_sta
 		}
 		if (move->flags & FLAG_PROMOTE && (move->promoteto == QUEEN || move->promoteto == KNIGHT))
 			failed_q_prune = false;
-		if (move->flags & FLAG_ENPASSANT)
-			failed_q_prune = false;
+		// if (move->flags & FLAG_ENPASSANT)
+		// 	failed_q_prune = false;
 		
 		if (failed_q_prune && initially_in_check)
 			failed_q_prune = false;
@@ -1116,10 +1118,12 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, search_sta
 		}
 		
 		// Do moves that check the king and threaten material
-		if (failed_q_prune && qdepth <= 5) {
+		if (failed_q_prune
+		   && move->fromtype != PAWN
+		   && qdepth < 2) {
 			// See if piece threatens more than one piece (king and something else)
 			// No need to check for promotions here
-			if (popcount(board->all_pieces[board->sidetomove] & get_pseudo_legal_squares(board, move->side, move->fromtype, move->to, true)) > 1) {
+			if (popcount((board->all_pieces[board->sidetomove] & ~(board->pieces[board->sidetomove][PAWN])) & get_pseudo_legal_squares(board, move->side, move->fromtype, move->to, true)) > 1) {
 				if (is_in_check(board, board->sidetomove)) {
 					failed_q_prune = false;
 				}
