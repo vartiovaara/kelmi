@@ -35,7 +35,7 @@ static eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, 
 static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t time1, const clock_t time_available, const int depth, const eval_t last_eval);
 static eval_t pv_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t start_time, const clock_t time_available, eval_t alpha, eval_t beta);
 static eval_t zw_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, const clock_t start_time, const clock_t time_available, const bool is_null_move, eval_t alpha, eval_t beta);
-static eval_t new_q_search(board_s* restrict board, const int qdepth, search_stats_s* restrict stats, eval_t alpha, eval_t beta);
+static eval_t new_q_search(board_s* restrict board, const int qdepth, const int ply, search_stats_s* restrict stats, eval_t alpha, eval_t beta);
 
 
 
@@ -339,7 +339,7 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 
 
 		// Without (score == EVAL_MAX) it basically is shit at mating
-		if ((score > best_score && score > alpha && score < beta) || score == EVAL_MAX) {
+		if (score > best_score) {
 			best_score = score;
 			best_score_is_draw = score_is_draw;
 			memcpy(bestmove, move, sizeof (move_s));
@@ -389,7 +389,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	if (depth <= 0) {
 		if (pv)
 			pv->n_moves[ply] = 0;
-		return new_q_search(board, 0, stats, alpha, beta);
+		return new_q_search(board, 0, ply+1, stats, alpha, beta);
 		//return eval(board) * (board->sidetomove==WHITE ? 1 : -1);
 	}
 
@@ -612,8 +612,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 
 		if (!full_search) {
-			if (score > alpha
-			   || (score == EVAL_MAX || score == EVAL_MIN)) {
+			if (score > alpha) {
 				//depth_modifier = (depth_modifier >= 0 ? depth_modifier : -depth_modifier);
 				//depth_modifier = (depth_modifier < 0 ? 0 : depth_modifier);
 				if (depth_modifier < 0 && depth <= 3) {
@@ -682,7 +681,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		if (pv)
 			pv->n_moves[ply] = 0;
 		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
-			return EVAL_MIN;
+			return EVAL_MIN + ply;
 		}
 		else { // is a stalemate (wasn't in check and no legal moves)
 			return 0;
@@ -701,7 +700,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	}
 
 	if (depth <= 0) {
-		return new_q_search(board, 0, stats, alpha, beta);
+		return new_q_search(board, 0, ply+1, stats, alpha, beta);
 	}
 
 	if (stats)
@@ -1015,7 +1014,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 	if (!n_legal_moves_done) {
 		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
-			return EVAL_MIN;
+			return EVAL_MIN + ply;
 		}
 		else { // is a stalemate (wasn't in check and no legal moves)
 			return 0;
@@ -1027,7 +1026,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 
 
-static eval_t new_q_search(board_s* restrict board, const int qdepth, search_stats_s* restrict stats, eval_t alpha, eval_t beta) {
+static eval_t new_q_search(board_s* restrict board, const int qdepth, const int ply, search_stats_s* restrict stats, eval_t alpha, eval_t beta) {
 
 	if (stats)
 		stats->nodes++;
@@ -1146,14 +1145,14 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, search_sta
 
 		eval_t score;
 
-		score = -new_q_search(board, qdepth + 1, stats, -beta, -alpha);
+		score = -new_q_search(board, qdepth + 1, ply + 1, stats, -beta, -alpha);
 
 
 		unmakemove(board, move);
 		//move->from = 0;
 
 		//if (score >= beta)
-		//	return score;
+		//	return score;- ply
 		
 		//best_score = MAX(score, best_score);
 		//alpha = MAX(best_score, alpha);
@@ -1175,7 +1174,7 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, search_sta
 
 	if (!n_legal_moves_done) {
 		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
-			return EVAL_MIN;
+			return EVAL_MIN + ply;
 		}
 		else { // is a stalemate (wasn't in check and no legal moves)
 			return 0;
