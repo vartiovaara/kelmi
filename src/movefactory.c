@@ -20,6 +20,10 @@ static const eval_t good_capture_treshold = 0;//-50;
 
 
 static void generate_captures(const board_s* restrict board, movefactory_s* restrict factory);
+// static move_s* get_next_best_move(const move_s* restrict all_moves, size_t n_of_moves, const move_s* restrict last_move);
+static move_s* get_next_best_move_from_array(const move_s* restrict all_moves, size_t n_of_moves, const move_s* restrict last_move);
+static move_s* get_next_best_move_from_pointer_array(const move_s** restrict all_moves, size_t n_of_moves, const move_s* restrict last_move);
+
 
 
 static void generate_captures(const board_s* restrict board, movefactory_s* restrict factory) {
@@ -107,6 +111,84 @@ static void generate_quiet_moves(const board_s* restrict board, movefactory_s* r
 }
 
 
+// Get a pointer to the next best move.
+static move_s* get_next_best_move_from_array(const move_s* restrict all_moves, size_t n_of_moves, const move_s* restrict last_move) {
+	const eval_t last_move_score = (last_move != NULL ? last_move->move_score : EVAL_MAX);
+	eval_t currently_selected_move_score = EVAL_MIN;
+	move_s* currently_selected_move = NULL;
+	bool last_move_seen = false; // set to true if one of the pointers seen are the same as last_move
+
+	// Loops through the moves until it finds a same score as last_move_score if last_move_seen was set to true
+	// Else it just gets the next biggest(as big as possible but smaller than last_move_score)
+
+	// for (size_t i = 0; i < n_of_movelists; i++) {
+	for (size_t i = 0; i < n_of_moves; i++) {
+		if (!all_moves[i].from)
+			continue;
+		
+		// smaller than previous best but bigger than the currently selected
+		if (all_moves[i].move_score > currently_selected_move_score
+			&& all_moves[i].move_score < last_move_score) {
+			
+			currently_selected_move = &all_moves[i];
+			currently_selected_move_score = all_moves[i].move_score;
+		}
+
+		// TODO: if score == last_move_score+1 : return
+
+		// if the previously selected move has been seen, allow returning a move with the same score.
+		if (last_move_seen
+			&& all_moves[i].move_score == last_move_score) {
+			return &all_moves[i];
+		}
+		
+		// AAAAAAAA
+		if (&all_moves[i] == last_move)
+			last_move_seen = true;
+	}
+	// }
+
+	return currently_selected_move;
+}
+
+static move_s* get_next_best_move_from_pointer_array(const move_s** restrict all_moves, size_t n_of_moves, const move_s* restrict last_move) {
+	const eval_t last_move_score = (last_move != NULL ? last_move->move_score : EVAL_MAX);
+	eval_t currently_selected_move_score = EVAL_MIN;
+	move_s* currently_selected_move = NULL;
+	bool last_move_seen = false; // set to true if one of the pointers seen are the same as last_move
+
+	// Loops through the moves until it finds a same score as last_move_score if last_move_seen was set to true
+	// Else it just gets the next biggest(as big as possible but smaller than last_move_score)
+
+	for (size_t i = 0; i < n_of_moves; i++) {
+		if (!all_moves[i]->from)
+			continue;
+		
+		// smaller than previous best but bigger than the currently selected
+		if (all_moves[i]->move_score > currently_selected_move_score
+			&& all_moves[i]->move_score < last_move_score) {
+			
+			currently_selected_move = all_moves[i];
+			currently_selected_move_score = all_moves[i]->move_score;
+		}
+
+		// TODO: if score == last_move_score+1 : return
+
+		// if the previously selected move has been seen, allow returning a move with the same score.
+		if (last_move_seen
+			&& all_moves[i]->move_score == last_move_score) {
+			return all_moves[i];
+		}
+		
+		// AAAAAAAA
+		if (all_moves[i] == last_move)
+			last_move_seen = true;
+	}
+
+	return currently_selected_move;
+}
+
+
 
 
 void init_movefactory(movefactory_s* restrict factory, BitBoard (*restrict killer_moves)[2][2], const uint16_t* restrict special_moves, const size_t n_special_moves) {
@@ -116,6 +198,7 @@ void init_movefactory(movefactory_s* restrict factory, BitBoard (*restrict kille
 	factory->moves_index = 0;
 	factory->captures_generated = false;
 	factory->quiet_moves_generated = false;
+	factory->last_move = NULL;
 	factory->killer_moves = killer_moves;
 	factory->killer_index = 0;
 	factory->n_special_moves = 0;
@@ -123,6 +206,7 @@ void init_movefactory(movefactory_s* restrict factory, BitBoard (*restrict kille
 	factory->n_winning_captures = 0;
 	factory->n_losing_captures = 0;
 	factory->n_quiet_moves = 0;
+	factory->best_quiet_moves_index = 0;
 	factory->promotions_index = 0;
 	factory->winning_captures_index = 0;
 	factory->losing_captures_index = 0;
@@ -139,6 +223,7 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 		// Special moves
 		case 0:
 			factory->phase++;
+			factory->last_move = NULL;
 			goto GET_NEXT_MOVE_RESTART;
 
 			// FIXME: Create the right promotion move according to the hash move
@@ -167,10 +252,16 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 			// Check if all captures have been consumed already
 			if (factory->winning_captures_index >= factory->n_winning_captures) {
 				factory->phase++;
+				factory->last_move = NULL;
 				goto GET_NEXT_MOVE_RESTART;
 			}
 
-			return factory->winning_captures[factory->winning_captures_index++];
+			const move_s* next_best_capture = get_next_best_move_from_pointer_array(factory->winning_captures, factory->n_winning_captures, factory->last_move);
+			factory->last_move = next_best_capture;
+			factory->winning_captures_index++;
+			return next_best_capture;
+
+			//return factory->winning_captures[factory->winning_captures_index++];
 
 		// Killers
 		case 2:
@@ -181,8 +272,12 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 			}
 
 			const BitBoard from_sq = board->all_pieces[board->sidetomove] & (*factory->killer_moves)[factory->killer_index][0];
+			if (!from_sq) {
+				factory->killer_index++;
+				goto GET_NEXT_MOVE_RESTART;
+			}
 			const BitBoard to_sq = (*factory->killer_moves)[factory->killer_index][1] & ~factory->moves_generated[lowest_bitindex(from_sq)];
-			if (!from_sq || !to_sq || (to_sq & board->all_pieces[OPPOSITE_SIDE(board->sidetomove)])) {
+			if (!to_sq || (to_sq & board->all_pieces[OPPOSITE_SIDE(board->sidetomove)])) {
 				factory->killer_index++;
 				goto GET_NEXT_MOVE_RESTART;
 			}
@@ -200,8 +295,39 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 
 		// Best quiet moves
 		case 3:
-			factory->phase++;
-			goto GET_NEXT_MOVE_RESTART;
+
+			// factory->phase++;
+			// goto GET_NEXT_MOVE_RESTART;
+
+			if (!factory->quiet_moves_generated) {
+				generate_quiet_moves(board, factory);
+				factory->quiet_moves_generated = true;
+			}
+
+			if (factory->best_quiet_moves_index >= factory->n_quiet_moves
+					|| factory->best_quiet_moves_index >= N_BEST_QUIET_MOVES) {
+				factory->phase++;
+				goto GET_NEXT_MOVE_RESTART;
+			}
+			
+			const move_s* last_best_move = (factory->best_quiet_moves_index == 0 ? NULL : factory->best_quiet_moves[factory->best_quiet_moves_index-1]);
+			move_s* next_best_quiet_move = get_next_best_move_from_array(factory->quiet_moves, factory->n_quiet_moves, last_best_move);
+			
+			if (next_best_quiet_move == NULL) {
+				factory->phase++;
+				goto GET_NEXT_MOVE_RESTART;
+			}
+			
+
+			assert(factory->best_quiet_moves_index < N_BEST_QUIET_MOVES);
+			factory->best_quiet_moves[factory->best_quiet_moves_index] = next_best_quiet_move;
+
+			factory->best_quiet_moves_index++;
+
+			//factory->last_best_quiet_move = next_best_quiet_move;
+			return next_best_quiet_move;
+
+
 
 		// Losing captures
 		case 4:
@@ -228,8 +354,18 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 				factory->phase++;
 				goto GET_NEXT_MOVE_RESTART;
 			}
-			
-			return &factory->quiet_moves[factory->quiet_moves_index++];
+
+			const move_s* move = &factory->quiet_moves[factory->quiet_moves_index++];
+
+			// See if this move was already given in best-quiet-moves phase
+			for (int i = 0; i < factory->best_quiet_moves_index; i++) {
+				if (factory->best_quiet_moves[i] == move) {
+					//factory->phase++;
+					goto GET_NEXT_MOVE_RESTART;
+				}
+			}
+
+			return move;
 
 
 		

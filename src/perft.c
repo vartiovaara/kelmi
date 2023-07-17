@@ -10,6 +10,7 @@
 #include "bitboard.h"
 #include "board.h"
 #include "uci.h"
+#include "movefactory.h"
 
 #include "defs.h"
 
@@ -28,6 +29,8 @@ const unsigned long long expected_perft[] = {
 	3195901860, // ply 7
 	84998978956
 };
+
+#define PERFT_USE_MOVEFACTORY 1
 
 
 // Private functions
@@ -185,11 +188,27 @@ void search(board_s* restrict board, const unsigned int depth, pertf_result_s* r
 	//board_s boardcopy;// = *board;
 	//memcpy(&boardcopy, board, sizeof (board_s)); // for some reason, it's faster with memcpy
 
-	move_s moves_array[32];
 	movelist_s moves;
+#if PERFT_USE_MOVEFACTORY == 1
+	movefactory_s factory;
+	init_movefactory(&factory, NULL, NULL, 0);
+	while (true) {
+#else
+	move_s moves_array[32];
 	moves.moves = moves_array;
 	// go through every piece
 	for (unsigned int i = 0; i < npieces; i++) {
+#endif
+#if PERFT_USE_MOVEFACTORY == 1
+		moves.moves = get_next_move(board, &factory);
+		if (!moves.moves)
+			moves.n = 0;
+		else
+			moves.n = 1;
+		
+		if (!moves.n)
+			break;
+#else
 		// generate moves
 		get_pseudo_legal_moves(board, &moves, pop_bitboard(&pieces_copy), false, 0x0);
 
@@ -200,6 +219,8 @@ void search(board_s* restrict board, const unsigned int depth, pertf_result_s* r
 		// been allocated
 		if (!moves.n)
 			continue;
+#endif
+		
 		
 		// go trough every move
 		for (unsigned int j = 0; j < moves.n; j++) {

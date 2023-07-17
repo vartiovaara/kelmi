@@ -1,44 +1,42 @@
-CC = cc
+#CC = cc
+CC=clang
 
-SRC = main.c algebraic.c bitboard.c board.c defs.h init.c uci.c lookup.c search.c movegen.c movefactory.c perft.c eval.c transposition.c random.c magicmoves/magicmoves.c
+SRC = src/main.c src/algebraic.c src/bitboard.c src/board.c src/init.c src/uci.c src/lookup.c src/search.c src/movegen.c src/movefactory.c src/perft.c src/eval.c src/transposition.c src/random.c src/magicmoves/magicmoves.c
 
-CFLAGS = -Wall -Wextra -pedantic -Og -ggdb3 -no-pie -mtune=generic -std=c17
-NDCFLAGS = -DNDEBUG -Wall -Wextra -pedantic -O3 -flto -ftree-vectorize -fdevirtualize-at-ltrans -march=native -mtune=native -std=c17
-GPROF_FLAGS = -DNDEBUG -Wall -Wextra -pedantic -pg -ggdb3 -O2 -march=native -mtune=native -std=c17
+#DEBUG_CFLAGS = -Wall -Wextra -pedantic -Og -ggdb3 -no-pie -mtune=generic -std=c17
+#CFLAGS = -Wall -Wextra -pedantic -Og -ggdb3 -no-pie -fstack-check -fstack-protector-all -fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined -fsanitize=null -fsanitize=bounds-strict -std=c17
+#CFLAGS = -Wall -Wextra -pedantic -Og -ggdb3 -no-pie -std=c17
+#CFLAGS = -DNDEBUG -Wall -Wextra -pedantic -O3 -flto -ftree-vectorize -march=native -mtune=native -std=c17
+CFLAGS = -DNDEBUG -Wall -Wextra -pedantic -O3 -flto -march=native -mtune=native -std=c17
+#GPROF_CFLAGS = -DNDEBUG -Wall -Wextra -pedantic -pg -ggdb3 -O2 -march=native -mtune=native -std=c17
 
-# TODO: Do testing with -funroll-loops
-# TODO: Test -fdelete-null-pointer-checks -fno-stack-protector -frename-registers -fsplit-loops
-# TODO: Test -fvariable-expansion-in-unroller
+LDFLAGS = -flto
+#LDFLAGS = -g
 
-OUTPUTNAME = kelmi
+TARGET = kelmi
 
-all:
-	cd src && \
-	${CC} -o ../${OUTPUTNAME} ${SRC} ${CFLAGS}
+OBJECTS=$(SRC:.c=.o)
+#OBJECTS = $(patsubst %.c,%.o,$(SRC))
+
+
+all: $(TARGET)
+
 
 ndebug:
 	cd src && \
 	${CC} -o ../${OUTPUTNAME} ${SRC} ${NDCFLAGS}
 
-profile:
-	cd src && \
-	${CC} -o ../${OUTPUTNAME} ${SRC} -ggdb3 ${NDCFLAGS}
-
-# Used for profiling with gprof
-# gprof ./kelmi gmon.out
-gprof:
-	cd src && \
-	&{CC} -o ../&{OUTPUTNAME} &{SRC} ${GPROF_FLAGS}
-
-# https://cvw.cac.cornell.edu/vector/compilers_reports
-#-fopt-info-vec-all
-info:
-	cd src && \
-	${CC} -o ../${OUTPUTNAME} ${SRC} -ftree-vectorizer-verbose=2 -fopt-info-vec -fopt-info-vec-missed ${NDCFLAGS}
-
 
 clean:
-	rm ${OUTPUTNAME}
+	rm $(TARGET) $(OBJECTS)
+
+
+#$(OBJECTS):
+#	$(CC) $(CFLAGS) -c $($^:.c=.o) -o $@
+
+$(TARGET): $(OBJECTS)
+	$(CC) -o $@ $(OBJECTS) $(CFLAGS) $(LDFLAGS)
+
 
 
 #kelmi: *.c *.h

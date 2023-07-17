@@ -28,6 +28,9 @@ uint64_t hh_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts cutoffs
 uint64_t bf_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts else
 
 
+bool abort_search = false;
+
+
 // Private functions
 uint16_t encode_compact_move(const move_s* move);
 static eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t time1, const clock_t time_available, const int search_depth, int depth, const int actual_depth, const bool is_null_prune, eval_t alpha, eval_t beta);
@@ -70,12 +73,12 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 
 	// from: https://www.talkchess.com/forum3/viewtopic.php?t=51135
 	unsigned int predicted_moves_left = 18; // originally 15
-	if (board->fullmoves <= 20) // originally 25
+	if (board->fullmoves <= 25) // originally 25
 		predicted_moves_left = 40 - board->fullmoves; // originally 40
 
-	const unsigned long time_left = (board->sidetomove == WHITE ? uci->wtime : uci->btime);
-	const unsigned long increment = (board->sidetomove == WHITE ? uci->winc : uci->binc);
-	const clock_t time_allotted = ((clock_t)(((float)time_left/1000.f)*(float)CLOCKS_PER_SEC)/predicted_moves_left) + increment - 20; // -20 reserved for exiting search
+	const double time_left = (double)(board->sidetomove == WHITE ? uci->wtime : uci->btime);
+	const double increment = (double)(board->sidetomove == WHITE ? uci->winc : uci->binc);
+	const clock_t time_allotted = (((time_left/1000.0)*(double)CLOCKS_PER_SEC)/predicted_moves_left) + increment; // -20 reserved for exiting search
 
 	const clock_t t = clock();
 	
@@ -83,6 +86,9 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 		const clock_t last_search_time = clock();
 
 		memset(&stats, 0, sizeof (search_stats_s));
+
+		abort_search = false;
+
 		/*
 		// Don't null the lowest level because mate pv's dont work otherwise
 		memset(pv.n_moves + 1, 0, (MAX_DEPTH - 1) * sizeof (size_t));
@@ -323,6 +329,11 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 			score = -pv_search(board, depth-1, 1, stats, pv, time1, time_available, -beta, -alpha);
 		else
 			score = -zw_search(board, depth-1, 1, stats, time1, time_available, false, -alpha-1, -alpha);
+		
+		if (abort_search) {
+			unmakemove(board, &move);
+			return 0;
+		}
 
 		if (!full_search) {
 			if (score > best_score) {
@@ -361,10 +372,10 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 
 		unmakemove(board, move);
 
-		if (time_available) {
-			if (clock() - time1 >= time_available)
-				return 0; // every node henceforth will also return early
-		}
+		// if (time_available) {
+		// 	if (clock() - time1 >= time_available)
+		// 		return 0; // every node henceforth will also return early
+		// }
 
 		SEARCH_ROOT_NODE_SKIP_MOVE_PRE_MAKE:
 		continue;
@@ -394,9 +405,13 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	}
 
 	if (time_available) {
-			if (clock() - start_time >= time_available)
+			if (clock() - start_time >= time_available) {
+				abort_search = true;
 				return 0; // every node henceforth will also return early
+			}
 	}
+
+	if (abort_search) return 0;
 
 	// Check for repetitions
 	// -2 so that current position would not trigger if statement
@@ -522,10 +537,10 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		if (!move)
 			break;
 
-		if (time_available && ply < 5) {
-			if (clock() - start_time >= time_available)
-				return 0; // every node henceforth will also return early
-		}
+		// if (time_available && ply < 5) {
+		// 	if (clock() - start_time >= time_available)
+		// 		return 0; // every node henceforth will also return early
+		// }
 		
 		// Check if castling is valid
 		if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
@@ -603,6 +618,12 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		else
 			score = -zw_search(board, depth-1+depth_modifier+(depth <= 2 ? 0 : 0), ply+1, stats, start_time, time_available, false, -alpha-1, -alpha);
 		
+		if (abort_search) {
+			unmakemove(board, move);
+			return 0;
+		}
+
+
 		bool score_is_draw = false;
 
 		if (score == 0) {
@@ -695,9 +716,13 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 static eval_t zw_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, const clock_t start_time, const clock_t time_available, const bool is_null_move, eval_t alpha, eval_t beta) {
 
 	if (time_available) {
-		if (clock() - start_time >= time_available)
+		if (clock() - start_time >= time_available) {
+			abort_search = true;
 			return 0; // every node henceforth will also return early
+		}
 	}
+
+	if (abort_search) return 0;
 
 	if (depth <= 0) {
 		return new_q_search(board, 0, ply+1, stats, alpha, beta);
@@ -769,6 +794,8 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		makemove(board, &move);
 		eval_t score = -zw_search(board, depth-1 - NULL_MOVE_PRUNING_R(depth), ply+1, stats, start_time, time_available, true, -beta, -alpha);
 		unmakemove(board, &move);
+
+		if (abort_search) return 0;
 		
 		if (score >= beta) {
 
@@ -972,8 +999,14 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		}
 
 		ZW_SEARCH_RE_SEARCH:
+		;
 
 		eval_t score = -zw_search(board, depth-1+depth_modifier, ply+1, stats, start_time, time_available, is_null_move, -beta, -alpha);
+
+		if (abort_search) {
+			unmakemove(board, move);
+			return 0;
+		}
 
 		if (score >= beta) {
 			if (depth_modifier < 0) {
@@ -1030,6 +1063,8 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, const int 
 
 	if (stats)
 		stats->nodes++;
+	
+	if (abort_search) return 0;
 
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
 

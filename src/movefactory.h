@@ -4,6 +4,11 @@
 
 #include "defs.h"
 
+
+#define N_BEST_QUIET_MOVES 3
+
+
+
 typedef struct {
 
 	/*
@@ -34,6 +39,8 @@ typedef struct {
 
 	BitBoard (*killer_moves)[2][2]; //[first / second][from / to]
 
+	move_s* last_move;
+
 	move_s* special_moves[64];
 	size_t n_special_moves;
 
@@ -55,6 +62,8 @@ typedef struct {
 
 	move_s* quiet_moves;
 	size_t n_quiet_moves;
+	move_s* best_quiet_moves[N_BEST_QUIET_MOVES];
+	size_t best_quiet_moves_index;
 
 	// Tracks, witch move is next
 	size_t special_moves_index;
