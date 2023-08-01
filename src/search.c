@@ -397,18 +397,18 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 
 static eval_t pv_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t start_time, const clock_t time_available, eval_t alpha, eval_t beta) {
 
+	if (time_available & depth >= 3) {
+			if (clock() - start_time >= time_available) {
+				abort_search = true;
+				return 0; // every node henceforth will also return early
+			}
+	}
+
 	if (depth <= 0) {
 		if (pv)
 			pv->n_moves[ply] = 0;
 		return new_q_search(board, 0, ply+1, stats, alpha, beta);
 		//return eval(board) * (board->sidetomove==WHITE ? 1 : -1);
-	}
-
-	if (time_available) {
-			if (clock() - start_time >= time_available) {
-				abort_search = true;
-				return 0; // every node henceforth will also return early
-			}
 	}
 
 	if (abort_search) return 0;
@@ -578,19 +578,24 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 		if (move_was_check && ply < 20 && depth < 3)
 			depth_modifier++;
-		
-		// Check for pawn moves that threaten pieces (may trap pieces?)
-		if (move->fromtype == PAWN
-		  && !(move->flags & FLAG_PROMOTE)
-		  && depth_modifier == 0
-		  && depth == 1) {
-			if (piecelookup(lowest_bitindex(move->to), PAWN, move->side) & (board->all_pieces[board->sidetomove] & ~(board->pieces[board->sidetomove][PAWN])))
-				depth_modifier++;
+		else if (move_was_check
+		  && move->flags & FLAG_CAPTURE
+		  && move->move_see > 0) {
+			depth_modifier++;
 		}
 
+		// Check for pawn moves that threaten pieces (may trap pieces?)
+		// if (move->fromtype == PAWN
+		//   && !(move->flags & FLAG_PROMOTE)
+		//   && depth_modifier == 0
+		//   && depth == 1) {
+		// 	if (piecelookup(lowest_bitindex(move->to), PAWN, move->side) & (board->all_pieces[board->sidetomove] & ~(board->pieces[board->sidetomove][PAWN])))
+		// 		depth_modifier++;
+		// }
+
 		if (move->flags & FLAG_CAPTURE
-		  && move->move_see >= 120 + (depth * 90)
-		  && depth <= 4
+		  && move->move_see >= 120 + (depth * 100)
+		  && depth < 4
 		  && depth_modifier == 0) {
 			depth_modifier++;
 		}
@@ -636,9 +641,9 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 			if (score > alpha) {
 				//depth_modifier = (depth_modifier >= 0 ? depth_modifier : -depth_modifier);
 				//depth_modifier = (depth_modifier < 0 ? 0 : depth_modifier);
-				if (depth_modifier < 0 && depth <= 3) {
-					depth_modifier = 1;
-				}
+				// if (depth_modifier < 0 && depth <= 3) {
+				// 	depth_modifier = 1;
+				// }
 				full_search = true;
 				goto PV_SEARCH_RE_SEARCH;
 			}
@@ -715,7 +720,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 static eval_t zw_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, const clock_t start_time, const clock_t time_available, const bool is_null_move, eval_t alpha, eval_t beta) {
 
-	if (time_available) {
+	if (time_available && depth >= 4) {
 		if (clock() - start_time >= time_available) {
 			abort_search = true;
 			return 0; // every node henceforth will also return early
@@ -743,17 +748,17 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
 
 
-	/*
+	
 	if (depth == 2
 	   && !initially_in_check
 	   && alpha != EVAL_MAX) {
 
 		//const eval_t stand_pat = eval(board) * (board->sidetomove == WHITE ? 1 : -1);
-		const eval_t q_stand_pat = new_q_search(board, 0, stats, alpha, beta);
+		const eval_t q_stand_pat = new_q_search(board, 0, ply, stats, alpha, beta);
 		if (q_stand_pat + (80 * depth) < alpha || q_stand_pat == EVAL_MAX || q_stand_pat == EVAL_MIN)
 			return q_stand_pat;
 	}
-	*/
+	
 
 	/*
 	if (depth <= 3
@@ -959,21 +964,26 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 		if (move_was_check && ply < 10 && depth < 3)
 			depth_modifier++;
-		
-		if (move->flags & FLAG_CAPTURE
-		  && move->move_see >= 100 + (depth * 120)
-		  //&& depth <= 3
-		  && depth_modifier == 0) {
+		else if (move_was_check
+		  && move->flags & FLAG_CAPTURE
+		  && move->move_see > 0) {
 			depth_modifier++;
 		}
-		if (move->flags & FLAG_CAPTURE
-		  && move->move_see <= -20 - (depth * 120)
-		//   && move->move_see <= -1000 + (10 - depth)*100
-		  && n_legal_moves_done > 4
-		  //&& depth <= 3
-		  && depth_modifier == 0) {
-			depth_modifier--;
-		}
+		
+		// if (move->flags & FLAG_CAPTURE
+		//   && move->move_see >= 100 + (depth * 120)
+		//   //&& depth <= 3
+		//   && depth_modifier == 0) {
+		// 	depth_modifier++;
+		// }
+		// if (move->flags & FLAG_CAPTURE
+		//   && move->move_see <= -20 - (depth * 120)
+		// //   && move->move_see <= -1000 + (10 - depth)*100
+		//   && n_legal_moves_done > 4
+		//   //&& depth <= 3
+		//   && depth_modifier == 0) {
+		// 	depth_modifier--;
+		// }
 
 		if (!initially_in_check
 		   && !(move->flags & FLAG_CAPTURE)
@@ -988,13 +998,14 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		      || move->to != killer_moves[ply+2][0][1])
 		   && (move->from != killer_moves[ply+2][1][0]
 		      || move->to != killer_moves[ply+2][1][1])
-		//   && move->fromtype != QUEEN
+		   && move->fromtype != QUEEN
 		   && !(move->flags & FLAG_ENPASSANT)) {
 			
 			// LMR is allowed
 
-			if (n_legal_moves_done > 3) depth_modifier -= 1;
-			//if (depth >= 4 && n_legal_moves_done > 6) depth_modifier -= 1;
+			if (n_legal_moves_done > 5) depth_modifier -= 1;
+			//if (depth <= 4 && n_legal_moves_done > 9) depth_modifier -= 1;
+			//if (depth >= 4 && n_legal_moves_done > 9) depth_modifier -= 1;
 			//if (depth > 7 && n_legal_moves_done > 12) depth_modifier -= 1;
 		}
 
