@@ -120,6 +120,10 @@ To make a move, give it in uci format."
 #define Q_SEARCH_PAWN_SELECT_MASK_W 0xffffff0000000000 // top 3 rows
 #define Q_SEARCH_PAWN_SELECT_MASK_B 0x0000000000ffffff // bottom 3 rows
 
+#define TOP_THREE_ROWS 0xffffff0000000000 // top 3 rows
+#define BOTTOM_THREE_ROWS 0x0000000000ffffff // bottom 3 rows
+
+
 // Handy squares
 #define A1 0x0000000000000001
 #define A8 0x0100000000000000

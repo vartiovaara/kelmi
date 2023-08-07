@@ -584,6 +584,12 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 			depth_modifier++;
 		}
 
+		// if (move_was_check
+		//   && !(move->flags & FLAG_CAPTURE
+		//    && move->move_see < 0)) {
+		// 	depth_modifier++;
+		// }
+
 		// Check for pawn moves that threaten pieces (may trap pieces?)
 		// if (move->fromtype == PAWN
 		//   && !(move->flags & FLAG_PROMOTE)
@@ -748,17 +754,43 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
 
 
+	bool q_stand_pat_calculated = false;
+	eval_t q_stand_pat;
 	
 	if (depth == 2
 	   && !initially_in_check
 	   && alpha != EVAL_MAX) {
 
 		//const eval_t stand_pat = eval(board) * (board->sidetomove == WHITE ? 1 : -1);
-		const eval_t q_stand_pat = new_q_search(board, 0, ply, stats, alpha, beta);
+		if (!q_stand_pat_calculated) {
+			q_stand_pat = new_q_search(board, 0, ply, stats, alpha, beta);
+			q_stand_pat_calculated = true;
+		}
+		
 		if (q_stand_pat + (80 * depth) < alpha || q_stand_pat == EVAL_MAX || q_stand_pat == EVAL_MIN)
 			return q_stand_pat;
 	}
+
 	
+	// Reverse futility pruning
+
+	if (depth > 1 // 2
+	   && !initially_in_check
+	   && alpha != EVAL_MAX) {
+
+		const eval_t margin = depth * 95 + ((depth-2) * 20);
+		// const eval_t margin = depth * 90;
+
+		//const eval_t stand_pat = eval(board) * (board->sidetomove == WHITE ? 1 : -1);
+		if (!q_stand_pat_calculated) {
+			q_stand_pat = new_q_search(board, 0, ply, stats, alpha, beta);
+			q_stand_pat_calculated = true;
+		}
+		
+		if (q_stand_pat - margin >= beta)
+			return q_stand_pat - margin;
+	}
+
 
 	/*
 	if (depth <= 3
@@ -781,7 +813,13 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		// https://github.com/nescitus/cpw-engine/blob/2e3cf29ab0a79e65873c9f450832f9d3d5f02575/search.cpp#L338
 		const eval_t threshold = alpha - 300 - (depth - 1) * 60;
 		if (stand_pat < threshold) {
-			const eval_t q_stand_pat = new_q_search(board, 0, stats, alpha, beta);
+			
+			//const eval_t q_stand_pat = new_q_search(board, 0, stats, alpha, beta);
+			if (!q_stand_pat_calculated) {
+				q_stand_pat = new_q_search(board, 0, ply, stats, alpha, beta);
+				q_stand_pat_calculated = true;
+			}
+			
 			if (q_stand_pat < threshold)
 				return q_stand_pat;
 		}
@@ -918,6 +956,8 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	init_movefactory(&movefactory, &killer_moves[ply], 0x0, 0);
 
 	unsigned int n_legal_moves_done = 0;
+	unsigned int n_legal_moves_skipped = 0;
+	unsigned int n_legal_moves_total = 0;
 	move_s* move = NULL;
 	eval_t best_score = EVAL_MIN;
 	//move_s* best_move = NULL;
@@ -956,15 +996,43 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		}
 		
 		// Move was legal
-		n_legal_moves_done++;
+		n_legal_moves_total++;
 
 		bool move_was_check = is_in_check(board, board->sidetomove);
 
+		// At depth <= 2, do not do losing captures
+		if (!move_was_check
+		   && !initially_in_check
+		   && depth <= 2
+		   && move->flags & FLAG_CAPTURE
+		   && move->move_see < 0) {
+			n_legal_moves_skipped++;
+			unmakemove(board, move);
+			continue;
+		}
+		// Move count based pruning
+		// else if (!move_was_check
+		//    && !initially_in_check
+		// //    && depth <= 4
+		// //    && n_legal_moves_total >= 4 + (depth)
+		//    && depth <= 2
+		//    && n_legal_moves_total >= 7
+		//    && !(move->fromtype == PAWN
+		//        && move->to & (move->side==WHITE ? TOP_THREE_ROWS : BOTTOM_THREE_ROWS)))
+		// {
+		// 	n_legal_moves_skipped++;
+		// 	unmakemove(board, move);
+		// 	continue;
+		// }
+
+		// move will be done
+		n_legal_moves_done++;
+
 		int depth_modifier = 0;
 
-		if (move_was_check && ply < 10 && depth < 3)
-			depth_modifier++;
-		else if (move_was_check
+		// if (move_was_check && ply < 10 && depth < 3)
+		// 	depth_modifier++;
+		if (move_was_check
 		  && move->flags & FLAG_CAPTURE
 		  && move->move_see > 0) {
 			depth_modifier++;
@@ -1003,7 +1071,9 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			
 			// LMR is allowed
 
-			if (n_legal_moves_done > 5) depth_modifier -= 1;
+			if (n_legal_moves_total > 5) depth_modifier -= 1;
+			if (n_legal_moves_total > 10) depth_modifier -= 1;
+			if (n_legal_moves_total > 20) depth_modifier -= 1;
 			//if (depth <= 4 && n_legal_moves_done > 9) depth_modifier -= 1;
 			//if (depth >= 4 && n_legal_moves_done > 9) depth_modifier -= 1;
 			//if (depth > 7 && n_legal_moves_done > 12) depth_modifier -= 1;
@@ -1057,11 +1127,18 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 
 	if (!n_legal_moves_done) {
-		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
-			return EVAL_MIN + ply;
+		if (n_legal_moves_skipped) {
+			// Legal moves were actually just skipped
+			return new_q_search(board, 0, ply+1, stats, alpha, beta);
 		}
-		else { // is a stalemate (wasn't in check and no legal moves)
-			return 0;
+		else {
+			// No legal moves
+			if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
+				return EVAL_MIN + ply;
+			}
+			else { // is a stalemate (wasn't in check and no legal moves)
+				return 0;
+			}
 		}
 	}
 
