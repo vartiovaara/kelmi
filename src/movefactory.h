@@ -41,8 +41,9 @@ typedef struct {
 
 	move_s* last_move;
 
-	move_s* special_moves[64];
+	uint16_t special_moves[64];
 	size_t n_special_moves;
+	size_t special_moves_index;
 
 	size_t killer_index;
 
@@ -66,7 +67,6 @@ typedef struct {
 	size_t best_quiet_moves_index;
 
 	// Tracks, witch move is next
-	size_t special_moves_index;
 	size_t promotions_index;
 	size_t winning_captures_index;
 	size_t losing_captures_index;

@@ -201,7 +201,7 @@ void init_movefactory(movefactory_s* restrict factory, BitBoard (*restrict kille
 	factory->last_move = NULL;
 	factory->killer_moves = killer_moves;
 	factory->killer_index = 0;
-	factory->n_special_moves = 0;
+	factory->special_moves_index = 0;
 	factory->n_promotions = 0;
 	factory->n_winning_captures = 0;
 	factory->n_losing_captures = 0;
@@ -211,6 +211,9 @@ void init_movefactory(movefactory_s* restrict factory, BitBoard (*restrict kille
 	factory->winning_captures_index = 0;
 	factory->losing_captures_index = 0;
 	factory->quiet_moves_index = 0;
+
+	memcpy(&factory->special_moves, special_moves, n_special_moves * sizeof (uint16_t));
+	factory->n_special_moves = n_special_moves;
 }
 
 
@@ -222,9 +225,26 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 
 		// Special moves
 		case 0:
-			factory->phase++;
-			factory->last_move = NULL;
-			goto GET_NEXT_MOVE_RESTART;
+
+			if (factory->special_moves_index >= factory->n_special_moves) {
+				factory->phase++;
+				factory->last_move = NULL;
+				goto GET_NEXT_MOVE_RESTART;
+			}
+
+			// This code assumes the special move is legal
+			
+			move_s* mv = &factory->moves[factory->moves_index];
+			memset(mv, 0, sizeof (move_s));
+			uint16_t compact_move = factory->special_moves[factory->special_moves_index];
+			create_move(board, mv, SQTOBB(COMPACT_MOVE_FROM(compact_move)), SQTOBB(COMPACT_MOVE_TO(compact_move)), COMPACT_MOVE_PROMOTETO(compact_move));
+
+			factory->moves_generated[lowest_bitindex(mv->from)] |= mv->to;
+
+			factory->special_moves_index++;
+			factory->moves_index++;
+
+			return mv;
 
 			// FIXME: Create the right promotion move according to the hash move
 			// if (!hash_move || COMPACT_MOVE_PROMOTE_FLAG & hash_move)

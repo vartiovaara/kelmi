@@ -180,6 +180,9 @@ bool promote_available(const board_s* board, const unsigned int side) {
 
 
 void set_move_flags(move_s* move, const board_s* board) {
+
+	move->flags = 0x0;
+
 	// Setting capture flag
 	if (move->to & board->every_piece) { // move was a capture
 		// assert may cause issues when checking mobility

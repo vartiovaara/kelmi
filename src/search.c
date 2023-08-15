@@ -36,7 +36,7 @@ uint16_t encode_compact_move(const move_s* move);
 static eval_t regular_search(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t time1, const clock_t time_available, const int search_depth, int depth, const int actual_depth, const bool is_null_prune, eval_t alpha, eval_t beta);
 static eval_t q_search(board_s* restrict board, search_stats_s* restrict stats, const unsigned int search_depth, const int depth, unsigned int qdepth, eval_t alpha, eval_t beta);
 static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t time1, const clock_t time_available, const int depth, const eval_t last_eval);
-static eval_t pv_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t start_time, const clock_t time_available, eval_t alpha, eval_t beta);
+static eval_t pv_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t start_time, const clock_t time_available, const bool is_leftmost_path, eval_t alpha, eval_t beta);
 static eval_t zw_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, const clock_t start_time, const clock_t time_available, const bool is_null_move, eval_t alpha, eval_t beta);
 static eval_t new_q_search(board_s* restrict board, const int qdepth, const int ply, search_stats_s* restrict stats, eval_t alpha, eval_t beta);
 
@@ -57,9 +57,12 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 	move_s move = {0};
 	eval_t move_eval = 0;
 
-	pv_s pv = {0};
 
 	search_stats_s stats;
+
+	pv_s pv = {0};
+
+	// Allocate pv tables
 
 	// Total memory usage of the pv with max_depth 99 is as such:
 	//2bytes×((99×99)/2) + 99×8bytes = 10.593kB
@@ -136,6 +139,9 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 		if ((clock() - last_search_time) * t_mult >= allotted_time_left || allotted_time_left < 0)
 			break;
 	}
+
+
+	// Free the pv table
 
 	for (size_t i = 0; i < MAX_DEPTH; i++) {
 		free(pv.pv[i]);
@@ -248,24 +254,44 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 	if (stats)
 		stats->nodes++;
 
-	const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
+	// const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
 
 
-	movelist_s all_moves[16];
-	move_s move_arrays[16][30];
+	// movelist_s all_moves[16];
+	// move_s move_arrays[16][30];
 
-	size_t n_moves = 0;
+	// size_t n_moves = 0;
 
 	// Generate all the moves
-	BitBoard all_pieces_copy = board->all_pieces[board->sidetomove];
-	for (size_t i = 0; i < n_pieces && all_pieces_copy; i++) {
-		all_moves[i].moves = move_arrays[i];
-		get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true, 0x0);
+	// BitBoard all_pieces_copy = board->all_pieces[board->sidetomove];
+	// for (size_t i = 0; i < n_pieces && all_pieces_copy; i++) {
+	// 	all_moves[i].moves = move_arrays[i];
+	// 	get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true, 0x0);
 
-		n_moves += all_moves[i].n;
-	}
+	// 	n_moves += all_moves[i].n;
+	// }
 
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
+
+
+	uint16_t special_moves[2];
+	size_t n_special_moves = 0;
+
+	if (pv->n_moves[0] >= 1) {
+		special_moves[0] = pv->pv[0][0];
+		assert(popcount(SQTOBB(COMPACT_MOVE_FROM(special_moves[0]))) == 1);
+		assert(popcount(SQTOBB(COMPACT_MOVE_TO(special_moves[0]))) == 1);
+		assert(SQTOBB(COMPACT_MOVE_FROM(special_moves[0])) & board->all_pieces[board->sidetomove]);
+		assert(!(SQTOBB(COMPACT_MOVE_TO(special_moves[0])) & board->all_pieces[board->sidetomove]));
+		n_special_moves++;
+	}
+
+	// if  hash move found
+	//    make up something
+
+	movefactory_s movefactory;
+	//init_movefactory(&movefactory, &killer_moves[0], special_moves, n_special_moves);
+	init_movefactory(&movefactory, NULL, special_moves, n_special_moves);
 
 
 	unsigned int n_legal_moves_done = 0;
@@ -276,8 +302,9 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 
 	eval_t alpha = EVAL_MIN, beta = EVAL_MAX;
 
-	for (size_t i = 0; i < n_moves; i++) {
-		move = get_next_best_move(all_moves, n_pieces, move);
+	for (size_t i = 0; 1; i++) {
+		//move = get_next_best_move(all_moves, n_pieces, move);
+		move = get_next_move(board, &movefactory);
 		
 		if (!move)
 			break;
@@ -326,12 +353,12 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 		SEARCH_ROOT_NODE_RE_SEARCH:
 
 		if (full_search)
-			score = -pv_search(board, depth-1, 1, stats, pv, time1, time_available, -beta, -alpha);
+			score = -pv_search(board, depth-1, 1, stats, pv, time1, time_available, i == 0, -beta, -alpha);
 		else
 			score = -zw_search(board, depth-1, 1, stats, time1, time_available, false, -alpha-1, -alpha);
 		
 		if (abort_search) {
-			unmakemove(board, &move);
+			unmakemove(board, move);
 			return 0;
 		}
 
@@ -395,13 +422,19 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 }
 
 
-static eval_t pv_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t start_time, const clock_t time_available, eval_t alpha, eval_t beta) {
+static eval_t pv_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t start_time, const clock_t time_available, const bool is_leftmost_path, eval_t alpha, eval_t beta) {
 
-	if (time_available & depth >= 3) {
+	if (time_available) {
 			if (clock() - start_time >= time_available) {
 				abort_search = true;
 				return 0; // every node henceforth will also return early
 			}
+	}
+
+	// If moves are still left in the pv, extend
+	if (is_leftmost_path && depth <= 0 && pv) {
+		if (pv->n_moves[0] > ply)
+			depth++;
 	}
 
 	if (depth <= 0) {
@@ -522,8 +555,24 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	// 	}
 	// }
 
+	uint16_t special_moves[2];
+	size_t n_special_moves = 0;
+
+	if (pv) {
+		if (is_leftmost_path && pv->n_moves[0] > ply) {
+			special_moves[0] = pv->pv[0][ply];
+			assert(popcount(SQTOBB(COMPACT_MOVE_FROM(special_moves[0]))) == 1);
+			assert(popcount(SQTOBB(COMPACT_MOVE_TO(special_moves[0]))) == 1);
+			assert(SQTOBB(COMPACT_MOVE_FROM(special_moves[0])) & board->all_pieces[board->sidetomove]);
+			assert(!(SQTOBB(COMPACT_MOVE_TO(special_moves[0])) & board->all_pieces[board->sidetomove]));
+			n_special_moves++;
+		}
+	}
+	// if  hash move found
+	//    make up something
+
 	movefactory_s movefactory;
-	init_movefactory(&movefactory, &killer_moves[ply], 0x0, 0);
+	init_movefactory(&movefactory, &killer_moves[ply], special_moves, n_special_moves);
 
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
@@ -625,7 +674,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		PV_SEARCH_RE_SEARCH:
 
 		if (full_search)
-			score = -pv_search(board, depth-1+depth_modifier, ply+1, stats, pv, start_time, time_available, -beta, -alpha);
+			score = -pv_search(board, depth-1+depth_modifier, ply+1, stats, pv, start_time, time_available, (i == 0 && is_leftmost_path), -beta, -alpha);
 		else
 			score = -zw_search(board, depth-1+depth_modifier+(depth <= 2 ? 0 : 0), ply+1, stats, start_time, time_available, false, -alpha-1, -alpha);
 		
@@ -1239,6 +1288,7 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, const int 
 			failed_q_prune = false;
 		}
 		
+		/*
 		// Do moves that check the king and threaten material
 		if (failed_q_prune
 		   && move->fromtype != PAWN
@@ -1251,6 +1301,7 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, const int 
 				}
 			}
 		}
+		*/
 
 		// Check for pawn moves that threaten pieces (may trap pieces?)
 		if (failed_q_prune && move->fromtype == PAWN && !(move->flags & FLAG_PROMOTE) && qdepth <= 1) {
