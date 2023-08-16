@@ -304,7 +304,7 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 
 	for (size_t i = 0; 1; i++) {
 		//move = get_next_best_move(all_moves, n_pieces, move);
-		move = get_next_move(board, &movefactory);
+		move = get_next_move(board, &movefactory, false);
 		
 		if (!move)
 			break;
@@ -581,7 +581,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 	for (size_t i = 0; 1; i++) {
 		// move = get_next_best_move(all_moves, n_pieces, move);
-		move = get_next_move(board, &movefactory);
+		move = get_next_move(board, &movefactory, false);
 		
 		if (!move)
 			break;
@@ -1013,7 +1013,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 	for (size_t i = 0; 1; i++) {
 		//move = get_next_best_move(all_moves, n_pieces, move);
-		move = get_next_move(board, &movefactory);
+		move = get_next_move(board, &movefactory, false);
 
 		if (!move)
 			break;
@@ -1218,123 +1218,47 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, const int 
 			alpha = stand_pat;
 	}
 
-	// const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
-
-	// movelist_s all_moves[16];
-	// move_s move_arrays[16][30];
-
-	// size_t n_moves = 0;
-
-	// // Generate all the moves
-	// BitBoard all_pieces_copy = board->all_pieces[board->sidetomove];
-	// for (size_t i = 0; i < n_pieces && all_pieces_copy; i++) {
-	// 	all_moves[i].moves = move_arrays[i];
-	// 	get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true, 0x0);
-
-	// 	n_moves += all_moves[i].n;
-	// }
-
 
 	movefactory_s movefactory;
 	init_movefactory(&movefactory, NULL, 0x0, 0);
 
 	unsigned int n_legal_moves_done = 0;
-	unsigned int n_fail_q_prune = 0;
 	move_s* move = NULL;
 	eval_t best_score = EVAL_MIN;
 
-	//if (!initially_in_check) best_score = eval(board) * (board->sidetomove == WHITE ? 1 : -1);
-	//best_score = eval(board) * (board->sidetomove == WHITE ? 1 : -1);
 	best_score = stand_pat;
 
 	for (size_t i = 0; 1; i++) {
-		//move = get_next_best_move(all_moves, n_pieces, move);
-		move = get_next_move(board, &movefactory);
+
+		// When not in check, use the qsearch movegen
+		move = get_next_move(board, &movefactory, !initially_in_check);
 		
 		if (!move)
 			break;
 
+		// HACK: Since qsearch movegen currently returns moves that are sse >= 0, filter
+		// sse == 0 out when that is used
+		// TODO: NEEDS TESTING
+		if (!initially_in_check && move->flags & FLAG_CAPTURE && move->move_see <= 0)
+			continue;
 
 
 		makemove(board, move);
 
 		if (is_in_check(board, move->side)) {
 			unmakemove(board, move);
-			//move->from = 0;
 			continue;
 		}
 		
 		// Move was legal
 		n_legal_moves_done++;
-
-		bool failed_q_prune = true;
-
-		if (move->flags & FLAG_CAPTURE
-		   && move->move_see > 0) {
-
-			failed_q_prune = false;
-		}
-		if (move->flags & FLAG_PROMOTE && (move->promoteto == QUEEN || move->promoteto == KNIGHT))
-			failed_q_prune = false;
-		// if (move->flags & FLAG_ENPASSANT)
-		// 	failed_q_prune = false;
-		
-		if (failed_q_prune && initially_in_check)
-			failed_q_prune = false;
-
-		if (move->fromtype == PAWN
-		   && move->from & (move->side == WHITE ? Q_SEARCH_PAWN_SELECT_MASK_W : Q_SEARCH_PAWN_SELECT_MASK_B)
-		   && qdepth <= 10) {
-			failed_q_prune = false;
-		}
-		
-		/*
-		// Do moves that check the king and threaten material
-		if (failed_q_prune
-		   && move->fromtype != PAWN
-		   && qdepth < 2) {
-			// See if piece threatens more than one piece (king and something else)
-			// No need to check for promotions here
-			if (popcount((board->all_pieces[board->sidetomove] & ~(board->pieces[board->sidetomove][PAWN])) & get_pseudo_legal_squares(board, move->side, move->fromtype, move->to, true)) > 1) {
-				if (is_in_check(board, board->sidetomove)) {
-					failed_q_prune = false;
-				}
-			}
-		}
-		*/
-
-		// Check for pawn moves that threaten pieces (may trap pieces?)
-		if (failed_q_prune && move->fromtype == PAWN && !(move->flags & FLAG_PROMOTE) && qdepth <= 1) {
-			if (piecelookup(lowest_bitindex(move->to), PAWN, move->side) & (board->all_pieces[board->sidetomove] & ~(board->pieces[board->sidetomove][PAWN])))
-				failed_q_prune = false;
-		}
-		
-		if (failed_q_prune) {
-			n_fail_q_prune++;
-			unmakemove(board, move);
-			//move->from = 0;
-			continue;
-		}
 		
 
 		eval_t score;
 
 		score = -new_q_search(board, qdepth + 1, ply + 1, stats, -beta, -alpha);
 
-
 		unmakemove(board, move);
-		//move->from = 0;
-
-		//if (score >= beta)
-		//	return score;- ply
-		
-		//best_score = MAX(score, best_score);
-		//alpha = MAX(best_score, alpha);
-
-		/*
-		if (beta <= alpha)
-			return score;
-		*/
 
 
 		if (score > best_score) {
@@ -1347,17 +1271,14 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, const int 
 	}
 
 	if (!n_legal_moves_done) {
-		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
+		if (initially_in_check) // is a checkmate (was in check and can't get out of it and all moves were generated)
 			return EVAL_MIN + ply;
-		}
-		else { // is a stalemate (wasn't in check and no legal moves)
-			return 0;
-		}
+
+		// Could have been a stalemate, but since only winning captures was generated, can't know
+		assert(stand_pat != EVAL_MIN);
+		return stand_pat;
 	}
 
-	if (n_fail_q_prune == n_legal_moves_done) {
-		return best_score; //eval(board);
-	}
 
 	return best_score;
 

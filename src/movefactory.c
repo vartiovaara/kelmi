@@ -217,9 +217,16 @@ void init_movefactory(movefactory_s* restrict factory, BitBoard (*restrict kille
 }
 
 
-move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict factory) {
-	
+move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict factory, bool is_qsearch) {
+
+	if (is_qsearch)
+		factory->phase = 1;
+
 	GET_NEXT_MOVE_RESTART:
+
+	// In qsearch generation; if winning captures phase had already finished. If so, return NULL.
+	if (is_qsearch && factory->phase != 1)
+		return NULL;
 
 	switch (factory->phase) {
 
@@ -246,21 +253,6 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 
 			return mv;
 
-			// FIXME: Create the right promotion move according to the hash move
-			// if (!hash_move || COMPACT_MOVE_PROMOTE_FLAG & hash_move)
-			// 	goto GET_NEXT_MOVE_RESTART;
-
-
-			//movelist_s mvlist;
-			//mvlist.moves = &factory->moves[factory->moves_index];
-			//get_pseudo_legal_moves(board, &mvlist, COMPACT_MOVE_FROM(hash_move), true, ~COMPACT_MOVE_TO(hash_move));
-
-			//if (!mvlist.n) // move didn't exist
-			//	goto GET_NEXT_MOVE_RESTART;
-
-			//factory->moves_generated[lowest_bitindex(factory->hash_move.from)] |= factory->hash_move.to;
-			//return &factory->hash_move;
-
 		
 		// Winning captures
 		case 1:
@@ -281,7 +273,6 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 			factory->winning_captures_index++;
 			return next_best_capture;
 
-			//return factory->winning_captures[factory->winning_captures_index++];
 
 		// Killers
 		case 2:
@@ -313,11 +304,9 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 			
 			return &factory->moves[factory->moves_index++];
 
+
 		// Best quiet moves
 		case 3:
-
-			// factory->phase++;
-			// goto GET_NEXT_MOVE_RESTART;
 
 			if (!factory->quiet_moves_generated) {
 				generate_quiet_moves(board, factory);
@@ -344,15 +333,16 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 
 			factory->best_quiet_moves_index++;
 
-			//factory->last_best_quiet_move = next_best_quiet_move;
 			return next_best_quiet_move;
-
 
 
 		// Losing captures
 		case 4:
-			// No need to check if captures have been generated, as that happens in a higher phase
-			assert(factory->captures_generated == true);
+
+			if (!factory->captures_generated) {
+				generate_captures(board, factory);
+				factory->captures_generated = true;
+			}
 
 			// Check if all captures have been consumed already
 			if (factory->losing_captures_index >= factory->n_losing_captures) {
@@ -361,7 +351,8 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 			}
 
 			return factory->losing_captures[factory->losing_captures_index++];
-		
+
+
 		// Rest of the quiet moves
 		case 5:
 
@@ -380,7 +371,6 @@ move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict fac
 			// See if this move was already given in best-quiet-moves phase
 			for (int i = 0; i < factory->best_quiet_moves_index; i++) {
 				if (factory->best_quiet_moves[i] == move) {
-					//factory->phase++;
 					goto GET_NEXT_MOVE_RESTART;
 				}
 			}

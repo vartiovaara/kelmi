@@ -56,8 +56,8 @@ typedef struct {
 	// Capture array size explanation:
 	// (pawn captures) + (rest)
 	//8*2 + 8*30 = 256
-	move_s* winning_captures[256];
-	move_s* losing_captures[256];
+	move_s* winning_captures[128];
+	move_s* losing_captures[128];
 	size_t n_winning_captures;
 	size_t n_losing_captures;
 
@@ -78,7 +78,8 @@ typedef struct {
 //extern void init_movefactory(movefactory_s* restrict factory, const board_s* restrict board, const tt_entry_s* restrict tt_entry);
 extern void init_movefactory(movefactory_s* restrict factory, BitBoard (*restrict killer_moves)[2][2], const uint16_t* restrict special_moves, const size_t n_special_moves);
 
-extern move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict factory);
+// When is_qsearch is set, only good captures are returned
+extern move_s* get_next_move(const board_s* restrict board, movefactory_s* restrict factory, bool is_qsearch);
 
 
 

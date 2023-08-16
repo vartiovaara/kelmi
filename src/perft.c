@@ -200,7 +200,7 @@ void search(board_s* restrict board, const unsigned int depth, pertf_result_s* r
 	for (unsigned int i = 0; i < npieces; i++) {
 #endif
 #if PERFT_USE_MOVEFACTORY == 1
-		moves.moves = get_next_move(board, &factory);
+		moves.moves = get_next_move(board, &factory, false);
 		if (!moves.moves)
 			moves.n = 0;
 		else
