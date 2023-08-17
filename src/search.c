@@ -92,13 +92,13 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 
 		abort_search = false;
 
-		/*
-		// Don't null the lowest level because mate pv's dont work otherwise
-		memset(pv.n_moves + 1, 0, (MAX_DEPTH - 1) * sizeof (size_t));
+		
+		// Don't null the lowest level because that needs to be followed by the next iteration
+		memset(&pv.n_moves[1], 0, (MAX_DEPTH - 1) * sizeof (size_t));
 		
 		for (size_t i = 1; i < pv.depth_allocated; i++)
 			memset(pv.pv[i], 0, (pv.depth_allocated - i) * sizeof (uint16_t));
-		*/
+		
 
 		// Normal search (alpha is maximizing and beta minimizing)
 		//eval_t current_eval = regular_search(board, &move, &stats, &pv, t, time_allotted, depth, depth, 0, false, EVAL_MIN, EVAL_MAX);
@@ -346,7 +346,7 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 		eval_t score;
 
 
-		bool full_search = true;
+		bool full_search = false;
 
 		if (n_legal_moves_done == 1) full_search = true;
 
@@ -370,7 +370,7 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 		}
 
 		bool score_is_draw = false;
-		if (score == 0) {
+		if (score == 0 && full_search) {
 			score_is_draw = true;
 			score += CONTEMPT_FACTOR;
 		}
@@ -449,8 +449,11 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	// Check for repetitions
 	// -2 so that current position would not trigger if statement
 	for (int i = board->rep_stack_n - 2; i >= 0; i--) {
-		if (board->hash == board->rep_stack[i])
+		if (board->hash == board->rep_stack[i]) {
+			if (pv)
+				pv->n_moves[ply] = 0;
 			return 0;
+		}
 	}
 
 	if (stats)
@@ -608,6 +611,9 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 					goto PV_SEARCH_SKIP_MOVE_PRE_MAKE;
 			}
 		}
+
+		assert(move->from & board->all_pieces[board->sidetomove]);
+		assert(!(move->to & board->all_pieces[board->sidetomove]));
 		
 		makemove(board, move);
 
@@ -686,7 +692,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 		bool score_is_draw = false;
 
-		if (score == 0) {
+		if (score == 0 && full_search) {
 			score_is_draw = true;
 			score += CONTEMPT_FACTOR;
 		}
@@ -735,6 +741,8 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 				bf_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
 
 			if (score > alpha) {
+
+				assert(full_search);
 
 				if (pv) {
 					// save this node to the pv
