@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "init.h"
 #include "search.h"
@@ -121,11 +122,14 @@ int main(void) {
 			goto MAIN_NORMAL_EXIT;
 		}
 		else if (!strcmp(input, "uci")) {
-			const size_t filename_n = 20; // yyyy_mm_dd_hh_mm_ss + '\0'
+			const size_t filename_n = 30; // yyyy_mm_dd_hh_mm_ss_ + (pid len<=8 i guess) + '\0'
 			char filename[filename_n];
 			time_t curtime = time(NULL);
 			struct tm* loctime = localtime(&curtime);
-			strftime(filename, filename_n, "%Y_%m_%d_%H_%M_%S", loctime);
+			strftime(filename, filename_n, "%Y_%m_%d_%H_%M_%S_", loctime);
+
+			// replace current null-byte with the pid as a string
+			sprintf(filename + strlen(filename), "%u", getpid());
 			
 			FILE* f = fopen(filename, "w+");
 			setbuf(f, NULL);
