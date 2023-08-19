@@ -254,22 +254,6 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 	if (stats)
 		stats->nodes++;
 
-	// const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
-
-
-	// movelist_s all_moves[16];
-	// move_s move_arrays[16][30];
-
-	// size_t n_moves = 0;
-
-	// Generate all the moves
-	// BitBoard all_pieces_copy = board->all_pieces[board->sidetomove];
-	// for (size_t i = 0; i < n_pieces && all_pieces_copy; i++) {
-	// 	all_moves[i].moves = move_arrays[i];
-	// 	get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true, 0x0);
-
-	// 	n_moves += all_moves[i].n;
-	// }
 
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
 
@@ -297,12 +281,11 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
 	eval_t best_score = EVAL_MIN;
-	//move_s best_move = NULL;
 
 	eval_t alpha = EVAL_MIN, beta = EVAL_MAX;
 
 	for (size_t i = 0; 1; i++) {
-		//move = get_next_best_move(all_moves, n_pieces, move);
+
 		move = get_next_move(board, &movefactory, false);
 		
 		if (!move)
@@ -391,11 +374,6 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 
 		unmakemove(board, move);
 
-		// if (time_available) {
-		// 	if (clock() - time1 >= time_available)
-		// 		return 0; // every node henceforth will also return early
-		// }
-
 		SEARCH_ROOT_NODE_SKIP_MOVE_PRE_MAKE:
 		continue;
 	}
@@ -433,7 +411,6 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		if (pv)
 			pv->n_moves[ply] = 0;
 		return new_q_search(board, 0, ply+1, stats, alpha, beta);
-		//return eval(board) * (board->sidetomove==WHITE ? 1 : -1);
 	}
 
 	if (abort_search) return 0;
@@ -456,99 +433,6 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 	const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
 
-
-	// movelist_s all_moves[16];
-	// move_s move_arrays[16][30];
-
-	// size_t n_moves = 0;
-
-	// Generate all the moves
-	// BitBoard all_pieces_copy = board->all_pieces[board->sidetomove];
-	// for (size_t i = 0; i < n_pieces && all_pieces_copy; i++) {
-	// 	all_moves[i].moves = move_arrays[i];
-	// 	get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true, 0x0);
-
-	// 	n_moves += all_moves[i].n;
-
-	// 	// TODO: MAKE OWN FUNCITION FAST THIS IS SHIT LOOKING YoU FUCK
-	// 	// if tt entry was found for this board, set the score for the saved move to best
-	// 	// this means that move stored in tt will always be preferred and done first
-	// 	for (size_t j = 0; j < all_moves[i].n; j++) {
-	// 		/*
-	// 		if (all_moves[i].moves[j].from == 0) {
-	// 			move_visited[i][j] = true;
-	// 			continue;
-	// 		}
-	// 		else
-	// 			legal_moves_total++;
-	// 		*/
-
-	// 		bool killer_found = false;
-	// 		//bool hash_move_found = false;
-	// 		if (!(all_moves[i].moves[j].flags & FLAG_CAPTURE)) {
-	// 			// Killer moves
-	// 			for (int k = 0; k < 2; k++) {
-	// 				if (all_moves[i].moves[j].from == killer_moves[ply][k][0]
-	// 				   && all_moves[i].moves[j].to == killer_moves[ply][k][1]
-	// 				   && !killer_found) {
-	// 					all_moves[i].moves[j].move_score += 30;
-	// 					killer_found = true;
-	// 					break;
-	// 				}
-	// 				if (ply > 1) {
-	// 					if (all_moves[i].moves[j].from == killer_moves[ply-2][k][0]
-	// 					   && all_moves[i].moves[j].to == killer_moves[ply-2][k][1]
-	// 					   && !killer_found) {
-	// 						all_moves[i].moves[j].move_score += 20;
-	// 						killer_found = true;
-	// 						break;
-	// 					}
-	// 				}
-	// 				if (all_moves[i].moves[j].from == killer_moves[ply+2][k][0]
-	// 				   && all_moves[i].moves[j].to == killer_moves[ply+2][k][1]
-	// 				   && !killer_found) {
-	// 						all_moves[i].moves[j].move_score += 10;
-	// 						killer_found = true;
-	// 						break;
-	// 				}
-	// 			}
-	// 			// History moves
-	// 			// if (depth > 1 && actual_depth && !killer_found)
-	// 			// 	all_moves[i].moves[j].move_score += history_moves[initial_side][lowest_bitindex(all_moves[i].moves[j].from)][lowest_bitindex(all_moves[i].moves[j].to)] / (2*(actual_depth*actual_depth));
-	// 			//if (!killer_found && bf_score[initial_side][lowest_bitindex(all_moves[i].moves[j].from)][lowest_bitindex(all_moves[i].moves[j].to)] > 0) {
-	// 			if (bf_score[board->sidetomove][lowest_bitindex(all_moves[i].moves[j].from)][lowest_bitindex(all_moves[i].moves[j].to)] > 0) {
-	// 				const eval_t hscore = hh_score[board->sidetomove][lowest_bitindex(all_moves[i].moves[j].from)][lowest_bitindex(all_moves[i].moves[j].to)] / bf_score[board->sidetomove][lowest_bitindex(all_moves[i].moves[j].from)][lowest_bitindex(all_moves[i].moves[j].to)];
-	// 				all_moves[i].moves[j].move_score += hscore; // Cap the rel. history score to 5
-	// 			}
-	// 		}
-	// 		if (pv) {
-	// 			if (pv->n_moves[ply]) {
-	// 				if (COMPACT_MOVE_FROM(pv->pv[ply][0]) == all_moves[i].moves[j].from
-	// 				   && COMPACT_MOVE_TO(pv->pv[ply][0]) == all_moves[i].moves[j].to) {
-	// 					all_moves[i].moves[j].move_score += 40;
-	// 				}
-	// 			}
-	// 		}
-	// 		/*
-	// 		if (tt_entry_found) {
-	// 			assert(tt_entry_bestmove);
-
-	// 			if (all_moves[i].moves[j].from == SQTOBB(tt_entry_from)) {
-
-	// 				if (all_moves[i].moves[j].to == SQTOBB(tt_entry_to)) {
-
-	// 					if (all_moves[i].moves[j].flags & FLAG_PROMOTE) { // check if promote
-	// 						if (all_moves[i].moves[j].promoteto == tt_entry_promoteto) // promoteto same
-	// 							all_moves[i].moves[j].move_score = EVAL_MAX;
-	// 					}
-	// 					else // no promote so just from and to need to be same
-	// 						all_moves[i].moves[j].move_score = EVAL_MAX;
-	// 				}
-	// 			}
-	// 		}
-	// 		*/
-	// 	}
-	// }
 
 	uint16_t special_moves[2];
 	size_t n_special_moves = 0;
@@ -574,16 +458,12 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	eval_t best_score = EVAL_MIN;
 
 	for (size_t i = 0; 1; i++) {
-		// move = get_next_best_move(all_moves, n_pieces, move);
+
 		move = get_next_move(board, &movefactory, false);
 		
 		if (!move)
 			break;
 
-		// if (time_available && ply < 5) {
-		// 	if (clock() - start_time >= time_available)
-		// 		return 0; // every node henceforth will also return early
-		// }
 		
 		// Check if castling is valid
 		if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
@@ -610,7 +490,6 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 		if (is_in_check(board, move->side)) {
 			unmakemove(board, move);
-			//move->from = 0;
 			continue;
 		}
 		
@@ -683,11 +562,6 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 		if (!full_search) {
 			if (score > alpha) {
-				//depth_modifier = (depth_modifier >= 0 ? depth_modifier : -depth_modifier);
-				//depth_modifier = (depth_modifier < 0 ? 0 : depth_modifier);
-				// if (depth_modifier < 0 && depth <= 3) {
-				// 	depth_modifier = 1;
-				// }
 				full_search = true;
 				goto PV_SEARCH_RE_SEARCH;
 			}
@@ -784,7 +658,6 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	// Check for repetitions
 	// -2 so that current position would not trigger if statement
 	//const size_t lower_rep_stack_limit = MAX(((int)board->rep_stack_n) - 2 - 4, 0); // search max 4 moves back
-	// const size_t lower_rep_stack_limit = 0; // search max 4 moves back
 	for (int i = board->rep_stack_n - 2; i >= 0; i--) {
 		if (board->hash == board->rep_stack[i])
 			return (ply % 2 == 0 ? CONTEMPT_FACTOR : -CONTEMPT_FACTOR);
@@ -893,104 +766,6 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	}
 
 
-	// const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
-
-
-	// movelist_s all_moves[16];
-	// move_s move_arrays[16][30];
-
-	// size_t n_moves = 0;
-
-	// // Generate all the moves
-	// BitBoard all_pieces_copy = board->all_pieces[board->sidetomove];
-	// for (size_t i = 0; i < n_pieces && all_pieces_copy; i++) {
-	// 	all_moves[i].moves = move_arrays[i];
-	// 	get_pseudo_legal_moves(board, &all_moves[i], pop_bitboard(&all_pieces_copy), true, 0x0);
-
-	// 	n_moves += all_moves[i].n;
-
-	// 	// TODO: MAKE OWN FUNCITION FAST THIS IS SHIT LOOKING YoU FUCK
-	// 	// if tt entry was found for this board, set the score for the saved move to best
-	// 	// this means that move stored in tt will always be preferred and done first
-	// 	for (size_t j = 0; j < all_moves[i].n; j++) {
-	// 		/*
-	// 		if (all_moves[i].moves[j].from == 0) {
-	// 			move_visited[i][j] = true;
-	// 			continue;
-	// 		}
-	// 		else
-	// 			legal_moves_total++;
-	// 		*/
-
-	// 		bool killer_found = false;
-	// 		//bool hash_move_found = false;
-	// 		if (!(all_moves[i].moves[j].flags & FLAG_CAPTURE)) {
-	// 			// Killer moves
-	// 			for (int k = 0; k < 2; k++) {
-	// 				if (all_moves[i].moves[j].from == killer_moves[ply][k][0]
-	// 				   && all_moves[i].moves[j].to == killer_moves[ply][k][1]
-	// 				   && !killer_found) {
-	// 					all_moves[i].moves[j].move_score += 30;
-	// 					killer_found = true;
-	// 					break;
-	// 				}
-	// 				if (ply > 1) {
-	// 					if (all_moves[i].moves[j].from == killer_moves[ply-2][k][0]
-	// 					   && all_moves[i].moves[j].to == killer_moves[ply-2][k][1]
-	// 					   && !killer_found) {
-	// 						all_moves[i].moves[j].move_score += 20;
-	// 						killer_found = true;
-	// 						break;
-	// 					}
-	// 				}
-	// 				if (all_moves[i].moves[j].from == killer_moves[ply+2][k][0]
-	// 				   && all_moves[i].moves[j].to == killer_moves[ply+2][k][1]
-	// 				   && !killer_found) {
-	// 						all_moves[i].moves[j].move_score += 10;
-	// 						killer_found = true;
-	// 						break;
-	// 				}
-	// 			}
-	// 			// History moves
-	// 			// if (depth > 1 && actual_depth && !killer_found)
-	// 			// 	all_moves[i].moves[j].move_score += history_moves[initial_side][lowest_bitindex(all_moves[i].moves[j].from)][lowest_bitindex(all_moves[i].moves[j].to)] / (2*(actual_depth*actual_depth));
-	// 			//if (!killer_found && bf_score[initial_side][lowest_bitindex(all_moves[i].moves[j].from)][lowest_bitindex(all_moves[i].moves[j].to)] > 0) {
-	// 			if (bf_score[board->sidetomove][lowest_bitindex(all_moves[i].moves[j].from)][lowest_bitindex(all_moves[i].moves[j].to)] > 0) {
-	// 				const eval_t hscore = hh_score[board->sidetomove][lowest_bitindex(all_moves[i].moves[j].from)][lowest_bitindex(all_moves[i].moves[j].to)] / bf_score[board->sidetomove][lowest_bitindex(all_moves[i].moves[j].from)][lowest_bitindex(all_moves[i].moves[j].to)];
-	// 				all_moves[i].moves[j].move_score += hscore; // Cap the rel. history score to 5
-	// 			}
-	// 		}
-	// 		/*
-	// 		if (pv) {
-	// 			if (pv->n_moves[ply]) {
-	// 				if (COMPACT_MOVE_FROM(pv->pv[ply][0]) == all_moves[i].moves[j].from
-	// 				   && COMPACT_MOVE_TO(pv->pv[ply][0]) == all_moves[i].moves[j].to) {
-	// 					all_moves[i].moves[j].move_score += 40;
-	// 				}
-	// 			}
-	// 		}
-	// 		*/
-	// 		/*
-	// 		if (tt_entry_found) {
-	// 			assert(tt_entry_bestmove);
-
-	// 			if (all_moves[i].moves[j].from == SQTOBB(tt_entry_from)) {
-
-	// 				if (all_moves[i].moves[j].to == SQTOBB(tt_entry_to)) {
-
-	// 					if (all_moves[i].moves[j].flags & FLAG_PROMOTE) { // check if promote
-	// 						if (all_moves[i].moves[j].promoteto == tt_entry_promoteto) // promoteto same
-	// 							all_moves[i].moves[j].move_score = EVAL_MAX;
-	// 					}
-	// 					else // no promote so just from and to need to be same
-	// 						all_moves[i].moves[j].move_score = EVAL_MAX;
-	// 				}
-	// 			}
-	// 		}
-	// 		*/
-	// 	}
-	// }
-
 	movefactory_s movefactory;
 	init_movefactory(&movefactory, &killer_moves[ply], 0x0, 0);
 
@@ -999,10 +774,9 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	unsigned int n_legal_moves_total = 0;
 	move_s* move = NULL;
 	eval_t best_score = EVAL_MIN;
-	//move_s* best_move = NULL;
 
 	for (size_t i = 0; 1; i++) {
-		//move = get_next_best_move(all_moves, n_pieces, move);
+
 		move = get_next_move(board, &movefactory, false);
 
 		if (!move)
