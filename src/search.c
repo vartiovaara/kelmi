@@ -407,6 +407,12 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 			depth++;
 	}
 
+	const bool initially_in_check = is_in_check(board, board->sidetomove);
+
+	// Do not enter qsearch in check, get longer pv's PROBABLY(????) for free
+	if (depth <= 0 && initially_in_check)
+		depth++;
+
 	if (depth <= 0) {
 		if (pv)
 			pv->n_moves[ply] = 0;
@@ -428,7 +434,6 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	if (stats)
 		stats->nodes++;
 	
-	const bool initially_in_check = is_in_check(board, board->sidetomove);
 
 
 	const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
