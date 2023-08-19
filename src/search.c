@@ -20,7 +20,7 @@
 #include "defs.h"
 
 
-#define CONTEMPT_FACTOR 65
+#define CONTEMPT_FACTOR (20)
 
 
 BitBoard killer_moves[MAX_DEPTH][2][2]; // [ply][first / second][from / to]
@@ -297,7 +297,6 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
 	eval_t best_score = EVAL_MIN;
-	bool best_score_is_draw = false;
 	//move_s best_move = NULL;
 
 	eval_t alpha = EVAL_MIN, beta = EVAL_MAX;
@@ -369,17 +368,10 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 			}
 		}
 
-		bool score_is_draw = false;
-		if (score == 0 && full_search) {
-			score_is_draw = true;
-			score += CONTEMPT_FACTOR;
-		}
-
 
 		// Without (score == EVAL_MAX) it basically is shit at mating
 		if (score > best_score) {
 			best_score = score;
-			best_score_is_draw = score_is_draw;
 			memcpy(bestmove, move, sizeof (move_s));
 
 			if (pv) {
@@ -418,7 +410,7 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 		}
 	}
 
-	return best_score - (best_score_is_draw * CONTEMPT_FACTOR);
+	return best_score;
 }
 
 
@@ -447,12 +439,12 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	if (abort_search) return 0;
 
 	// Check for repetitions
-	// -2 so that current position would not trigger if statement
+	// -2 so that current position would not trigger if statement and to start comparing from last move by this side
 	for (int i = board->rep_stack_n - 2; i >= 0; i--) {
 		if (board->hash == board->rep_stack[i]) {
 			if (pv)
 				pv->n_moves[ply] = 0;
-			return 0;
+			return (ply % 2 == 0 ? CONTEMPT_FACTOR : -CONTEMPT_FACTOR);
 		}
 	}
 
@@ -580,7 +572,6 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
 	eval_t best_score = EVAL_MIN;
-	bool best_score_is_draw = false;
 
 	for (size_t i = 0; 1; i++) {
 		// move = get_next_best_move(all_moves, n_pieces, move);
@@ -690,14 +681,6 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		}
 
 
-		bool score_is_draw = false;
-
-		if (score == 0 && full_search) {
-			score_is_draw = true;
-			score += CONTEMPT_FACTOR;
-		}
-
-
 		if (!full_search) {
 			if (score > alpha) {
 				//depth_modifier = (depth_modifier >= 0 ? depth_modifier : -depth_modifier);
@@ -759,7 +742,6 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 				alpha = score;
 			}
 			best_score = score;
-			best_score_is_draw = score_is_draw;
 		}
 
 		PV_SEARCH_SKIP_MOVE_PRE_MAKE:
@@ -773,11 +755,11 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 			return EVAL_MIN + ply;
 		}
 		else { // is a stalemate (wasn't in check and no legal moves)
-			return 0;
+			return (ply % 2 == 0 ? CONTEMPT_FACTOR : -CONTEMPT_FACTOR);
 		}
 	}
 
-	return best_score - (best_score_is_draw * CONTEMPT_FACTOR);
+	return best_score;
 }
 
 
@@ -803,10 +785,10 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	// -2 so that current position would not trigger if statement
 	//const size_t lower_rep_stack_limit = MAX(((int)board->rep_stack_n) - 2 - 4, 0); // search max 4 moves back
 	// const size_t lower_rep_stack_limit = 0; // search max 4 moves back
-	// for (int i = board->rep_stack_n - 2; i >= 0; i--) {
-	// 	if (board->hash == board->rep_stack[i])
-	// 		return 0;
-	// }
+	for (int i = board->rep_stack_n - 2; i >= 0; i--) {
+		if (board->hash == board->rep_stack[i])
+			return (ply % 2 == 0 ? CONTEMPT_FACTOR : -CONTEMPT_FACTOR);
+	}
 
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
 
@@ -1146,6 +1128,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			return 0;
 		}
 
+
 		if (score >= beta) {
 			if (depth_modifier < 0) {
 				depth_modifier = 0;
@@ -1186,6 +1169,8 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	if (!n_legal_moves_done) {
 		if (n_legal_moves_skipped) {
 			// Legal moves were actually just skipped
+			if (q_stand_pat_calculated)
+				return q_stand_pat;
 			return new_q_search(board, 0, ply+1, stats, alpha, beta);
 		}
 		else {
@@ -1194,7 +1179,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 				return EVAL_MIN + ply;
 			}
 			else { // is a stalemate (wasn't in check and no legal moves)
-				return 0;
+				return (ply % 2 == 0 ? CONTEMPT_FACTOR : -CONTEMPT_FACTOR);
 			}
 		}
 	}

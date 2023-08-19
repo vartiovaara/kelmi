@@ -326,6 +326,9 @@ void uci(FILE* f) {
 		else if (!strncmp(input, "go", 2)){
 			parse_go_command(&uci, &board, input, f);
 		}
+		else if (!strncmp(input, "isready", 7)) {
+			uci_write(f, "readyok\n");
+		}
 		else if (!strcmp(input, "quit")) {
 			return;
 		}
@@ -334,10 +337,14 @@ void uci(FILE* f) {
 
 
 size_t uci_read(FILE* f, char* s, size_t n) {
-	fgets(s, n, stdin);
+	if (!fgets(s, n, stdin))
+		return 0;
 	size_t len = strlen(s);
 	s[--len] = '\0'; // fgets() reads the newline too so replace it with null
 	
+	if (len == 0)
+		return len;
+
 	if (f) {
 		fprintf(f, "< %s\n", s);
 	}
