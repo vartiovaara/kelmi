@@ -394,7 +394,7 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 
 static eval_t pv_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t start_time, const clock_t time_available, const bool is_leftmost_path, eval_t alpha, eval_t beta) {
 
-	if (time_available) {
+	if (time_available && (depth > 2 || ply <= 3)) {
 			if (clock() - start_time >= time_available) {
 				abort_search = true;
 				return 0; // every node henceforth will also return early
