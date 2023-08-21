@@ -506,7 +506,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 		int depth_modifier = 0;
 
-		if (move_was_check && ply < 20 && depth < 3)
+		if (move_was_check && ply < 20)
 			depth_modifier++;
 		else if (move_was_check
 		  && move->flags & FLAG_CAPTURE
@@ -829,33 +829,33 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			continue;
 		}
 		// Move count based pruning
-		else if (!move_was_check
-		   && !initially_in_check
-		//    && depth <= 4
-		//    && n_legal_moves_total >= 4 + (depth)
-		   && depth <= 2
-		   && n_legal_moves_total >= 7)
-		//   && !(move->fromtype == PAWN
-		//       && move->to & (move->side==WHITE ? TOP_THREE_ROWS : BOTTOM_THREE_ROWS)))
-		{
-			n_legal_moves_skipped++;
-			unmakemove(board, move);
-			//continue;
-			break;
-		}
+		// else if (!move_was_check
+		//    && !initially_in_check
+		// //    && depth <= 4
+		// //    && n_legal_moves_total >= 4 + (depth)
+		//    && depth <= 2
+		//    && n_legal_moves_total >= 7)
+		// //   && !(move->fromtype == PAWN
+		// //       && move->to & (move->side==WHITE ? TOP_THREE_ROWS : BOTTOM_THREE_ROWS)))
+		// {
+		// 	n_legal_moves_skipped++;
+		// 	unmakemove(board, move);
+		// 	//continue;
+		// 	break;
+		// }
 
 		// move will be done
 		n_legal_moves_done++;
 
 		int depth_modifier = 0;
 
-		// if (move_was_check && ply < 10 && depth < 3)
-		// 	depth_modifier++;
-		if (move_was_check
-		  && move->flags & FLAG_CAPTURE
-		  && move->move_see > 0) {
+		if (move_was_check && ply < 20)
 			depth_modifier++;
-		}
+		// if (move_was_check
+		//   && move->flags & FLAG_CAPTURE
+		//   && move->move_see > 0) {
+		// 	depth_modifier++;
+		// }
 		
 		// if (move->flags & FLAG_CAPTURE
 		//   && move->move_see >= 100 + (depth * 120)
