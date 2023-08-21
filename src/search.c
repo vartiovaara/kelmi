@@ -829,19 +829,20 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			continue;
 		}
 		// Move count based pruning
-		// else if (!move_was_check
-		//    && !initially_in_check
-		// //    && depth <= 4
-		// //    && n_legal_moves_total >= 4 + (depth)
-		//    && depth <= 2
-		//    && n_legal_moves_total >= 7
-		//    && !(move->fromtype == PAWN
-		//        && move->to & (move->side==WHITE ? TOP_THREE_ROWS : BOTTOM_THREE_ROWS)))
-		// {
-		// 	n_legal_moves_skipped++;
-		// 	unmakemove(board, move);
-		// 	continue;
-		// }
+		else if (!move_was_check
+		   && !initially_in_check
+		//    && depth <= 4
+		//    && n_legal_moves_total >= 4 + (depth)
+		   && depth <= 2
+		   && n_legal_moves_total >= 7)
+		//   && !(move->fromtype == PAWN
+		//       && move->to & (move->side==WHITE ? TOP_THREE_ROWS : BOTTOM_THREE_ROWS)))
+		{
+			n_legal_moves_skipped++;
+			unmakemove(board, move);
+			//continue;
+			break;
+		}
 
 		// move will be done
 		n_legal_moves_done++;
