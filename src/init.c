@@ -22,7 +22,7 @@ int init_all() {
 	initmagicmoves();
 
 	// FIXME: testing
-	allocate_table(&tt_normal, 10000000);
+	allocate_table(&tt_normal, 64000000 / sizeof (tt_entry_s));
 
 	/*
 	unsigned int i; unsigned long l; BitBoard ll;

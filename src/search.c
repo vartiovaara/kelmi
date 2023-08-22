@@ -401,6 +401,51 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 			}
 	}
 
+	if (abort_search) return 0;
+
+
+	bool tt_entry_found = false;
+	uint16_t tt_entry_bestmove = 0x0;
+	tt_entry_s* entry = probe_table(&tt_normal, board->hash);
+	
+	if (entry) {
+		if (stats)
+			stats->hashtable_hits++;
+
+		// Small check for hash collisions
+		if (!(SQTOBB(COMPACT_MOVE_FROM(entry->bestmove)) & board->all_pieces[board->sidetomove]))
+			goto PV_SEARCH_HASH_MOVE_COLLISION;
+		else if (entry->bestmove & COMPACT_MOVE_PROMOTE_FLAG) {
+			if (!(SQTOBB(COMPACT_MOVE_FROM(entry->bestmove)) & board->pieces[board->sidetomove][PAWN]))
+				goto PV_SEARCH_HASH_MOVE_COLLISION;
+		}
+		
+		if (entry->depth >= depth
+		   && entry->flags & TT_ENTRY_FLAG_FULL_NODE) {
+
+			if (stats)
+				stats->nodes++;
+
+			if (pv) {
+				pv->n_moves[ply] = 1;
+				pv->n_moves[ply + 1] = 0;
+				pv->pv[ply][0] = entry->bestmove;
+			}
+
+			// TODO: See if the bounds of the entry need to be >= the bounds of this node
+			return entry->eval;
+		}
+		//PV_SEARCH_NO_HASH_CUT:
+
+		tt_entry_found = true;
+		tt_entry_bestmove = entry->bestmove;
+	}
+	PV_SEARCH_HASH_MOVE_COLLISION:
+
+
+
+	// Extensions at the leaves
+
 	// If moves are still left in the pv, extend
 	if (is_leftmost_path && depth <= 0 && pv) {
 		if (pv->n_moves[0] > ply)
@@ -413,13 +458,18 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	if (depth <= 0 && initially_in_check)
 		depth++;
 
+
+
+
 	if (depth <= 0) {
 		if (pv)
 			pv->n_moves[ply] = 0;
 		return new_q_search(board, 0, ply+1, stats, alpha, beta);
 	}
 
-	if (abort_search) return 0;
+
+
+
 
 	// Check for repetitions
 	// -2 so that current position would not trigger if statement and to start comparing from last move by this side
@@ -431,12 +481,12 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		}
 	}
 
+
+
 	if (stats)
 		stats->nodes++;
-	
 
 
-	const unsigned int n_pieces = popcount(board->all_pieces[board->sidetomove]);
 
 
 	uint16_t special_moves[2];
@@ -452,8 +502,9 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 			n_special_moves++;
 		}
 	}
-	// if  hash move found
-	//    make up something
+	if (tt_entry_found)
+		special_moves[n_special_moves++] = tt_entry_bestmove;
+
 
 	movefactory_s movefactory;
 	init_movefactory(&movefactory, &killer_moves[ply], special_moves, n_special_moves);
@@ -461,6 +512,8 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
 	eval_t best_score = EVAL_MIN;
+	move_s* best_move = NULL;
+	bool best_move_is_full_search = false;
 
 	for (size_t i = 0; 1; i++) {
 
@@ -597,6 +650,8 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 						hh_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
 				}
 
+				store_move(&tt_normal, board->hash, score, 0x0, depth, encode_compact_move(move), false, true);
+
 				return score;
 			}
 			else if (depth > 1 && !(move->flags & FLAG_CAPTURE))
@@ -621,6 +676,8 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 				alpha = score;
 			}
 			best_score = score;
+			best_move = move;
+			best_move_is_full_search = full_search;
 		}
 
 		PV_SEARCH_SKIP_MOVE_PRE_MAKE:
@@ -638,6 +695,8 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		}
 	}
 
+	store_move(&tt_normal, board->hash, best_score, 0x0, depth, encode_compact_move(best_move), best_move_is_full_search, true);
+
 	return best_score;
 }
 
@@ -652,6 +711,49 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	}
 
 	if (abort_search) return 0;
+
+
+
+
+
+	bool tt_entry_found = false;
+	uint16_t tt_entry_bestmove = 0x0;
+	tt_entry_s* entry = probe_table(&tt_normal, board->hash);
+	
+	if (entry) {
+		if (stats)
+			stats->hashtable_hits++;
+
+		// Small check for hash collisions
+		if (!(SQTOBB(COMPACT_MOVE_FROM(entry->bestmove)) & board->all_pieces[board->sidetomove]))
+			goto ZW_SEARCH_HASH_MOVE_COLLISION;
+		else if (entry->bestmove & COMPACT_MOVE_PROMOTE_FLAG) {
+			if (!(SQTOBB(COMPACT_MOVE_FROM(entry->bestmove)) & board->pieces[board->sidetomove][PAWN]))
+				goto ZW_SEARCH_HASH_MOVE_COLLISION;
+		}
+
+		if (entry->depth >= depth
+		   && entry->flags & TT_ENTRY_FLAG_FULL_NODE) {
+
+			if (stats)
+				stats->nodes++;
+
+			// TODO: See if the bounds of the entry need to be >= the bounds of this node
+			return entry->eval;
+		}
+		//Zw_SEARCH_NO_HASH_CUT:
+
+		tt_entry_found = true;
+		tt_entry_bestmove = entry->bestmove;
+	}
+	ZW_SEARCH_HASH_MOVE_COLLISION:
+
+
+
+
+
+
+
 
 	if (depth <= 0) {
 		return new_q_search(board, 0, ply+1, stats, alpha, beta);
@@ -771,8 +873,11 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	}
 
 
+	const uint16_t special_moves[1] = {tt_entry_bestmove};
+	const size_t n_special_moves = tt_entry_found;
+
 	movefactory_s movefactory;
-	init_movefactory(&movefactory, &killer_moves[ply], 0x0, 0);
+	init_movefactory(&movefactory, &killer_moves[ply], special_moves, n_special_moves);
 
 	unsigned int n_legal_moves_done = 0;
 	unsigned int n_legal_moves_skipped = 0;
@@ -928,6 +1033,9 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 				if (depth > 1)
 					hh_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
 			}
+
+			// if (depth > 2 && !is_null_move)
+			// 	store_move(&tt_normal, board->hash, score, 0x0, depth, encode_compact_move(move), false, false);
 
 			return score;
 		}
@@ -1777,8 +1885,8 @@ static eval_t regular_search(board_s* restrict board, move_s* restrict bestmove,
 		// else
 		// 	pv->n_moves[actual_depth] = 0;
 		
-		if (!is_null_prune && best_move_here)
-			store_move(&tt_normal, board->hash, bestmove_eval, 0x0, depth, encode_compact_move(best_move_here), false);
+		// if (!is_null_prune && best_move_here)
+		// 	store_move(&tt_normal, board->hash, bestmove_eval, 0x0, depth, encode_compact_move(best_move_here), false);
 
 		//return bestmove_eval;
 
@@ -1824,8 +1932,8 @@ static eval_t regular_search(board_s* restrict board, move_s* restrict bestmove,
 			pv->n_moves[actual_depth] = 0;
 	}
 
-	if (!is_null_prune && best_move_here)
-		store_move(&tt_normal, board->hash, bestmove_eval, 0x0, depth, encode_compact_move(best_move_here), best_move_here_is_pv);
+	// if (!is_null_prune && best_move_here)
+	// 	store_move(&tt_normal, board->hash, bestmove_eval, 0x0, depth, encode_compact_move(best_move_here), best_move_here_is_pv);
 
 	return bestmove_eval;
 }

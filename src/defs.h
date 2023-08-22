@@ -308,7 +308,8 @@ enum uci_searchtype_e {
 };
 
 enum tt_entry_flags_e {
-	TT_ENTRY_FLAG_FULL_NODE = 0x1 << 0
+	TT_ENTRY_FLAG_FULL_NODE = 0x1 << 0,
+	TT_ENTRY_FLAG_PV_NODE   = 0x1 << 1
 	//TT_ENTRY_FLAG_PROMOTION = 0x1 << 0,
 	//TT_ENTRY_FLAG_CUT_NODE  = 0x1 << 1
 	//TT_ENTRY_FLAG_EXIST     = 0x1 << 0,
