@@ -404,6 +404,17 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	if (abort_search) return 0;
 
 
+	// Check for repetitions
+	// -2 so that current position would not trigger if statement and to start comparing from last move by this side
+	for (int i = board->rep_stack_n - 2; i >= 0; i--) {
+		if (board->hash == board->rep_stack[i]) {
+			if (pv)
+				pv->n_moves[ply] = 0;
+			return (ply % 2 == 0 ? CONTEMPT_FACTOR : -CONTEMPT_FACTOR);
+		}
+	}
+
+
 	bool tt_entry_found = false;
 	uint16_t tt_entry_bestmove = 0x0;
 	tt_entry_s* entry = probe_table(&tt_normal, board->hash);
@@ -471,15 +482,6 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 
 
-	// Check for repetitions
-	// -2 so that current position would not trigger if statement and to start comparing from last move by this side
-	for (int i = board->rep_stack_n - 2; i >= 0; i--) {
-		if (board->hash == board->rep_stack[i]) {
-			if (pv)
-				pv->n_moves[ply] = 0;
-			return (ply % 2 == 0 ? CONTEMPT_FACTOR : -CONTEMPT_FACTOR);
-		}
-	}
 
 
 
@@ -502,8 +504,11 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 			n_special_moves++;
 		}
 	}
-	if (tt_entry_found)
-		special_moves[n_special_moves++] = tt_entry_bestmove;
+	if (tt_entry_found) {
+		// Make sure that the pv and hash move is not the same
+		if (!(n_special_moves == 1 && tt_entry_bestmove == special_moves[0]))
+			special_moves[n_special_moves++] = tt_entry_bestmove;
+	}
 
 
 	movefactory_s movefactory;
@@ -713,6 +718,13 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	if (abort_search) return 0;
 
 
+	// Check for repetitions
+	// -2 so that current position would not trigger if statement
+	//const size_t lower_rep_stack_limit = MAX(((int)board->rep_stack_n) - 2 - 4, 0); // search max 4 moves back
+	for (int i = board->rep_stack_n - 2; i >= 0; i--) {
+		if (board->hash == board->rep_stack[i])
+			return (ply % 2 == 0 ? CONTEMPT_FACTOR : -CONTEMPT_FACTOR);
+	}
 
 
 
@@ -762,13 +774,6 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	if (stats)
 		stats->nodes++;
 
-	// Check for repetitions
-	// -2 so that current position would not trigger if statement
-	//const size_t lower_rep_stack_limit = MAX(((int)board->rep_stack_n) - 2 - 4, 0); // search max 4 moves back
-	for (int i = board->rep_stack_n - 2; i >= 0; i--) {
-		if (board->hash == board->rep_stack[i])
-			return (ply % 2 == 0 ? CONTEMPT_FACTOR : -CONTEMPT_FACTOR);
-	}
 
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
 
@@ -1034,8 +1039,8 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 					hh_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
 			}
 
-			// if (depth > 2 && !is_null_move)
-			// 	store_move(&tt_normal, board->hash, score, 0x0, depth, encode_compact_move(move), false, false);
+			if (depth > 2 && !is_null_move)
+				store_move(&tt_normal, board->hash, score, 0x0, depth, encode_compact_move(move), false, false);
 
 			return score;
 		}
