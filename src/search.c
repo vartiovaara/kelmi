@@ -113,7 +113,7 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 
 		//char str[6];
 		
-		char pv_str[125];
+		char pv_str[512];
 		size_t current_str_index = 0;
 		for (size_t i = 0; i < pv.n_moves[0]; i++) {
 			char move[6];
@@ -431,20 +431,39 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 				goto PV_SEARCH_HASH_MOVE_COLLISION;
 		}
 		
-		if (entry->depth >= depth
-		   && entry->flags & TT_ENTRY_FLAG_FULL_NODE) {
+		if (entry->search_depth >= depth) {
 
-			if (stats)
-				stats->nodes++;
+			if (entry->flags & TT_ENTRY_FLAG_EXACT) {
 
-			if (pv) {
-				pv->n_moves[ply] = 1;
-				pv->n_moves[ply + 1] = 0;
-				pv->pv[ply][0] = entry->bestmove;
+				if (stats)
+					stats->nodes++;
+
+				if (pv) {
+					pv->n_moves[ply] = 1;
+					pv->n_moves[ply + 1] = 0;
+					pv->pv[ply][0] = entry->bestmove;
+				}
+
+				return entry->eval;
 			}
+			else if (entry->flags & TT_ENTRY_FLAG_FAIL_HIGH
+			   && entry->eval >= beta) {
+				
+				// Score is lower bound
 
-			// TODO: See if the bounds of the entry need to be >= the bounds of this node
-			return entry->eval;
+				if (pv)
+					pv->n_moves[ply] = 0;
+				return entry->eval;
+			}
+			else if (entry->flags & TT_ENTRY_FLAG_FAIL_LOW
+			   && entry->eval <= alpha) {
+
+				// Score is higher bound
+
+				if (pv)
+					pv->n_moves[ply] = 0;
+				return entry->eval;
+			}
 		}
 		//PV_SEARCH_NO_HASH_CUT:
 
@@ -518,7 +537,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	move_s* move = NULL;
 	eval_t best_score = EVAL_MIN;
 	move_s* best_move = NULL;
-	bool best_move_is_full_search = false;
+	bool best_move_is_fail_low = true;
 
 	for (size_t i = 0; 1; i++) {
 
@@ -655,12 +674,16 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 						hh_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
 				}
 
-				store_move(&tt_normal, board->hash, score, 0x0, depth, encode_compact_move(move), false, true);
+				store_move(&tt_normal, board->hash, score, depth, encode_compact_move(move),  TT_ENTRY_FLAG_FAIL_HIGH | TT_ENTRY_FLAG_PV_NODE);
 
 				return score;
 			}
 			else if (depth > 1 && !(move->flags & FLAG_CAPTURE))
 				bf_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
+
+			best_score = score;
+			best_move = move;
+			best_move_is_fail_low = (score <= alpha);
 
 			if (score > alpha) {
 
@@ -680,9 +703,6 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 				alpha = score;
 			}
-			best_score = score;
-			best_move = move;
-			best_move_is_full_search = full_search;
 		}
 
 		PV_SEARCH_SKIP_MOVE_PRE_MAKE:
@@ -700,7 +720,11 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		}
 	}
 
-	store_move(&tt_normal, board->hash, best_score, 0x0, depth, encode_compact_move(best_move), best_move_is_full_search, true);
+
+	if (best_move_is_fail_low)
+		store_move(&tt_normal, board->hash, alpha, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_FAIL_LOW | TT_ENTRY_FLAG_PV_NODE);
+	else
+		store_move(&tt_normal, board->hash, best_score, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_EXACT | TT_ENTRY_FLAG_PV_NODE);
 
 	return best_score;
 }
@@ -744,14 +768,29 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 				goto ZW_SEARCH_HASH_MOVE_COLLISION;
 		}
 
-		if (entry->depth >= depth
-		   && entry->flags & TT_ENTRY_FLAG_FULL_NODE) {
+		if (entry->search_depth >= depth) {
 
 			if (stats)
 				stats->nodes++;
+			
+			if (entry->flags & TT_ENTRY_FLAG_EXACT) {
 
-			// TODO: See if the bounds of the entry need to be >= the bounds of this node
-			return entry->eval;
+				return entry->eval;
+			}
+			else if (entry->flags & TT_ENTRY_FLAG_FAIL_HIGH
+			   && entry->eval >= beta) {
+				
+				// Score is lower bound
+
+				return entry->eval;
+			}
+			else if (entry->flags & TT_ENTRY_FLAG_FAIL_LOW
+			   && entry->eval <= alpha) {
+
+				// Score is higher bound
+
+				return entry->eval;
+			}
 		}
 		//Zw_SEARCH_NO_HASH_CUT:
 
@@ -889,6 +928,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	unsigned int n_legal_moves_total = 0;
 	move_s* move = NULL;
 	eval_t best_score = EVAL_MIN;
+	move_s* best_move = NULL;
 
 	for (size_t i = 0; 1; i++) {
 
@@ -1039,8 +1079,8 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 					hh_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
 			}
 
-			if (depth > 2 && !is_null_move)
-				store_move(&tt_normal, board->hash, score, 0x0, depth, encode_compact_move(move), false, false);
+			if (!is_null_move)
+				store_move(&tt_normal, board->hash, score, depth, encode_compact_move(move), TT_ENTRY_FLAG_FAIL_HIGH);
 
 			return score;
 		}
@@ -1048,8 +1088,12 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 				bf_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
 
 
-		alpha = MAX(score, alpha);
-		best_score = MAX(score, best_score);
+		//alpha = MAX(score, alpha);
+		//best_score = MAX(score, best_score);
+		if (score > best_score) {
+			best_score = score;
+			best_move = move;
+		}
 
 
 		unmakemove(board, move);
@@ -1076,6 +1120,9 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			}
 		}
 	}
+
+	if (!is_null_move)
+		store_move(&tt_normal, board->hash, alpha, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_FAIL_LOW);
 
 	return best_score;
 }
@@ -1220,28 +1267,28 @@ static eval_t regular_search(board_s* restrict board, move_s* restrict bestmove,
 		// (how many depth are supposed to be under the entry)  >= ( vs how many under this node)
 		//if (entry->search_depth - entry->node_depth >= (signed int)search_depth - ((signed int)search_depth - depth) &&
 		//     depth - search_depth != 0) { // and don't replace root node
-		if (entry->depth >= depth - 1
-		   && actual_depth
-		   //actual_depth
-		   && entry->flags & TT_ENTRY_FLAG_FULL_NODE
-		   && (board->sidetomove == WHITE ? entry->eval <= alpha : entry->eval >= beta)) {
-		   //&& (entry->eval < alpha && entry->eval > beta)) {
+		// if (entry->depth >= depth - 1
+		//    && actual_depth
+		//    //actual_depth
+		//    && entry->flags & TT_ENTRY_FLAG_FULL_NODE
+		//    && (board->sidetomove == WHITE ? entry->eval <= alpha : entry->eval >= beta)) {
+		//    //&& (entry->eval < alpha && entry->eval > beta)) {
 
-			if (depth <= 3 && entry->depth < depth)
-				goto REGULAR_SEARCH_NO_HASH_CUT;
+		// 	if (depth <= 3 && entry->depth < depth)
+		// 		goto REGULAR_SEARCH_NO_HASH_CUT;
 
-			if (stats)
-				stats->nodes++;
+		// 	if (stats)
+		// 		stats->nodes++;
 
-			if (pv && !is_null_prune) {
-				pv->n_moves[actual_depth] = 1;
-				pv->n_moves[actual_depth + 1] = 0;
-				pv->pv[actual_depth][0] = entry->bestmove;
-			}
+		// 	if (pv && !is_null_prune) {
+		// 		pv->n_moves[actual_depth] = 1;
+		// 		pv->n_moves[actual_depth + 1] = 0;
+		// 		pv->pv[actual_depth][0] = entry->bestmove;
+		// 	}
 
-			// TODO: See if the bounds of the entry need to be >= the bounds of this node
-			return entry->eval;
-		}
+		// 	// TODO: See if the bounds of the entry need to be >= the bounds of this node
+		// 	return entry->eval;
+		// }
 		REGULAR_SEARCH_NO_HASH_CUT:
 		// TODO: Figure out if this is safe when tt entry window is bigger or equal to current
 		// else if (entry->depth >= depth && actual_depth) {

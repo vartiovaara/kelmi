@@ -19,8 +19,8 @@ tt_s tt_q; // transposition table for quiescense search
 
 void allocate_table(tt_s* tt, size_t n);
 void free_table(tt_s* tt);
-size_t get_entry_index(const tt_s* tt, uint64_t hash);
-void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, int16_t node_depth, uint16_t move, bool full_node, bool pv_node);
+static inline size_t get_entry_index(const tt_s* tt, uint64_t hash);
+static inline void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, uint8_t search_depth, uint16_t move, uint8_t flags);
 
 
 void allocate_table(tt_s* tt, size_t n) {
@@ -64,38 +64,29 @@ void free_table(tt_s* tt) {
 }
 
 
-size_t get_entry_index(const tt_s* tt, uint64_t hash) {
+static inline size_t get_entry_index(const tt_s* tt, uint64_t hash) {
 	return hash % tt->n_entries;
 }
 
 
-void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, int16_t node_depth, uint16_t move, bool full_node, bool pv_node) {
+static inline void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, uint8_t search_depth, uint16_t move, uint8_t flags) {
 	assert(COMPACT_MOVE_FROM(move) < 64);
 	assert(COMPACT_MOVE_TO(move) < 64);
 
 	entry->hash = hash;
 	entry->eval = eval;
-	//entry->search_depth = search_depth;
-	//entry->node_depth = node_depth;
-	entry->depth = node_depth;
+	entry->search_depth = search_depth;
 	entry->bestmove = move;
-	entry->flags = 0x0;
-	entry->flags |= TT_ENTRY_FLAG_FULL_NODE * full_node;
-	entry->flags |= TT_ENTRY_FLAG_PV_NODE * pv_node;
-	/*
-	entry->bestmove_from = from;
-	entry->bestmove_to = to;
-	entry->bestmove_promoteto = promoteto;
-	*/
+	entry->flags = flags;
 }
 
-tt_entry_s* probe_table(tt_s* tt, uint64_t hash) {
+tt_entry_s* probe_table(const tt_s* tt, uint64_t hash) {
 
 	const size_t index = get_entry_index(tt, hash);
 
 	for (size_t i = 0; i < tt->n_buckets; i++) {
 		
-		tt_entry_s* current_entry = &(tt->entries[i][index]);
+		const tt_entry_s* current_entry = &(tt->entries[i][index]);
 
 		if (!current_entry->bestmove)
 			continue; // entry didn't exist
@@ -122,20 +113,16 @@ bool retrieve_entry(tt_s* restrict tt, tt_entry_s* restrict entry, uint64_t hash
 }
 
 // TODO: Implement qsearch replacement strategy
-void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint64_t bestmove_hash, int16_t node_depth, uint16_t move, bool full_node, bool pv_node) {
+void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint16_t move, uint8_t flags) {
 	assert(COMPACT_MOVE_FROM(move) < 64);
 	assert(COMPACT_MOVE_TO(move) < 64);
-
-	tt_entry_s entry;
-	//memset(&entry, 0, sizeof (tt_entry_s));
-	make_tt_entry(&entry, hash, eval, node_depth, move, full_node, pv_node);
 
 	const size_t index = get_entry_index(tt, hash);
 
 	// n of bucket where to store
 	size_t bucket_n;
 
-	// find first empty bucket or the same hash
+	// find first empty entry or the same hash
 	bool need_to_replace = true;
 	for (size_t i = 0; i < N_BUCKETS; i++) {
 		if (tt->entries[i][index].hash != hash)
@@ -148,18 +135,19 @@ void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint64_t bestmove_hash, in
 		break;
 	}
 
-	// FIXME: Make a replacement stratgy
+	// TODO: Make a replacement stratgy
 	if (need_to_replace)
-		bucket_n = tt->counter++ % N_BUCKETS;
+		bucket_n = tt->counter++ % N_BUCKETS; // Select a random entry to be replaced
 	else {
-		if (tt->entries[bucket_n][index].depth > node_depth)
+		if (tt->entries[bucket_n][index].search_depth >= search_depth)
 			return; // already had a node with bigger depth here
-		if (!full_node && tt->entries[bucket_n][index].flags & TT_ENTRY_FLAG_FULL_NODE)
-			return; // already had a full node here
-		if (!pv_node && tt->entries[bucket_n][index].flags & TT_ENTRY_FLAG_PV_NODE)
+		if (!(flags & TT_ENTRY_FLAG_EXACT) && tt->entries[bucket_n][index].flags & TT_ENTRY_FLAG_EXACT)
+			return; // already had a exact value
+		if (!(flags & TT_ENTRY_FLAG_PV_NODE) && tt->entries[bucket_n][index].flags & TT_ENTRY_FLAG_PV_NODE)
 			return; // already had a pv node here
 	}
 
-	memcpy(&(tt->entries[bucket_n][index]), &entry, sizeof (tt_entry_s));
+
+	make_tt_entry(&(tt->entries[bucket_n][index]), hash, eval, search_depth, move, flags);
 }
 

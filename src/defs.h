@@ -308,13 +308,14 @@ enum uci_searchtype_e {
 };
 
 enum tt_entry_flags_e {
-	TT_ENTRY_FLAG_FULL_NODE = 0x1 << 0,
-	TT_ENTRY_FLAG_PV_NODE   = 0x1 << 1
+	TT_ENTRY_FLAG_FAIL_HIGH = 0x1 << 0,
+	TT_ENTRY_FLAG_FAIL_LOW  = 0x1 << 1,
+	TT_ENTRY_FLAG_EXACT     = 0x1 << 2,
+	TT_ENTRY_FLAG_PV_NODE   = 0x1 << 3
+	//TT_ENTRY_FLAG_FULL_NODE = 0x1 << 0,
 	//TT_ENTRY_FLAG_PROMOTION = 0x1 << 0,
 	//TT_ENTRY_FLAG_CUT_NODE  = 0x1 << 1
 	//TT_ENTRY_FLAG_EXIST     = 0x1 << 0,
-	//TT_ENTRY_FLAG_FAIL_HIGH = 0x1 << 1,
-	//TT_ENTRY_FLAG_FAIL_LOW  = 0x1 << 2
 };
 
 
@@ -484,8 +485,8 @@ typedef struct {
 typedef struct {
 	uint64_t hash;
 	eval_t eval;
-	//uint8_t search_depth; // depth of the search
-	int16_t depth; // depth of this node
+	uint8_t search_depth; // depth of the search
+	//uint8_t depth; // depth of this node
 	uint8_t flags; // TODO: Maybe do something with this
 	uint16_t bestmove;
 	/*
