@@ -825,17 +825,20 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 		if (entry->search_depth >= depth) {
 
-			if (stats)
-				stats->nodes++;
-			
 			if (entry->flags & TT_ENTRY_FLAG_EXACT) {
 
+				if (stats)
+					stats->nodes++;
+				
 				return entry->eval;
 			}
 			else if (entry->flags & TT_ENTRY_FLAG_FAIL_HIGH
 			   && entry->eval >= beta) {
 				
 				// Score is lower bound
+				
+				if (stats)
+					stats->nodes++;
 
 				return entry->eval;
 			}
@@ -844,6 +847,9 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 				// Score is higher bound
 
+				if (stats)
+					stats->nodes++;
+				
 				return entry->eval;
 			}
 		}
