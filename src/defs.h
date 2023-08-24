@@ -158,10 +158,10 @@ To make a move, give it in uci format."
 
 
 // Eval type max and min
-#define EVAL_MAX INT_MAX
-#define EVAL_MIN -INT_MAX //INT_MIN
-#define BIG_EVAL_MAX LONG_MAX
-#define BIG_EVAL_MIN -LONG_MAX //LONG_MIN
+#define EVAL_MAX (INT_MAX - 10000)
+#define EVAL_MIN (-INT_MAX) //INT_MIN
+#define BIG_EVAL_MAX (LONG_MAX - 10000)
+#define BIG_EVAL_MIN (-LONG_MAX) //LONG_MIN
 
 // Eval values
 #define EVAL_PAWN_MATERIAL_VALUE 100
