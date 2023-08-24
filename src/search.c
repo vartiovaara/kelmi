@@ -878,12 +878,22 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
 
 
+	// Boolean to indicate, wether the transposition table indicates a fail high
+	// When this is true, pruning and reductions are less aggressive
+	bool tt_entry_is_fail_high = false;
+	if (tt_entry_found) {
+		tt_entry_is_fail_high = (entry->flags & (TT_ENTRY_FLAG_FAIL_HIGH))
+		   && entry->search_depth >= depth - 4
+		   && entry->eval >= beta;
+	}
+
+
 	bool q_stand_pat_calculated = false;
 	eval_t q_stand_pat;
 	
 	if (depth == 2
 	   && !initially_in_check
-	   && alpha != EVAL_MAX) {
+	   && !tt_entry_is_fail_high) {
 
 		//const eval_t stand_pat = eval(board) * (board->sidetomove == WHITE ? 1 : -1);
 		if (!q_stand_pat_calculated) {
@@ -900,7 +910,8 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 	if (depth > 1 // 2
 	   && !initially_in_check
-	   && alpha != EVAL_MAX) {
+	   && alpha != EVAL_MAX
+	   && !tt_entry_is_fail_high) {
 
 		const eval_t margin = depth * 95 + ((depth-2) * 20);
 		// const eval_t margin = depth * 90;
@@ -1108,6 +1119,10 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			//if (depth >= 4 && n_legal_moves_done > 9) depth_modifier -= 1;
 			//if (depth > 7 && n_legal_moves_done > 12) depth_modifier -= 1;
 		}
+
+		// When transposition table entry indicates fail-high, cap the reductions to -1
+		if (tt_entry_is_fail_high)
+			depth_modifier = MAX(depth_modifier, -1);
 
 		ZW_SEARCH_RE_SEARCH:
 		;
