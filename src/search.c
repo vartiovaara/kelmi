@@ -111,18 +111,73 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 		memcpy(bestmove, &move, sizeof (move_s));
 		move_eval = current_eval;
 
-		//char str[6];
 		
-		char pv_str[512];
-		size_t current_str_index = 0;
+		// Follow the pv and then follow the hash table for longer pv's
+		move_s pv_moves[128];
+		uint16_t pv_compact_moves[128];
+		size_t n_pv_moves = 0;
+
 		for (size_t i = 0; i < pv.n_moves[0]; i++) {
+
+			pv_compact_moves[n_pv_moves] = pv.pv[0][i];
+			
+			create_move(board, &pv_moves[n_pv_moves], SQTOBB(COMPACT_MOVE_FROM(pv.pv[0][i])), SQTOBB(COMPACT_MOVE_TO(pv.pv[0][i])), COMPACT_MOVE_PROMOTETO(pv.pv[0][i]));
+			makemove(board, &pv_moves[n_pv_moves]);
+			
+			n_pv_moves++;
+		}
+
+		// Follow the hash table
+		
+		tt_entry_s* seen_tt_entries[128];
+		size_t n_seen_tt_entries = 0;
+
+		for (size_t i = n_pv_moves; i < 128; i++) {
+			
+			tt_entry_s* tt_entry = probe_table(&tt_normal, board->hash);
+			
+			// Check if this entry has been seen before
+			bool circular_path_found = false;
+			for (int j = n_seen_tt_entries-1; j >= 0; j--) {
+				if (tt_entry == seen_tt_entries[j]) {
+					circular_path_found = true;
+					break;
+				}
+			}
+			if (circular_path_found) break;
+
+			seen_tt_entries[n_seen_tt_entries++] = tt_entry;
+
+			if (!tt_entry) break;
+			if (!tt_entry->bestmove) break;
+			if (!(tt_entry->flags & TT_ENTRY_FLAG_EXACT)) break;
+
+			pv_compact_moves[n_pv_moves] = tt_entry->bestmove;
+			create_move(board, &pv_moves[n_pv_moves], SQTOBB(COMPACT_MOVE_FROM(tt_entry->bestmove)), SQTOBB(COMPACT_MOVE_TO(tt_entry->bestmove)), COMPACT_MOVE_PROMOTETO(tt_entry->bestmove));
+			makemove(board, &pv_moves[n_pv_moves]);
+			n_pv_moves++;
+		}
+
+		// Undo the moves
+		for (int i = n_pv_moves-1; i >= 0; i--)
+			unmakemove(board, &pv_moves[i]);
+
+
+
+		char pv_str[1024];
+		size_t current_str_index = 0;
+		
+		// Add collected moves to pv string
+		for (size_t i = 0; i < n_pv_moves; i++) {
 			char move[6];
-			compact_move_to_uci_notation(pv.pv[0][i], move);
+			compact_move_to_uci_notation(pv_compact_moves[i], move);
 			strcpy(pv_str + current_str_index, move);
 			current_str_index += strlen(move);
 			pv_str[current_str_index++] = ' ';
 		}
 		pv_str[current_str_index] = '\0';
+
+
 		
 		const unsigned long long nps = (unsigned long long)((double)stats.nodes/((double)(clock() - last_search_time)/(double)CLOCKS_PER_SEC));
 		const unsigned int search_time = (unsigned int)(((double)(clock() - t)/(double)CLOCKS_PER_SEC)*1000);
