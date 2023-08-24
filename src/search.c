@@ -23,9 +23,6 @@
 #define CONTEMPT_FACTOR (20)
 
 
-static const unsigned int futility_prune_treshold[] = {0, 0, 100, 250, 600};
-
-
 BitBoard killer_moves[MAX_DEPTH][2][2]; // [ply][first / second][from / to]
 uint64_t hh_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts cutoffs
 uint64_t bf_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts else
@@ -556,9 +553,14 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	}
 
 
+
+
+
+
+
+
 	if (stats)
 		stats->nodes++;
-
 
 
 
@@ -644,12 +646,6 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 			depth_modifier++;
 		}
 
-		if (move->flags & FLAG_PROMOTE
-		   && move->promoteto == QUEEN
-		   && depth_modifier <= 0) {
-			depth_modifier++;
-		}
-
 		// if (move_was_check
 		//   && !(move->flags & FLAG_CAPTURE
 		//    && move->move_see < 0)) {
@@ -665,19 +661,12 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		// 		depth_modifier++;
 		// }
 
-		// if (move->flags & FLAG_CAPTURE
-		//   && move->move_see >= 120 + (depth * 100)
-		//   && depth < 4
-		//   && depth_modifier == 0) {
-		// 	depth_modifier++;
-		// }
-
-		// if (move->flags & FLAG_CAPTURE
-		//   && move->move_see >= 120 + (depth * 100)
-		//   && depth < 4
-		//   && depth_modifier == 0) {
-		// 	depth_modifier++;
-		// }
+		if (move->flags & FLAG_CAPTURE
+		  && move->move_see >= 120 + (depth * 100)
+		  && depth < 4
+		  && depth_modifier == 0) {
+			depth_modifier++;
+		}
 		// if (move->flags & FLAG_CAPTURE
 		//   && move->move_see <= -40 - (depth * 60)
 		//   && n_legal_moves_done > 4
@@ -892,7 +881,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	bool q_stand_pat_calculated = false;
 	eval_t q_stand_pat;
 	
-	if ((depth >= 2 && depth <= 4)
+	if (depth == 2
 	   && !initially_in_check
 	   && alpha != EVAL_MAX) {
 
@@ -902,18 +891,16 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			q_stand_pat_calculated = true;
 		}
 		
-		if (q_stand_pat + futility_prune_treshold[depth] < alpha || q_stand_pat == EVAL_MAX || q_stand_pat == EVAL_MIN)
+		if (q_stand_pat + (80 * depth) < alpha || q_stand_pat == EVAL_MAX || q_stand_pat == EVAL_MIN)
 			return q_stand_pat;
 	}
 
 	
-	/*
 	// Reverse futility pruning
 
 	if (depth > 1 // 2
 	   && !initially_in_check
-	   && alpha != EVAL_MAX
-	   && false) {
+	   && alpha != EVAL_MAX) {
 
 		const eval_t margin = depth * 95 + ((depth-2) * 20);
 		// const eval_t margin = depth * 90;
@@ -927,7 +914,6 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		if (q_stand_pat - margin >= beta)
 			return q_stand_pat - margin;
 	}
-	*/
 
 
 	/*
@@ -980,13 +966,13 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		
 		if (score >= beta) {
 
-			return beta;
+			//return beta;
 
 			
-			// depth -= 4;
-			// if (depth <= 0) {
-			// 	return eval(board) * (board->sidetomove == WHITE ? 1 : -1);
-			// }
+			depth -= 4;
+			if (depth <= 0) {
+				return eval(board) * (board->sidetomove == WHITE ? 1 : -1);
+			}
 			
 		}
 	}
@@ -1058,7 +1044,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		//    && !initially_in_check
 		// //    && depth <= 4
 		// //    && n_legal_moves_total >= 4 + (depth)
-		//    && depth == 1
+		//    && depth <= 2
 		//    && n_legal_moves_total >= 7)
 		// //   && !(move->fromtype == PAWN
 		// //       && move->to & (move->side==WHITE ? TOP_THREE_ROWS : BOTTOM_THREE_ROWS)))
@@ -1081,13 +1067,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		//   && move->move_see > 0) {
 		// 	depth_modifier++;
 		// }
-
-		if (move->flags & FLAG_PROMOTE
-		   && move->promoteto == QUEEN
-		   && depth_modifier <= 0) {
-			depth_modifier++;
-		}
-
+		
 		// if (move->flags & FLAG_CAPTURE
 		//   && move->move_see >= 100 + (depth * 120)
 		//   //&& depth <= 3
@@ -1122,8 +1102,8 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			// LMR is allowed
 
 			if (n_legal_moves_total > 5) depth_modifier -= 1;
-			// if (n_legal_moves_total > 10) depth_modifier -= 1;
-			// if (n_legal_moves_total > 20) depth_modifier -= 1;
+			if (n_legal_moves_total > 10) depth_modifier -= 1;
+			if (n_legal_moves_total > 20) depth_modifier -= 1;
 			//if (depth <= 4 && n_legal_moves_done > 9) depth_modifier -= 1;
 			//if (depth >= 4 && n_legal_moves_done > 9) depth_modifier -= 1;
 			//if (depth > 7 && n_legal_moves_done > 12) depth_modifier -= 1;
