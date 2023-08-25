@@ -113,7 +113,7 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 
 		
 		// Follow the pv and then follow the hash table for longer pv's
-		move_s pv_moves[128];
+		//move_s pv_moves[128];
 		uint16_t pv_compact_moves[128];
 		size_t n_pv_moves = 0;
 
@@ -121,12 +121,13 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 
 			pv_compact_moves[n_pv_moves] = pv.pv[0][i];
 			
-			create_move(board, &pv_moves[n_pv_moves], SQTOBB(COMPACT_MOVE_FROM(pv.pv[0][i])), SQTOBB(COMPACT_MOVE_TO(pv.pv[0][i])), COMPACT_MOVE_PROMOTETO(pv.pv[0][i]));
-			makemove(board, &pv_moves[n_pv_moves]);
+			//create_move(board, &pv_moves[n_pv_moves], SQTOBB(COMPACT_MOVE_FROM(pv.pv[0][i])), SQTOBB(COMPACT_MOVE_TO(pv.pv[0][i])), COMPACT_MOVE_PROMOTETO(pv.pv[0][i]));
+			//makemove(board, &pv_moves[n_pv_moves]);
 			
 			n_pv_moves++;
 		}
 
+		/*
 		// Follow the hash table
 		
 		tt_entry_s* seen_tt_entries[128];
@@ -161,6 +162,7 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 		// Undo the moves
 		for (int i = n_pv_moves-1; i >= 0; i--)
 			unmakemove(board, &pv_moves[i]);
+		*/
 
 
 
