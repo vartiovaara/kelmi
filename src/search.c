@@ -1102,8 +1102,8 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			// LMR is allowed
 
 			if (n_legal_moves_total > 5) depth_modifier -= 1;
-			//if (n_legal_moves_total > 10) depth_modifier -= 1;
-			//if (n_legal_moves_total > 20) depth_modifier -= 1;
+			if (n_legal_moves_total > 10) depth_modifier -= 1;
+			if (n_legal_moves_total > 20) depth_modifier -= 1;
 			//if (depth <= 4 && n_legal_moves_done > 9) depth_modifier -= 1;
 			//if (depth >= 4 && n_legal_moves_done > 9) depth_modifier -= 1;
 			//if (depth > 7 && n_legal_moves_done > 12) depth_modifier -= 1;
