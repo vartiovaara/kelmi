@@ -23,6 +23,9 @@
 #define CONTEMPT_FACTOR (20)
 
 
+static const unsigned int futility_prune_treshold[] = {0, 0, 100, 250, 600};
+
+
 BitBoard killer_moves[MAX_DEPTH][2][2]; // [ply][first / second][from / to]
 uint64_t hh_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts cutoffs
 uint64_t bf_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts else
@@ -121,14 +124,15 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 
 			pv_compact_moves[n_pv_moves] = pv.pv[0][i];
 			
-			create_move(board, &pv_moves[n_pv_moves], SQTOBB(COMPACT_MOVE_FROM(pv.pv[0][i])), SQTOBB(COMPACT_MOVE_TO(pv.pv[0][i])), COMPACT_MOVE_PROMOTETO(pv.pv[0][i]));
-			makemove(board, &pv_moves[n_pv_moves]);
+			//create_move(board, &pv_moves[n_pv_moves], SQTOBB(COMPACT_MOVE_FROM(pv.pv[0][i])), SQTOBB(COMPACT_MOVE_TO(pv.pv[0][i])), COMPACT_MOVE_PROMOTETO(pv.pv[0][i]));
+			//makemove(board, &pv_moves[n_pv_moves]);
 			
 			n_pv_moves++;
 		}
 
 		// Follow the hash table
 		
+		/*
 		tt_entry_s* seen_tt_entries[128];
 		size_t n_seen_tt_entries = 0;
 
@@ -161,7 +165,7 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 		// Undo the moves
 		for (int i = n_pv_moves-1; i >= 0; i--)
 			unmakemove(board, &pv_moves[i]);
-
+		*/
 
 
 		char pv_str[1024];
@@ -884,7 +888,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	bool q_stand_pat_calculated = false;
 	eval_t q_stand_pat;
 	
-	if (depth == 2
+	if ((depth >= 2 && depth <= 4)
 	   && !initially_in_check
 	   && alpha != EVAL_MAX) {
 
@@ -894,14 +898,14 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			q_stand_pat_calculated = true;
 		}
 		
-		if (q_stand_pat + (80 * depth) < alpha || q_stand_pat == EVAL_MAX || q_stand_pat == EVAL_MIN)
+		if (q_stand_pat + futility_prune_treshold[depth] < alpha || q_stand_pat == EVAL_MAX || q_stand_pat == EVAL_MIN)
 			return q_stand_pat;
 	}
 
 	
 	// Reverse futility pruning
 
-	if (depth > 1 // 2
+	if ((depth > 1 && depth <= 3) // 2
 	   && !initially_in_check
 	   && alpha != EVAL_MAX) {
 
