@@ -776,8 +776,11 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	}
 
 
-	if (best_move_is_fail_low)
+	if (best_move_is_fail_low) {
+		if (pv)
+			pv->n_moves[ply] = 0;
 		store_move(&tt_normal, board->hash, alpha, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_FAIL_LOW | TT_ENTRY_FLAG_PV_NODE);
+	}
 	else
 		store_move(&tt_normal, board->hash, best_score, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_EXACT | TT_ENTRY_FLAG_PV_NODE);
 
