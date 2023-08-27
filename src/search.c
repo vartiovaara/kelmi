@@ -180,13 +180,21 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 		pv_str[current_str_index] = '\0';
 
 
+		bool move_is_mate = EVAL_IS_MATE(move_eval);
+		eval_t mate_in_n = (move_eval > 0 ? (MATE - move_eval) : (-MATE - move_eval));
+		
+		// if mate-in-n-ply is not even, the last ply will be counted as a full move
+		if (mate_in_n % 2 != 0)
+			mate_in_n += (mate_in_n > 0 ? 1 : -1);
+		
+		mate_in_n /= 2; // plies to moves
 		
 		const unsigned long long nps = (unsigned long long)((double)stats.nodes/((double)(clock() - last_search_time)/(double)CLOCKS_PER_SEC));
 		const unsigned int search_time = (unsigned int)(((double)(clock() - t)/(double)CLOCKS_PER_SEC)*1000);
-		uci_write(f, "info depth %i score cp %i time %u nodes %llu nps %d pv %s\n", depth, move_eval, search_time, stats.nodes, nps, pv_str);
+		uci_write(f, "info depth %i score %s %i time %u nodes %llu nps %d pv %s\n", depth, (move_is_mate ? "mate" : "cp"), (move_is_mate ? mate_in_n : move_eval), search_time, stats.nodes, nps, pv_str);
 
 		// mate
-		if (((move_eval == EVAL_MAX || move_eval == EVAL_MIN) && depth > 70) || depth >= MAX_DEPTH)
+		if (((move_is_mate) && depth > 70) || depth >= MAX_DEPTH)
 			break;
 
 		// Check if we would have enough time for next search.
@@ -337,9 +345,9 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
-	eval_t best_score = EVAL_MIN;
+	eval_t best_score = -EVAL_INF;
 
-	eval_t alpha = EVAL_MIN, beta = EVAL_MAX;
+	eval_t alpha = -EVAL_INF, beta = EVAL_INF;
 
 	for (size_t i = 0; 1; i++) {
 
@@ -409,7 +417,6 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 		}
 
 
-		// Without (score == EVAL_MAX) it basically is shit at mating
 		if (score > best_score) {
 			best_score = score;
 			memcpy(bestmove, move, sizeof (move_s));
@@ -438,7 +445,7 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 
 	if (!n_legal_moves_done) {
 		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
-			return EVAL_MIN;
+			return -MATE;
 		}
 		else { // is a stalemate (wasn't in check and no legal moves)
 			return 0;
@@ -487,7 +494,16 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 			if (!(SQTOBB(COMPACT_MOVE_FROM(entry->bestmove)) & board->pieces[board->sidetomove][PAWN]))
 				goto PV_SEARCH_HASH_MOVE_COLLISION;
 		}
-		
+
+		// Correct the entry eval by shifting mate values towards zero by ply
+
+		eval_t entry_eval = entry->eval;
+
+		if (EVAL_IS_WIN(entry_eval))
+			entry_eval -= ply;
+		else if (EVAL_IS_LOSE(entry_eval))
+			entry_eval += ply;
+
 		if (entry->search_depth >= depth) {
 
 			if (entry->flags & TT_ENTRY_FLAG_EXACT) {
@@ -501,25 +517,25 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 					pv->pv[ply][0] = entry->bestmove;
 				}
 
-				return entry->eval;
+				return entry_eval;
 			}
 			else if (entry->flags & TT_ENTRY_FLAG_FAIL_HIGH
-			   && entry->eval >= beta) {
+			   && entry_eval >= beta) {
 				
 				// Score is lower bound
 
 				if (pv)
 					pv->n_moves[ply] = 0;
-				return entry->eval;
+				return entry_eval;
 			}
 			else if (entry->flags & TT_ENTRY_FLAG_FAIL_LOW
-			   && entry->eval <= alpha) {
+			   && entry_eval <= alpha) {
 
 				// Score is higher bound
 
 				if (pv)
 					pv->n_moves[ply] = 0;
-				return entry->eval;
+				return entry_eval;
 			}
 		}
 		//PV_SEARCH_NO_HASH_CUT:
@@ -551,7 +567,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	if (depth <= 0) {
 		if (pv)
 			pv->n_moves[ply] = 0;
-		return new_q_search(board, 0, ply+1, stats, alpha, beta);
+		return new_q_search(board, 0, ply, stats, alpha, beta);
 	}
 
 
@@ -592,7 +608,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
-	eval_t best_score = EVAL_MIN;
+	eval_t best_score = -EVAL_INF;
 	move_s* best_move = NULL;
 	bool best_move_is_fail_low = true;
 
@@ -678,7 +694,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		// }
 
 
-		eval_t score = EVAL_MIN;
+		eval_t score = -EVAL_INF;
 
 		bool full_search = false;
 
@@ -711,55 +727,54 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		unmakemove(board, move);
 
 
-		if (score > best_score || ((n_legal_moves_done == 1) && score > alpha)) {
-
-			if (score >= beta) {
-
-				if (pv)
-					pv->n_moves[ply] = 0;
-
-				if (!(move->flags & FLAG_CAPTURE)) {
-					// If move is not already in killer, store it
-					if (killer_moves[ply][0][0] != move->from || killer_moves[ply][0][1] != move->to) {
-						killer_moves[ply][1][0] = killer_moves[ply][0][0];
-						killer_moves[ply][1][1] = killer_moves[ply][0][1];
-						killer_moves[ply][0][0] = move->from;
-						killer_moves[ply][0][1] = move->to;
-					}
-					// move has been undone already
-					if (depth > 1)
-						hh_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
-				}
-
-				store_move(&tt_normal, board->hash, score, depth, encode_compact_move(move),  TT_ENTRY_FLAG_FAIL_HIGH | TT_ENTRY_FLAG_PV_NODE);
-
-				return score;
-			}
-			else if (depth > 1 && !(move->flags & FLAG_CAPTURE))
-				bf_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
-
+		if (score > best_score) {
 			best_score = score;
 			best_move = move;
 			best_move_is_fail_low = (score <= alpha);
+		}
 
-			if (score > alpha) {
+		if (score >= beta) {
 
-				assert(full_search);
+			if (pv)
+				pv->n_moves[ply] = 0;
 
-				if (pv) {
-					// save this node to the pv
-					pv->n_moves[ply] = 1;
-					pv->pv[ply][0] = encode_compact_move(move);
-
-					// if the searched nodes saved something to pv, save it to this depth
-					if (pv->n_moves[ply + 1] > 0) {
-						memcpy(&pv->pv[ply][1], &pv->pv[ply+1][0], pv->n_moves[ply+1] * sizeof (uint16_t));
-						pv->n_moves[ply] = pv->n_moves[ply + 1] + 1;
-					}
+			if (!(move->flags & FLAG_CAPTURE)) {
+				// If move is not already in killer, store it
+				if (killer_moves[ply][0][0] != move->from || killer_moves[ply][0][1] != move->to) {
+					killer_moves[ply][1][0] = killer_moves[ply][0][0];
+					killer_moves[ply][1][1] = killer_moves[ply][0][1];
+					killer_moves[ply][0][0] = move->from;
+					killer_moves[ply][0][1] = move->to;
 				}
-
-				alpha = score;
+				// move has been undone already
+				if (depth > 1)
+					hh_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
 			}
+
+			store_move(&tt_normal, board->hash, score, depth, encode_compact_move(move),  TT_ENTRY_FLAG_FAIL_HIGH | TT_ENTRY_FLAG_PV_NODE, ply);
+
+			return score;
+		}
+		else if (depth > 1 && !(move->flags & FLAG_CAPTURE))
+			bf_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
+
+		if (score > alpha) {
+
+			assert(full_search);
+
+			if (pv) {
+				// save this node to the pv
+				pv->n_moves[ply] = 1;
+				pv->pv[ply][0] = encode_compact_move(move);
+
+				// if the searched nodes saved something to pv, save it to this depth
+				if (pv->n_moves[ply + 1] > 0) {
+					memcpy(&pv->pv[ply][1], &pv->pv[ply+1][0], pv->n_moves[ply+1] * sizeof (uint16_t));
+					pv->n_moves[ply] = pv->n_moves[ply + 1] + 1;
+				}
+			}
+
+			alpha = score;
 		}
 
 		PV_SEARCH_SKIP_MOVE_PRE_MAKE:
@@ -770,7 +785,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		if (pv)
 			pv->n_moves[ply] = 0;
 		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
-			return EVAL_MIN + ply;
+			return -MATE + ply;
 		}
 		else { // is a stalemate (wasn't in check and no legal moves)
 			return (ply % 2 == 0 ? CONTEMPT_FACTOR : -CONTEMPT_FACTOR);
@@ -781,10 +796,10 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	if (best_move_is_fail_low) {
 		if (pv)
 			pv->n_moves[ply] = 0;
-		store_move(&tt_normal, board->hash, alpha, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_FAIL_LOW | TT_ENTRY_FLAG_PV_NODE);
+		store_move(&tt_normal, board->hash, best_score, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_FAIL_LOW | TT_ENTRY_FLAG_PV_NODE, ply);
 	}
 	else
-		store_move(&tt_normal, board->hash, best_score, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_EXACT | TT_ENTRY_FLAG_PV_NODE);
+		store_move(&tt_normal, board->hash, best_score, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_EXACT | TT_ENTRY_FLAG_PV_NODE, ply);
 
 	return best_score;
 }
@@ -828,34 +843,42 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 				goto ZW_SEARCH_HASH_MOVE_COLLISION;
 		}
 
-		if (entry->search_depth >= depth) {
+		// Correct the entry eval by shifting mate values towards zero by ply
 
+		eval_t entry_eval = entry->eval;
+
+		if (EVAL_IS_WIN(entry_eval))
+			entry_eval -= ply;
+		else if (EVAL_IS_LOSE(entry_eval))
+			entry_eval += ply;
+
+		if (entry->search_depth >= depth) {
 			if (entry->flags & TT_ENTRY_FLAG_EXACT) {
 
 				if (stats)
 					stats->nodes++;
 				
-				return entry->eval;
+				return entry_eval;
 			}
 			else if (entry->flags & TT_ENTRY_FLAG_FAIL_HIGH
-			   && entry->eval >= beta) {
+			   && entry_eval >= beta) {
 				
 				// Score is lower bound
 				
 				if (stats)
 					stats->nodes++;
 
-				return entry->eval;
+				return entry_eval;
 			}
 			else if (entry->flags & TT_ENTRY_FLAG_FAIL_LOW
-			   && entry->eval <= alpha) {
+			   && entry_eval <= alpha) {
 
 				// Score is higher bound
 
 				if (stats)
 					stats->nodes++;
 				
-				return entry->eval;
+				return entry_eval;
 			}
 		}
 		//Zw_SEARCH_NO_HASH_CUT:
@@ -873,7 +896,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 
 	if (depth <= 0) {
-		return new_q_search(board, 0, ply+1, stats, alpha, beta);
+		return new_q_search(board, 0, ply, stats, alpha, beta);
 	}
 
 	if (stats)
@@ -888,15 +911,17 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	
 	if (depth == 2
 	   && !initially_in_check
-	   && alpha != EVAL_MAX) {
+	   && !EVAL_IS_LOSE(alpha)) {
 
 		//const eval_t stand_pat = eval(board) * (board->sidetomove == WHITE ? 1 : -1);
 		if (!q_stand_pat_calculated) {
 			q_stand_pat = new_q_search(board, 0, ply, stats, alpha, beta);
 			q_stand_pat_calculated = true;
+
+			if (EVAL_IS_MATE(q_stand_pat)) return q_stand_pat;
 		}
 		
-		if (q_stand_pat + (80 * depth) < alpha || q_stand_pat == EVAL_MAX || q_stand_pat == EVAL_MIN)
+		if (q_stand_pat + (80 * depth) < alpha)
 			return q_stand_pat;
 	}
 
@@ -905,15 +930,16 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 	if (depth > 1 // 2
 	   && !initially_in_check
-	   && alpha != EVAL_MAX) {
+	   && !EVAL_IS_LOSE(beta)) {
 
 		const eval_t margin = depth * 95 + ((depth-2) * 20);
 		// const eval_t margin = depth * 90;
 
-		//const eval_t stand_pat = eval(board) * (board->sidetomove == WHITE ? 1 : -1);
 		if (!q_stand_pat_calculated) {
 			q_stand_pat = new_q_search(board, 0, ply, stats, alpha, beta);
 			q_stand_pat_calculated = true;
+			
+			if (EVAL_IS_MATE(q_stand_pat)) return q_stand_pat;
 		}
 		
 		if (q_stand_pat - margin >= beta)
@@ -957,10 +983,14 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	}
 	*/
 
+
 	// Null move reduction
+
 	if (!initially_in_check
 	   && depth > NULL_MOVE_PRUNING_R(depth) + 1
-	   && !is_null_move) {
+	   && !is_null_move
+	   && !EVAL_IS_LOSE(beta)) {
+
 		move_s move;
 		construct_null_move(board, &move);
 		makemove(board, &move);
@@ -993,7 +1023,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	unsigned int n_legal_moves_skipped = 0;
 	unsigned int n_legal_moves_total = 0;
 	move_s* move = NULL;
-	eval_t best_score = EVAL_MIN;
+	eval_t best_score = -EVAL_INF;
 	move_s* best_move = NULL;
 
 	for (size_t i = 0; 1; i++) {
@@ -1146,7 +1176,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			}
 
 			if (!is_null_move)
-				store_move(&tt_normal, board->hash, score, depth, encode_compact_move(move), TT_ENTRY_FLAG_FAIL_HIGH);
+				store_move(&tt_normal, board->hash, score, depth, encode_compact_move(move), TT_ENTRY_FLAG_FAIL_HIGH, ply);
 
 			return score;
 		}
@@ -1174,12 +1204,12 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			// Legal moves were actually just skipped
 			if (q_stand_pat_calculated)
 				return q_stand_pat;
-			return new_q_search(board, 0, ply+1, stats, alpha, beta);
+			return new_q_search(board, 0, ply, stats, alpha, beta);
 		}
 		else {
 			// No legal moves
 			if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
-				return EVAL_MIN + ply;
+				return -MATE + ply;
 			}
 			else { // is a stalemate (wasn't in check and no legal moves)
 				return (ply % 2 == 0 ? CONTEMPT_FACTOR : -CONTEMPT_FACTOR);
@@ -1188,7 +1218,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	}
 
 	if (!is_null_move)
-		store_move(&tt_normal, board->hash, alpha, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_FAIL_LOW);
+		store_move(&tt_normal, board->hash, alpha, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_FAIL_LOW, ply);
 
 	return best_score;
 }
@@ -1206,7 +1236,7 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, const int 
 
 
 	// Do not do evaluation of a position when in check
-	eval_t stand_pat = EVAL_MIN;
+	eval_t stand_pat = -EVAL_INF;
 	if (!initially_in_check) {
 
 		stand_pat = eval(board) * (board->sidetomove == WHITE ? 1 : -1);
@@ -1223,7 +1253,7 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, const int 
 
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
-	eval_t best_score = EVAL_MIN;
+	eval_t best_score = -EVAL_INF;
 
 	best_score = stand_pat;
 
@@ -1271,10 +1301,10 @@ static eval_t new_q_search(board_s* restrict board, const int qdepth, const int 
 
 	if (!n_legal_moves_done) {
 		if (initially_in_check) // is a checkmate (was in check and can't get out of it and all moves were generated)
-			return EVAL_MIN + ply;
+			return -MATE + ply;
 
 		// Could have been a stalemate, but since only winning captures was generated, can't know
-		assert(stand_pat != EVAL_MIN);
+		assert(stand_pat != -EVAL_INF);
 		return stand_pat;
 	}
 

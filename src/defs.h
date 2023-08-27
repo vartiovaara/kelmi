@@ -44,6 +44,9 @@ To make a move, give it in uci format."
 #define COMPACT_MOVE_FROM(x) ((x & 0xfc00) >> 10) // 0b1111_1100_0000_0000 = 0xFC00
 #define COMPACT_MOVE_TO(x) ((x & 0x03f0) >> 4) // 0b0000_0011_1111_0000 = 0x3F0
 #define COMPACT_MOVE_PROMOTETO(x) ((x & 0x0007)) // 0b0000_0000_0000_0111 = 0x7
+#define EVAL_IS_MATE(eval) (EVAL_IS_WIN(eval) || EVAL_IS_LOSE(eval))
+#define EVAL_IS_WIN(eval) ((eval) > EVAL_MAX)
+#define EVAL_IS_LOSE(eval) ((eval) < EVAL_MIN)
 
 
 // Compact move promote flag
@@ -157,11 +160,11 @@ To make a move, give it in uci format."
 #define DIRECTION_NW 7
 
 
-// Eval type max and min
-#define EVAL_MAX (INT_MAX - 10000)
-#define EVAL_MIN (-EVAL_MAX) //INT_MIN
-#define BIG_EVAL_MAX (LONG_MAX - 10000)
-#define BIG_EVAL_MIN (-BIG_EVAL_MAX) //LONG_MIN
+// Eval max and min
+#define EVAL_MAX (50000)
+#define EVAL_MIN (-EVAL_MAX)
+#define EVAL_INF (70000)
+#define MATE     (60000)
 
 // Eval values
 #define EVAL_PAWN_MATERIAL_VALUE 100

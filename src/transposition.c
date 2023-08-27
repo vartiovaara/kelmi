@@ -113,9 +113,10 @@ bool retrieve_entry(tt_s* restrict tt, tt_entry_s* restrict entry, uint64_t hash
 }
 
 // TODO: Implement qsearch replacement strategy
-void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint16_t move, uint8_t flags) {
+void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint16_t move, uint8_t flags, int ply) {
 	assert(COMPACT_MOVE_FROM(move) < 64);
 	assert(COMPACT_MOVE_TO(move) < 64);
+	assert(eval <= MATE && eval >= -MATE);
 
 	const size_t index = get_entry_index(tt, hash);
 
@@ -146,6 +147,16 @@ void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint
 		if (!(flags & TT_ENTRY_FLAG_PV_NODE) && tt->entries[bucket_n][index].flags & TT_ENTRY_FLAG_PV_NODE)
 			return; // already had a pv node here
 	}
+
+	// Make the "mate in n ply" score relative to this position in tree by "ply"
+	
+	// Ply had been added during discovery of mate at deeper
+	// ply, now only difference between nodes exist
+
+	if (EVAL_IS_WIN(eval))
+		eval += ply;
+	else if (EVAL_IS_LOSE(eval))
+		eval -= ply;
 
 
 	make_tt_entry(&(tt->entries[bucket_n][index]), hash, eval, search_depth, move, flags);
