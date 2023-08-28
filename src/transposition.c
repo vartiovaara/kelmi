@@ -10,44 +10,38 @@
 #include "defs.h"
 
 // transposition tables will be split in this many "buckets"
-#define N_BUCKETS 4
+#define BUCKET_SIZE 4
+
+#define ALIGN_BOUNDARY (128)
 
 
 tt_s tt_normal; // transposition table for normal positions
-tt_s tt_q; // transposition table for quiescense search
 
 
-void allocate_table(tt_s* tt, size_t n);
-void free_table(tt_s* tt);
-static inline size_t get_entry_index(const tt_s* tt, uint64_t hash);
+static inline tt_entry_s* get_bucket(const tt_s* tt, uint64_t hash);
 static inline void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, uint8_t search_depth, uint16_t move, uint8_t flags);
 
 
 void allocate_table(tt_s* tt, size_t n) {
-	assert(n >= N_BUCKETS); // minimum size
+	assert(n >= BUCKET_SIZE); // minimum size
 
 	memset(tt, 0, sizeof (tt_s));
 
-	tt->n_buckets = N_BUCKETS;
+	// make the number of entries be divisible by BUCKET_SIZE
+	n -= n % BUCKET_SIZE;
 
-	// make the number of entries be divisible by N_BUCKETS
-	n -= n % N_BUCKETS;
+	tt->n_buckets = n / BUCKET_SIZE;
 
-	tt->n_entries = n / N_BUCKETS;
-
-	//tt->entries = calloc(N_BUCKETS, sizeof (tt_entry_s*));
-	tt->entries = malloc(N_BUCKETS * sizeof (tt_entry_s*));
+	tt->table_alloc = malloc((tt->n_buckets*BUCKET_SIZE) * sizeof (tt_entry_s) + ALIGN_BOUNDARY);
 	
+	tt->entries = (tt_entry_s*)(tt->table_alloc + (ALIGN_BOUNDARY - ((size_t)tt->table_alloc % ALIGN_BOUNDARY)));
+
 	if (!tt->entries)
 		goto ALLOCATE_TABLE_ALLOC_ERROR;
 
-	
-	for (size_t i = 0; i < N_BUCKETS; i++) {
-		//tt->entries[i] = calloc(tt->n_entries, sizeof (tt_entry_s));
-		tt->entries[i] = malloc(tt->n_entries * sizeof (tt_entry_s));
-		if (!tt->entries[i])
-			goto ALLOCATE_TABLE_ALLOC_ERROR;
-	}
+	if ((size_t)tt->entries % ALIGN_BOUNDARY != 0)
+		goto ALLOCATE_TABLE_ALLOC_ERROR;
+
 
 	return;
 
@@ -58,14 +52,12 @@ void allocate_table(tt_s* tt, size_t n) {
 
 
 void free_table(tt_s* tt) {
-	for (size_t i = 0; i < tt->n_buckets; i++)
-		free(tt->entries[i]);
-	free(tt->entries);
+	free(tt->table_alloc);
 }
 
 
-static inline size_t get_entry_index(const tt_s* tt, uint64_t hash) {
-	return hash % tt->n_entries;
+static inline tt_entry_s* get_bucket(const tt_s* tt, uint64_t hash) {
+	return tt->entries + ((hash % tt->n_buckets) * BUCKET_SIZE);
 }
 
 
@@ -80,36 +72,18 @@ static inline void make_tt_entry(tt_entry_s* entry, uint64_t hash, eval_t eval, 
 	entry->flags = flags;
 }
 
-tt_entry_s* probe_table(const tt_s* tt, uint64_t hash) {
+const tt_entry_s* probe_table(const tt_s* tt, uint64_t hash) {
 
-	const size_t index = get_entry_index(tt, hash);
+	const tt_entry_s* bucket = get_bucket(tt, hash);
 
-	for (size_t i = 0; i < tt->n_buckets; i++) {
+	for (size_t i = 0; i < BUCKET_SIZE; i++) {
 		
-		const tt_entry_s* current_entry = &(tt->entries[i][index]);
-
-		if (!current_entry->bestmove)
-			continue; // entry didn't exist
+		if (bucket[i].hash == hash)
+			return &bucket[i];
 		
-		if (current_entry->hash != hash)
-			continue; // entry didin't match
-		
-		return current_entry;
 	}
 	
 	return NULL;
-}
-
-bool retrieve_entry(tt_s* restrict tt, tt_entry_s* restrict entry, uint64_t hash) {
-
-	tt_entry_s* tt_entry = probe_table(tt, hash);
-
-	if (!tt_entry)
-		return false;
-
-	memcpy(entry, tt_entry, sizeof (tt_entry_s));
-	
-	return true;
 }
 
 // TODO: Implement qsearch replacement strategy
@@ -118,33 +92,33 @@ void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint
 	assert(COMPACT_MOVE_TO(move) < 64);
 	assert(eval <= MATE && eval >= -MATE);
 
-	const size_t index = get_entry_index(tt, hash);
+	tt_entry_s* restrict bucket = get_bucket(tt, hash);
 
-	// n of bucket where to store
-	size_t bucket_n;
+	// n of entry where to store
+	size_t entry_n;
 
 	// find first empty entry or the same hash
 	bool need_to_replace = true;
-	for (size_t i = 0; i < N_BUCKETS; i++) {
-		if (tt->entries[i][index].hash != hash)
+	for (size_t i = 0; i < BUCKET_SIZE; i++) {
+		if (bucket[i].hash != hash)
 			continue;
-		if (tt->entries[i][index].bestmove != 0x0)
+		if (bucket[i].bestmove != 0x0)
 			continue;
 		
 		need_to_replace = false;
-		bucket_n = i;
+		entry_n = i;
 		break;
 	}
 
 	// TODO: Make a replacement stratgy
 	if (need_to_replace)
-		bucket_n = tt->counter++ % N_BUCKETS; // Select a random entry to be replaced
+		entry_n = tt->counter++ % BUCKET_SIZE; // Select a random entry to be replaced
 	else {
-		if (tt->entries[bucket_n][index].search_depth >= search_depth)
+		if (bucket[entry_n].search_depth >= search_depth)
 			return; // already had a node with bigger depth here
-		if (!(flags & TT_ENTRY_FLAG_EXACT) && tt->entries[bucket_n][index].flags & TT_ENTRY_FLAG_EXACT)
+		if (!(flags & TT_ENTRY_FLAG_EXACT) && bucket[entry_n].flags & TT_ENTRY_FLAG_EXACT)
 			return; // already had a exact value
-		if (!(flags & TT_ENTRY_FLAG_PV_NODE) && tt->entries[bucket_n][index].flags & TT_ENTRY_FLAG_PV_NODE)
+		if (!(flags & TT_ENTRY_FLAG_PV_NODE) && bucket[entry_n].flags & TT_ENTRY_FLAG_PV_NODE)
 			return; // already had a pv node here
 	}
 
@@ -159,6 +133,6 @@ void store_move(tt_s* tt, uint64_t hash, eval_t eval, uint8_t search_depth, uint
 		eval -= ply;
 
 
-	make_tt_entry(&(tt->entries[bucket_n][index]), hash, eval, search_depth, move, flags);
+	make_tt_entry(&(bucket[entry_n]), hash, eval, search_depth, move, flags);
 }
 

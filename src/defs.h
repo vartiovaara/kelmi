@@ -489,21 +489,15 @@ typedef struct {
 	uint64_t hash;
 	eval_t eval;
 	uint8_t search_depth; // depth of the search
-	//uint8_t depth; // depth of this node
-	uint8_t flags; // TODO: Maybe do something with this
+	uint8_t flags;
 	uint16_t bestmove;
-	/*
-	uint8_t bestmove_from;
-	uint8_t bestmove_to;
-	uint8_t bestmove_promoteto;
-	*/
-	//uint64_t bestmove_hash; // hash of the board after bestmove has been done
 } tt_entry_s;
 
 typedef struct {
-	tt_entry_s** entries; // [bucket][entry]
+	char* table_alloc; // Base of malloc. tt_s->entries could be offset to be alogned
+	tt_entry_s* entries; // [(bucket_n*BUCKET_SIZE) + entry]
 	size_t n_buckets; // n of buckets
-	size_t n_entries; // n entries per bucket
+	//size_t n_entries; // n entries per bucket
 	unsigned int counter; // FIXME: counter to be used for just random replacement
 } tt_s;
 
