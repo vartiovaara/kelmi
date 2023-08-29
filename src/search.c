@@ -480,6 +480,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 
 	bool tt_entry_found = false;
+	uint8_t tt_entry_flags = 0x0;
 	uint16_t tt_entry_bestmove = 0x0;
 	tt_entry_s* entry = probe_table(&tt_normal, board->hash);
 	
@@ -542,6 +543,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 		tt_entry_found = true;
 		tt_entry_bestmove = entry->bestmove;
+		tt_entry_flags = entry->flags;
 	}
 	PV_SEARCH_HASH_MOVE_COLLISION:
 
@@ -574,11 +576,35 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 
 
-
-
-
 	if (stats)
 		stats->nodes++;
+
+
+
+	// Internal Iterative Deepening
+
+	if (depth >= 4 && !tt_entry_found) {
+
+		int new_depth = depth - 2;
+		if (depth > 6) new_depth--;
+		//ASSERT(new_depth>0);
+
+		eval_t value = pv_search(board, new_depth, ply, stats, pv, start_time, time_available, false, alpha, beta);
+		if (value <= alpha && !abort_search) value = pv_search(board, new_depth, ply, stats, pv, start_time, time_available, false, -EVAL_INF, beta);
+
+		if (abort_search)
+			return 0;
+
+
+		if (pv->n_moves[ply] > 0) {
+			tt_entry_found = true;
+			tt_entry_bestmove = pv->pv[ply][0];
+			pv->n_moves[ply] = 0;
+		}
+
+	}
+
+
 
 
 
@@ -921,7 +947,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			if (EVAL_IS_MATE(q_stand_pat)) return q_stand_pat;
 		}
 		
-		if (q_stand_pat + (80 * depth) < alpha)
+		if (q_stand_pat + 500 < alpha)
 			return q_stand_pat;
 	}
 
@@ -930,7 +956,8 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 
 	if (depth > 1 // 2
 	   && !initially_in_check
-	   && !EVAL_IS_LOSE(beta)) {
+	   && !EVAL_IS_LOSE(beta)
+	   && false) {
 
 		const eval_t margin = depth * 95 + ((depth-2) * 20);
 		// const eval_t margin = depth * 90;
@@ -989,7 +1016,8 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 	if (!initially_in_check
 	   && depth > NULL_MOVE_PRUNING_R(depth) + 1
 	   && !is_null_move
-	   && !EVAL_IS_LOSE(beta)) {
+	   && !EVAL_IS_LOSE(beta)
+	   && eval(board) * (board->sidetomove == WHITE ? 1 : -1) >= beta) {
 
 		move_s move;
 		construct_null_move(board, &move);
@@ -1137,7 +1165,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			// LMR is allowed
 
 			if (n_legal_moves_total > 5) depth_modifier -= 1;
-			if (n_legal_moves_total > 10) depth_modifier -= 1;
+			//if (n_legal_moves_total > 10) depth_modifier -= 1;
 			if (n_legal_moves_total > 20) depth_modifier -= 1;
 			//if (depth <= 4 && n_legal_moves_done > 9) depth_modifier -= 1;
 			//if (depth >= 4 && n_legal_moves_done > 9) depth_modifier -= 1;
