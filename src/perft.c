@@ -111,45 +111,6 @@ void perft(board_s* board, const unsigned int depth) {
 }
 
 
-void pruned_perft(board_s* board, const unsigned int depth) {
-	printf("Starting pruned perft with depth %u...\n\n", depth);
-
-	search_stats_s stats;
-	move_s bestmove;
-
-	clock_t t = clock();
-	
-	eval_t eval = search_with_stats(board, &bestmove, depth, &stats);
-	
-	t = clock() - t;
-	double time_taken = ((double)t)/CLOCKS_PER_SEC;
-
-
-	char move[6];
-	move_to_uci_notation(&bestmove, move);
-	printf("Best move: %s\n", move);
-	printf("Eval: %i centipawns.\n", eval);
-	printf("%llu nodes searched in %3fs\n", stats.nodes, time_taken);
-	printf("%f Nps\n\n", (float)stats.nodes/time_taken);
-
-	unsigned long long total_fail_hard = 0;
-	for (unsigned int i = 0; i <= stats.n_plies; i++) {
-		printf("Depth %u:\n", i);
-		printf("N positions: %llu\n", stats.n_positions[i]);
-		printf("fail-hard cutoffs: %llu\n", stats.fail_hard_cutoffs[i]);
-
-		total_fail_hard += stats.fail_hard_cutoffs[i];
-	}
-	printf("\n");
-	printf("Moves generated: %llu\n", stats.n_moves_generated);
-	printf("Total fail-hard cutoffs: %llu\n", total_fail_hard);
-	printf("Transposition table hits: %llu\n", stats.hashtable_hits);
-
-	free(stats.n_positions);
-	free(stats.fail_hard_cutoffs);
-}
-
-
 
 /*
  * a recursive search algorithm.
