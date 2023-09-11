@@ -8,7 +8,6 @@ Init stuff
 
 #include "defs.h"
 #include "lookup.h"
-#include "magicmoves/magicmoves.h"
 #include "random.h"
 #include "transposition.h"
 
@@ -19,10 +18,9 @@ int init_all() {
 	reset_lookups();
 	compute_lookups();
 	set_lookup_pointers();
-	initmagicmoves();
 
 	// FIXME: testing
-	allocate_table(&tt_normal, 64000000 / sizeof (tt_entry_s));
+	// allocate_table(&tt_normal, 64000000 / sizeof (tt_entry_s));
 
 	/*
 	unsigned int i; unsigned long l; BitBoard ll;

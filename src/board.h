@@ -36,10 +36,10 @@ void resetboard(board_s* board);
 // Performs a move. Do not use with wrong side piece.
 // NOTE: Currently relies heavily on board->sidetomove in logic
 // TODO: Maybe add a side variable for a move
-void makemove(board_s* restrict board, const move_s* restrict move);
+void makemove(board_s* restrict board, const move_s move);
 
 // Undoes the latest move done (function not done)
-void unmakemove(board_s* restrict board, const move_s* restrict move);
+// void unmakemove(board_s* restrict board, const move_s* restrict move);
 
 /*
  * Performs a castling. See castling_e enum in defs.h.
@@ -51,32 +51,32 @@ void unmakemove(board_s* restrict board, const move_s* restrict move);
 
 // Finds, which one of the bitboards holds the piece.
 // exit(1) on not found
-unsigned int get_piece_type(const board_s* board, const unsigned int side, const BitBoard piecebb);
+// unsigned int get_piece_type(const board_s* board, const unsigned int side, const BitBoard piecebb);
 
 // Returns, what side the piece is
-unsigned int get_piece_side(const board_s* board, const BitBoard piecebb);
+// unsigned int get_piece_side(const board_s* board, const BitBoard piecebb);
 
 
 #ifndef NDEBUG
 
-void set_move_history_size(board_s* board, const size_t size);
+// void set_move_history_size(board_s* board, const size_t size);
 
-void append_to_move_history(board_s* board, const move_s* move);
+// void append_to_move_history(board_s* board, const move_s* move);
 
-void free_move_history(const board_s* board);
+// void free_move_history(const board_s* board);
 
 // Made some changes to "to" but now want to revert to old copy ("from")?
 // This function copies everything exept move history memory information.
-void restore_board(board_s* restrict to, board_s* restrict from);
+// void restore_board(board_s* restrict to, board_s* restrict from);
 
-void write_move_history(const board_s* board, FILE* f);
+void write_move_history(const move_s* restrict moves, const size_t n, FILE* restrict f);
 
 #endif // NDEBUG
 
 
-uint64_t calculate_board_hash(const board_s* board);
+// uint64_t calculate_board_hash(const board_s* board);
 
 // Uses board move history to make decision.
-bool is_draw_by_repetition(const board_s* board);
+// bool is_draw_by_repetition(const board_s* board);
 
 #endif // BOARD_H

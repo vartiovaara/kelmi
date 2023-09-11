@@ -413,30 +413,6 @@ static void calculate_eval_data(const board_s* restrict board, eval_data_s* rest
 	data->phase = get_game_phase_value(board);
 
 
-	for (int side = 0; side < 2; side++) {
-
-		unsigned int piece_index = 0; // Holds current piece index of the piece for data->moves
-		
-		for (int piece = 0; piece < N_PIECES; piece++) {
-			// Store material amount
-			data->material_amount[side][piece] = popcount(board->pieces[side][piece]);
-
-			// Store moves for these pieces
-			BitBoard pieces_copy = board->pieces[side][piece];
-			while (pieces_copy) {
-				BitBoard current_piece = pop_bitboard(&pieces_copy);
-				BitBoard moves = get_pseudo_legal_squares(board, side, piece, current_piece, false);
-				data->moves[side][piece_index] = moves;
-				data->piece_moves[lowest_bitindex(current_piece)] = &(data->moves[side][piece_index]);
-				piece_index++;
-
-				
-				BitBoard king_attacks = moves & piecelookup(lowest_bitindex(board->pieces[OPPOSITE_SIDE(side)][KING]), KING, 0);
-				data->king_attacks[side] += king_attack_value[piece] * popcount(king_attacks);
-				if (king_attacks) data->n_king_attackers[side]++;
-			}
-		}
-	}
 }
 
 
@@ -546,37 +522,44 @@ static eval_t eval_movable_squares(const board_s* board) {
 	// movelist_s moves;
 	// move_s move[30];
 
+	res += popcount(r_attacks(board->pieces[WHITE][ROOK] | board->pieces[WHITE][QUEEN], ~board->every_piece)) * EVAL_MOVABLE_SQUARES_MULT;
+	res -= popcount(r_attacks(board->pieces[BLACK][ROOK] | board->pieces[BLACK][QUEEN], ~board->every_piece)) * EVAL_MOVABLE_SQUARES_MULT;
+	res += popcount(b_attacks(board->pieces[WHITE][BISHOP] | board->pieces[WHITE][QUEEN], ~board->every_piece)) * EVAL_MOVABLE_SQUARES_MULT;
+	res -= popcount(b_attacks(board->pieces[BLACK][BISHOP] | board->pieces[BLACK][QUEEN], ~board->every_piece)) * EVAL_MOVABLE_SQUARES_MULT;
+	res += popcount(n_attacks(board->pieces[WHITE][KNIGHT])) * EVAL_MOVABLE_SQUARES_MULT;
+	res -= popcount(n_attacks(board->pieces[BLACK][KNIGHT])) * EVAL_MOVABLE_SQUARES_MULT;
 
-	for (unsigned int i = 0; i < LENGTH(movable_squares_types); i++) {
-		BitBoard w_pieces = board->pieces[WHITE][movable_squares_types[i]];//board->all_pieces[WHITE] & ~(board->pieces[WHITE][KING]);
-		while (w_pieces) {
-			const BitBoard piece = pop_bitboard(&w_pieces);
-			const BitBoard movable_squares = get_pseudo_legal_squares(board, WHITE, movable_squares_types[i], piece, true);
-			// Pawn mobility matters less than everything else
-			// if (piece & board->pieces[WHITE][PAWN])
-			// 	res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT / 2;
-			// else
-			// 	res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
-			res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
-			// TODO: Do pawns on their own
-			// if (moves.n)
-			// 	free(moves.moves);
-		}
 
-		BitBoard b_pieces = board->pieces[BLACK][movable_squares_types[i]];//board->all_pieces[BLACK] & ~(board->pieces[BLACK][KING]);
-		while (b_pieces) {
-			const BitBoard piece = pop_bitboard(&b_pieces);
-			const BitBoard movable_squares = get_pseudo_legal_squares(board, BLACK, movable_squares_types[i], piece, true);
-			// Pawn mobility matters less than everything else
-			// if (piece & board->pieces[BLACK][PAWN])
-			// 	res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT / 2;
-			// else
-			// 	res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
-			res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
-			// if (moves.n)
-			// 	free(moves.moves);
-		}
-	}
+	// for (unsigned int i = 0; i < LENGTH(movable_squares_types); i++) {
+	// 	BitBoard w_pieces = board->pieces[WHITE][movable_squares_types[i]];//board->all_pieces[WHITE] & ~(board->pieces[WHITE][KING]);
+	// 	while (w_pieces) {
+	// 		const BitBoard piece = pop_bitboard(&w_pieces);
+	// 		const BitBoard movable_squares = get_pseudo_legal_squares(board, WHITE, movable_squares_types[i], piece, true);
+	// 		// Pawn mobility matters less than everything else
+	// 		// if (piece & board->pieces[WHITE][PAWN])
+	// 		// 	res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT / 2;
+	// 		// else
+	// 		// 	res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
+	// 		res += popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
+	// 		// TODO: Do pawns on their own
+	// 		// if (moves.n)
+	// 		// 	free(moves.moves);
+	// 	}
+
+	// 	BitBoard b_pieces = board->pieces[BLACK][movable_squares_types[i]];//board->all_pieces[BLACK] & ~(board->pieces[BLACK][KING]);
+	// 	while (b_pieces) {
+	// 		const BitBoard piece = pop_bitboard(&b_pieces);
+	// 		const BitBoard movable_squares = get_pseudo_legal_squares(board, BLACK, movable_squares_types[i], piece, true);
+	// 		// Pawn mobility matters less than everything else
+	// 		// if (piece & board->pieces[BLACK][PAWN])
+	// 		// 	res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT / 2;
+	// 		// else
+	// 		// 	res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
+	// 		res -= popcount(movable_squares) * EVAL_MOVABLE_SQUARES_MULT;
+	// 		// if (moves.n)
+	// 		// 	free(moves.moves);
+	// 	}
+	// }
 
 	return res;
 }

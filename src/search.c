@@ -634,11 +634,8 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 			else
 				target_squares = (move->flags & FLAG_KCASTLE ? BK_CASTLE_ATTACK_MASK : BQ_CASTLE_ATTACK_MASK);
 			
-			//FIXME: This shit is slow as fuck. Make those attack maps pls.
-			while (target_squares) {
-				if (is_side_attacking_sq(board, pop_bitboard(&target_squares), OPPOSITE_SIDE(board->sidetomove)))
-					goto PV_SEARCH_SKIP_MOVE_PRE_MAKE;
-			}
+			if (is_side_attacking_sq(board, target_squares, OPPOSITE_SIDE(board->sidetomove)))
+				goto PV_SEARCH_SKIP_MOVE_PRE_MAKE;
 		}
 
 		assert(move->from & board->all_pieces[board->sidetomove]);
@@ -1049,11 +1046,8 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			else
 				target_squares = (move->flags & FLAG_KCASTLE ? BK_CASTLE_ATTACK_MASK : BQ_CASTLE_ATTACK_MASK);
 			
-			//FIXME: This shit is slow as fuck. Make those attack maps pls.
-			while (target_squares) {
-				if (is_side_attacking_sq(board, pop_bitboard(&target_squares), OPPOSITE_SIDE(board->sidetomove)))
-					goto ZW_SEARCH_SKIP_MOVE_PRE_MAKE;
-			}
+			if (is_side_attacking_squares(board, target_squares, OPPOSITE_SIDE(board->sidetomove)))
+				goto ZW_SEARCH_SKIP_MOVE_PRE_MAKE;
 		}
 
 

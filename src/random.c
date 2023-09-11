@@ -100,7 +100,7 @@ static uint64_t case_1(void) {
     x = x ^ (melg[melgi + LAG1] & MASK1);
     ++melgi;
     if (melgi == NN - MM) genrand64_int64 = case_2;
-    return flip_vertical(x);
+    return FLIP_VERTICAL(x);
 }
 
 static uint64_t case_2(void) {
@@ -111,7 +111,7 @@ static uint64_t case_2(void) {
     x = x ^ (melg[melgi + LAG1] & MASK1);
     ++melgi;
     if (melgi == LAG1over) genrand64_int64 = case_3;
-    return flip_vertical(x);
+    return FLIP_VERTICAL(x);
 }
 
 static uint64_t case_3(void) {
@@ -122,7 +122,7 @@ static uint64_t case_3(void) {
     x = x ^ (melg[melgi - LAG1over] & MASK1);
     ++melgi;
     if (melgi == NN-1) genrand64_int64 = case_4;
-    return flip_vertical(x);
+    return FLIP_VERTICAL(x);
 }
 
 static uint64_t case_4(void) {
@@ -133,7 +133,7 @@ static uint64_t case_4(void) {
     x = x ^ (melg[melgi - LAG1over] & MASK1);
     melgi = 0;
     genrand64_int64 = case_1;
-    return flip_vertical(x);
+    return FLIP_VERTICAL(x);
 }
 
 /* generates a random number on [0, 2^63-1]-interval */

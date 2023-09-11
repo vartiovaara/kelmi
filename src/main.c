@@ -17,7 +17,7 @@
 
 #include "defs.h"
 
-
+/*
 // TODO: NOT DONE NOT PLAYABLE
 // side = side the human plays as
 void play_against(unsigned int side) {
@@ -43,6 +43,7 @@ void play_against(unsigned int side) {
 		}
 	}
 }
+*/
 
 
 int main(void) {
@@ -89,7 +90,8 @@ int main(void) {
 		//printf("got: %s with len: %lu \n", input, len);
 
 		if (!strncmp(input, "play", 4) && len > 4) {
-			play_against(input[4] == 'w' ? WHITE : BLACK);
+			// play_against(input[4] == 'w' ? WHITE : BLACK);
+			continue;
 		}
 		else if (!strncmp(input, "perft ", 6)) {
 			if (len != 7)
@@ -99,16 +101,24 @@ int main(void) {
 				continue;
 			}
 			board_s board = boardfromfen(DEFAULT_FEN);
+			printboard(&board);
+			printbitboard(OCCUPANCY(&board));
+			printbitboard(PAWNS(&board));
 			perft(&board, input[6]-48);
 #ifndef NDEBUG
-			free_move_history(&board);
+			// free_move_history(&board);
 #endif // NDEBUG
+		}
+		else if (!strncmp(input, "perftsuite", 10)) {
+			perft_suite();
+			continue;
 		}
 		else if (!strcmp(input, "xboard")) {
 			printf("XBoard not supported.\n");
 			goto MAIN_NORMAL_EXIT;
 		}
 		else if (!strcmp(input, "uci")) {
+			/*
 			const size_t filename_n = 30; // yyyy_mm_dd_hh_mm_ss_ + (pid len<=8 i guess) + '\0'
 			char filename[filename_n];
 			time_t curtime = time(NULL);
@@ -122,6 +132,8 @@ int main(void) {
 			setbuf(f, NULL);
 			uci(f);
 			fclose(f);
+			*/
+			continue;
 
 			goto MAIN_NORMAL_EXIT;
 		}
@@ -139,7 +151,7 @@ int main(void) {
 
 	MAIN_NORMAL_EXIT:
 
-	free_table(&tt_normal);
+	// free_table(&tt_normal);
 
 	return 0;
 }

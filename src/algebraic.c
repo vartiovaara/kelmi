@@ -11,7 +11,7 @@ Stuff with algabreic move representation.
 #include "defs.h"
 
 
-const char piece_chars[N_PIECES] = {
+const char piece_chars[] = {
 	[KING] = 'k',
 	[QUEEN] = 'q',
 	[BISHOP] = 'b',
@@ -42,5 +42,5 @@ void sqtoalg(char* alg, const unsigned int sq) {
 
 
 void bbtoalg(char* alg, const BitBoard bb) {
-	sqtoalg(alg, lowest_bitindex(bb));
+	sqtoalg(alg, LOWEST_BITINDEX(bb));
 }

@@ -25,10 +25,10 @@ Stuff about boards and bitboards.
 
 
 //void makemove_pawn(board_s* restrict board, const move_s* restrict move);
-static void movepiece(board_s* board, const unsigned int type, const BitBoard from, const BitBoard to);
-static void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type);
-static void addpiece(board_s*, const BitBoard pos, const unsigned int side, const unsigned int type);
-static void move_castling_pieces(board_s* restrict board, const move_s* restrict move, const bool undo);
+// static void movepiece(board_s* board, const unsigned int type, const BitBoard from, const BitBoard to);
+// static void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type);
+// static void addpiece(board_s*, const BitBoard pos, const unsigned int side, const unsigned int type);
+// static void move_castling_pieces(board_s* restrict board, const move_s* restrict move, const bool undo);
 
 
 
@@ -36,16 +36,24 @@ void printboard(const board_s* board) {
 	BitBoard pos = A8; // top-left
 	do {
 		char ch = NO_PIECE_CHAR;
-		for (int piece = 0; piece < N_PIECES; piece++) {
-			if (pos & board->pieces[WHITE][piece]) {
-				ch = toupper(piecetochar(piece));
-				break;
-			}
-			else if (pos & board->pieces[BLACK][piece]) {
-				ch = tolower(piecetochar(piece));
-				break;
-			}
+		// for (int piece = EMPTY; piece < PIECE_LAST; piece++) {
+		// 	if (pos & PIECES(board, piece) & board->pm) {
+		// 		ch = toupper(piecetochar(piece));
+		// 		break;
+		// 	}
+		// 	else if (pos & PIECES(board, piece)) {
+		// 		ch = tolower(piecetochar(piece));
+		// 		break;
+		// 	}
+		// }
+		if (pos & OCCUPANCY(board)) {
+			ch = piecetochar(PIECE_SQ(board, LOWEST_BITINDEX(pos)));
+			if (pos & board->pm)
+				ch = toupper(ch);
+			else
+				ch = tolower(ch);
 		}
+
 		printf("%c ", ch);
 		// check if pos is on h-file and nl
 		if (pos & RIGHT_MASK) {
@@ -139,6 +147,8 @@ board_s boardfromfen(const char* fen_str) {
 	board_s board;
 	resetboard(&board);
 
+
+
 	// Parse piece positions
 	for (int y = 0; y < 8; y++) {
 		BitBoard pos = SQTOBB((7-y)*8);
@@ -168,10 +178,8 @@ board_s boardfromfen(const char* fen_str) {
 					default:
 						assert(0);
 				}
-				const int side = (isupper(pos_row[y][i]) ? WHITE : BLACK);
-				board.pieces[side][piececode] |= pos;
-				board.all_pieces[side] |= pos;
-				board.every_piece |= pos;
+				//const int is_movers_piece = (bool)(isupper(pos_row[y][i]) ? (moving_side==WHITE) : (moving_side==BLACK));
+				ADD_PIECE(&board, pos, isupper(pos_row[y][i])>=1, piececode);
 				pos <<= 1;
 			}
 			else if (isdigit(pos_row[y][i])) {
@@ -181,41 +189,47 @@ board_s boardfromfen(const char* fen_str) {
 	}
 
 	// Parse side to move
+	
+	unsigned int moving_side;
+
 	if (tolower(movingside[0]) == 'w')
-		board.sidetomove = WHITE;
+		moving_side = WHITE;
 	else
-		board.sidetomove = BLACK;
+		moving_side = BLACK;
 
 	// Parse castling ability
 	if (strchr(castling, 'K'))
-		board.castling |= WKCASTLE;
+		board.castling |= (moving_side == WHITE ? (MKCASTLE) : (OKCASTLE));
 	if (strchr(castling, 'Q'))
-		board.castling |= WQCASTLE;
+		board.castling |= (moving_side == WHITE ? (MQCASTLE) : (OQCASTLE));
 	if (strchr(castling, 'k'))
-		board.castling |= BKCASTLE;
+		board.castling |= (moving_side == BLACK ? (MKCASTLE) : (OKCASTLE));
 	if (strchr(castling, 'q'))
-		board.castling |= BQCASTLE;
+		board.castling |= (moving_side == BLACK ? (MQCASTLE) : (OQCASTLE));
 	
 	// Parse en passant
 	if (en_passant[0] != '-')
-		board.en_passant = algsqtobb(en_passant);
+		board.en_passant = algsqtoint(en_passant) % 8;
 	else
-		board.en_passant = 0; // no en passant
+		board.en_passant = 8; // no en passant
 	
 	// Move counters
 	board.fiftym_counter = strtoul(halfmove, NULL, 10);
-	board.fullmoves = strtoul(fullmove, NULL, 10);
+	//board.fullmoves = strtoul(fullmove, NULL, 10);
 
 	// set board hash
-	board.hash = calculate_board_hash(&board);
+	//board.hash = calculate_board_hash(&board);
 
 	// set side in check
-	if (is_in_check(&board, WHITE))
-		board.side_in_check = WHITE;
-	else if (is_in_check(&board, BLACK))
-		board.side_in_check = BLACK;
-	else
-		board.side_in_check = SIDE_NONE;
+	// if (is_in_check(&board, WHITE))
+	// 	board.side_in_check = WHITE;
+	// else if (is_in_check(&board, BLACK))
+	// 	board.side_in_check = BLACK;
+	// else
+	// 	board.side_in_check = SIDE_NONE;
+
+	if (moving_side == 'b')
+		FLIP_BOARD(&board);
 
 	/*
 #ifndef NDEBUG
@@ -236,65 +250,63 @@ board_s boardfromfen(const char* fen_str) {
 
 void resetboard(board_s* board) {
 	memset(board, 0, sizeof (board_s));
+	board->en_passant = 8; // no en passant
 }
 
 
 /*
 TODO: Test the eligibility of this function
 */
-static void movepiece(board_s* board, const unsigned int type, const BitBoard from, const BitBoard to) {
-	assert(popcount(to) == 1);
-	assert(popcount(from) == 1);
-	assert(to ^ board->every_piece); //??
+// static void movepiece(board_s* board, const unsigned int type, const BitBoard from, const BitBoard to) {
+// 	assert(popcount(to) == 1);
+// 	assert(popcount(from) == 1);
+// 	assert(to ^ board->every_piece); //??
 
-	assert(board->every_piece == (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
+// 	assert(board->every_piece == (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
 
-	assert(!(board->every_piece & to));
+// 	assert(!(board->every_piece & to));
 
-	// Otherwise we'd need to have a 4th argument
-	unsigned int side = get_piece_side(board, from);
+// 	// Otherwise we'd need to have a 4th argument
+// 	unsigned int side = get_piece_side(board, from);
 	
 	
-	// FIXME: Why the fuck would the ^= (from | to) not work. Crash at Fine #70
-	removepiece(board, from, side, type);
-	addpiece(board, to, side, type);
-	//board->pieces[side][type] ^= from | to;
-	//board->all_pieces[side] ^= from | to;
-	//board->every_piece ^= from | to;
-	//board->hash ^= hash_rand_piece[side][type][lowest_bitindex(from)];
-	//board->hash ^= hash_rand_piece[side][type][lowest_bitindex(to)];
+// 	// FIXME: Why the fuck would the ^= (from | to) not work. Crash at Fine #70
+// 	removepiece(board, from, side, type);
+// 	addpiece(board, to, side, type);
+// 	//board->pieces[side][type] ^= from | to;
+// 	//board->all_pieces[side] ^= from | to;
+// 	//board->every_piece ^= from | to;
+// 	//board->hash ^= hash_rand_piece[side][type][lowest_bitindex(from)];
+// 	//board->hash ^= hash_rand_piece[side][type][lowest_bitindex(to)];
 
-	assert(board->every_piece == (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
-}
-
-
-static void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type) {
-	assert(popcount(pos) == 1);
-	assert(side == WHITE || side == BLACK);
-	assert(type < N_PIECES);
-	assert(board->pieces[side][type] & pos);
-
-	board->pieces[side][type] &= ~pos;
-	board->all_pieces[side] &= ~pos;
-	board->every_piece &= ~pos;
-	//board->pieces[side][type] ^= pos;
-	//board->all_pieces[side] ^= pos;
-	//board->every_piece ^= pos;
-	board->hash ^= hash_rand_piece[side][type][lowest_bitindex(pos)];
-}
+// 	//assert(board->every_piece == (board->all_pieces[WHITE] | board->all_pieces[BLACK]));
+// }
 
 
-static void addpiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type) {
-	assert(popcount(pos) == 1);
-	assert(side == WHITE || side == BLACK);
-	assert(type < N_PIECES);
-	assert(board->pieces[side][type] ^ pos); // check that there wasn't a piece already
+// static void removepiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type) {
+// 	assert(popcount(pos) == 1);
+// 	assert(side == WHITE || side == BLACK);
+// 	assert(type < N_PIECES);
+// 	assert(board->pieces[side][type] & pos);
 
-	board->pieces[side][type] |= pos;
-	board->all_pieces[side] |= pos;
-	board->every_piece |= pos;
-	board->hash ^= hash_rand_piece[side][type][lowest_bitindex(pos)];
-}
+// 	// board->pieces[side][type] &= ~pos;
+// 	// board->all_pieces[side] &= ~pos;
+// 	// board->every_piece &= ~pos;
+// 	// //board->pieces[side][type] ^= pos;
+// 	// //board->all_pieces[side] ^= pos;
+// 	// //board->every_piece ^= pos;
+// 	// board->hash ^= hash_rand_piece[side][type][lowest_bitindex(pos)];
+// }
+
+
+// static void addpiece(board_s* board, const BitBoard pos, const unsigned int side, const unsigned int type) {
+// 	assert(popcount(pos) == 1);
+// 	assert(side == WHITE || side == BLACK);
+// 	assert(type < N_PIECES);
+// 	assert(board->pieces[side][type] ^ pos); // check that there wasn't a piece already
+
+// 	//board->hash ^= hash_rand_piece[side][type][lowest_bitindex(pos)];
+// }
 
 /*
 void makemove_pawn(board_s* restrict board, const move_s* restrict move) {
@@ -315,163 +327,110 @@ void makemove_pawn(board_s* restrict board, const move_s* restrict move) {
 }
 */
 
+
+
 // TODO: Finish this function
-void makemove(board_s* restrict board, const move_s* restrict move) {
-	assert(popcount(board->en_passant) <= 1);
-	assert(board->castling < 2*2*2*2);
+void makemove(board_s* restrict board, const move_s move) {
+	// assert(popcount(board->en_passant) <= 1);
+	CHECK_BOARD(board);
 
+	assert(SQTOBB(move.from) & OCCUPANCY(board) & board->pm);
 
+	const BitBoard frombb = SQTOBB(move.from);
+	const BitBoard tobb = SQTOBB(move.to);
 
-	// remove castling from zobrish hash
-	board->hash ^= hash_rand_castle[board->castling];
+	board->en_passant = 8; // Reset en passant
 
-	// remove enpassant sqare from zobrist hash
-	if (board->en_passant)
-		board->hash ^= hash_rand_enpassant[lowest_bitindex(board->en_passant)];
-	
-	// remove sidetomove from zobrist hash
-	board->hash ^= hash_rand_sidetomove[board->sidetomove];
-
-
-	//if (move == NULL)
-	if (!move->from && !move->to)
-		goto MAKEMOVE_NULLMOVE;
-	
-	// __builtin_prefetch(&board->pieces[move->side][move->fromtype], 1, 1);
-	// __builtin_prefetch(&board->all_pieces[move->side], 1, 1);
-	// __builtin_prefetch(&board->every_piece, 1, 1);
-	
-
-	assert(popcount(move->from) == 1);
-	assert(popcount(move->to) == 1);
-	//assert(move->from)
-	assert(move->from & board->all_pieces[board->sidetomove]); // can trigger if wrong side tries to perform a move
-
-
-	bool pieces_moved = false;
-
-	// Clear en passant
-	board->en_passant = 0x0;
-
-
-	// If the piece was captured, remove it.
-	if (move->flags & FLAG_CAPTURE) {
-		assert(move->to & board->every_piece);
-		removepiece(board, move->to, OPPOSITE_SIDE(move->side), move->piece_captured);
+	if (move.flags & FLAG_KCASTLE) {
+		board->pm^= (BitBoard)0x00000000000000A0 | K_CASTLE_KING_TARGET | M_KING_DEFAULT_POS; // rook and king
+		board->p2^= (BitBoard)0x00000000000000A0 | K_CASTLE_KING_TARGET | M_KING_DEFAULT_POS; // rook and king
+		board->p1^= M_KING_DEFAULT_POS | K_CASTLE_KING_TARGET; // king
+		board->castling &= ~(MKCASTLE | MQCASTLE);
+		FLIP_BOARD(board);
+		CHECK_BOARD(board);
+		return;
+	}
+	if (move.flags & FLAG_QCASTLE) {
+		board->pm^= (BitBoard)0x0000000000000009 | Q_CASTLE_KING_TARGET | M_KING_DEFAULT_POS; // rook and king
+		board->p2^= (BitBoard)0x0000000000000009 | Q_CASTLE_KING_TARGET | M_KING_DEFAULT_POS; // rook and king
+		board->p1^= M_KING_DEFAULT_POS | Q_CASTLE_KING_TARGET; // king
+		board->castling &= ~(MKCASTLE | MQCASTLE);
+		FLIP_BOARD(board);
+		CHECK_BOARD(board);
+		return;
 	}
 
-	if (move->fromtype == PAWN) {
-		// Both flags set shouldn't be set
-		assert(popcount(move->flags & (FLAG_DOUBLEPUSH | FLAG_ENPASSANT)) < 2);
-
-		// If move was a promotion, remove it and add the relevant piece to its place
-		if (move->flags & FLAG_PROMOTE) {
-			assert(move->fromtype == PAWN);
-
-			removepiece(board, move->from, move->side, PAWN);
-			addpiece(board, move->to, move->side, move->promoteto);
-			pieces_moved = true;
-		}
-		else if (move->flags & FLAG_DOUBLEPUSH) { // Set en passant target square
-			board->en_passant = (move->side==WHITE ? MV_S(move->to, 1) : MV_N(move->to, 1));
-		}
-		else if (move->flags & FLAG_ENPASSANT) { // Perform En passant
-			const BitBoard piece_to_remove = (move->side == WHITE ? MV_S(move->to, 1) : MV_N(move->to, 1));
-			
-			assert(piece_to_remove & board->pieces[OPPOSITE_SIDE(move->side)][PAWN]);
-
-			removepiece(board, piece_to_remove, OPPOSITE_SIDE(move->side), PAWN);
-		}
-	}
-	else if (move->fromtype == ROOK && board->castling) { // Revoking of castling rights by rook move
-		// check which rook was moved and change correct flags
-		if (board->sidetomove == WHITE) {
-			if (move->from & RIGHT_MASK)
-				board->castling &= ~WKCASTLE;
-			else if (move->from & LEFT_MASK)
-				board->castling &= ~WQCASTLE;
-		}
-		else {
-			if (move->from & RIGHT_MASK)
-				board->castling &= ~BKCASTLE;
-			else if (move->from & LEFT_MASK)
-				board->castling &= ~BQCASTLE;
-		}
-	}
-	else if (__builtin_expect(move->fromtype == KING, 0)) {
-		// Do castling
-		if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
-			move_castling_pieces(board, move, false);
-			pieces_moved = true;
-		}
-
-		// Revoking of castling rights by king move
-		if (move->side == WHITE)
-			board->castling &= ~(WKCASTLE | WQCASTLE);
-		else
-			board->castling &= ~(BKCASTLE | BQCASTLE);
-	}
-
-	// some moves are already handled (like castling)
-	if (!pieces_moved)
-		movepiece(board, move->fromtype, move->from, move->to);
+	// Remove piece from to
+	// if (move.flags & FLAG_CAPTURE) {
 	
-	// change side to move
-	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
+	assert(!(tobb & KINGS(board)));
 
-#ifndef NDEBUG
-	append_to_move_history(board, move);
-#endif // NDEBUG
+	REMOVE_PIECE(board, tobb);
+	// Capture opponent rook?
+	if (move.to == 56)
+		board->castling &= ~OQCASTLE;
+	if (move.to == 63)
+		board->castling &= ~OKCASTLE;
+	// board->castling &= ~(((move.to == 56) * OQCASTLE) | ((move.to == 63) * OKCASTLE));
+	// }
 
-
-	// add castling rights back to zobrist hash
-	board->hash ^= hash_rand_castle[board->castling];
 	
-	// add enpassant sqare to zobrist hash
-	if (board->en_passant)
-		board->hash ^= hash_rand_enpassant[lowest_bitindex(board->en_passant)];
+	// Copy piece from --> to
+
+	unsigned int type = PIECE_SQ(board, move.from);
+
+	assert(type > EMPTY);
+	assert(type < PIECE_LAST);
+
+	// if (type == KING)
+	// 	board->castling &= ~(MKCASTLE | MQCASTLE);
+	// else if (move.from == 0)
+	// 	board->castling &= ~MQCASTLE;
+	// else if (move.from == 7)
+	// 	board->castling &= ~MKCASTLE;
+
+	// const uint8_t higher_castle_bits = board->castling & (OQCASTLE | OKCASTLE);
+	// board->castling = ((MQCASTLE | MKCASTLE) * (type == KING));
+	// board->castling |= (((move.from == 0) * MQCASTLE) | ((move.from == 7) * MKCASTLE));
+	// board->castling = ~board->castling;
+	// board->castling |= higher_castle_bits;
+
+	board->castling &= ~((MQCASTLE | MKCASTLE) * (type == KING));
+	board->castling &= ~(((move.from == 0) * MQCASTLE) | ((move.from == 7) * MKCASTLE));
+
+	// const bool is_king = type == KING;
+	// const bool remove_q_cast = move.from == 0;
+	// const bool remove_k_cast = move.from == 7;
+	// board->castling &= ~((MQCASTLE | MKCASTLE) * is_king);
+	// board->castling &= ~((remove_q_cast*MQCASTLE) | (remove_k_cast*MKCASTLE));
+
 	
-	// add sidetomove to zobrist hash
-	board->hash ^= hash_rand_sidetomove[board->sidetomove];
-
-	// Increment fullmove clock
-	board->fullmoves += (move->side == BLACK);
-
-	assert(board->rep_stack_n < LENGTH(board->rep_stack) - 1);
-	board->rep_stack[board->rep_stack_n++] = board->hash;
-
-
-	assert(calculate_board_hash(board) == board->hash);
-
-	return;
-
-
-
-	MAKEMOVE_NULLMOVE:
+	REMOVE_PIECE(board, SQTOBB(move.from));
 	
-	board->sidetomove = OPPOSITE_SIDE(board->sidetomove);
-	board->en_passant = 0x0;
+	if (move.flags & FLAG_PROMOTE)
+		type = move.promoteto;
+	if (move.flags & FLAG_ENPASSANT)
+		board->p0 ^= MV_S(tobb, 1);
+	if (move.flags & FLAG_DOUBLEPUSH)
+		board->en_passant = move.to % 8;
 
-	// add castling rights back to zobrist hash
-	board->hash ^= hash_rand_castle[board->castling];
 	
-	// add enpassant sqare to zobrist hash
-	if (board->en_passant)
-		board->hash ^= hash_rand_enpassant[lowest_bitindex(board->en_passant)];
-	
-	// add sidetomove to zobrist hash
-	board->hash ^= hash_rand_sidetomove[board->sidetomove];
+	ADD_PIECE(board, tobb, 1, type);
 
-#ifndef NDEBUG
-	append_to_move_history(board, NULL); // this function saves en_passant for null moves so do this first 
-#endif // NDEBUG
+	
+	FLIP_BOARD(board);
+	
+	CHECK_BOARD(board);
 }
 
 
+
+/*
 // TODO: Finish this function
 void unmakemove(board_s* restrict board, const move_s* restrict move) {
 	// Get the reference to the last move
 	//const move_s* move = board->movehistory.moves + (board->history_n - 1);
+
 
 	// remove castling from zobrish hash
 	board->hash ^= hash_rand_castle[board->castling];
@@ -582,37 +541,39 @@ void unmakemove(board_s* restrict board, const move_s* restrict move) {
 
 	assert(calculate_board_hash(board) == board->hash);
 }
+*/
 
 
-unsigned int get_piece_type(const board_s* board, const unsigned int side, const BitBoard piecebb) {
-	assert(side == WHITE || side == BLACK);
-	assert(popcount(piecebb) == 1);
-	assert(piecebb & board->all_pieces[side]);
+// unsigned int get_piece_type(const board_s* board, const unsigned int side, const BitBoard piecebb) {
+// 	assert(side == WHITE || side == BLACK);
+// 	assert(popcount(piecebb) == 1);
+// 	assert(piecebb & board->all_pieces[side]);
 
-	for (int i = 0; i < N_PIECES; i++) {
-		if (board->pieces[side][i] & piecebb)
-			return i;
-	}
-	// should never get here
-	fprintf(stderr, "get_piece_type(board, %u, %p)\n", side, (void*)piecebb);
-	assert(0);
-	exit(1);
-}
+// 	for (int i = 0; i < N_PIECES; i++) {
+// 		if (board->pieces[side][i] & piecebb)
+// 			return i;
+// 	}
+// 	// should never get here
+// 	fprintf(stderr, "get_piece_type(board, %u, %p)\n", side, (void*)piecebb);
+// 	assert(0);
+// 	exit(1);
+// }
 
 
-unsigned int get_piece_side(const board_s* board, const BitBoard piecebb) {
-	assert(popcount(piecebb) == 1);
-	assert(board->every_piece & piecebb);
+// unsigned int get_piece_side(const board_s* board, const BitBoard piecebb) {
+// 	assert(popcount(piecebb) == 1);
+// 	assert(board->every_piece & piecebb);
 
-	if (board->all_pieces[WHITE] & piecebb)
-		return WHITE;
-	return BLACK;
-}
+// 	if (board->all_pieces[WHITE] & piecebb)
+// 		return WHITE;
+// 	return BLACK;
+// }
+
 
 
 // TODO: Test the eligibility of this logic and the constants.
-static void move_castling_pieces(board_s* restrict board, const move_s* restrict move, const bool undo) {
-	assert(popcount(move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) == 1); // ensure only 1 of the flags is set
+// static void move_castling_pieces(board_s* restrict board, const move_s* restrict move, const bool undo) {
+	// assert(popcount(move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) == 1); // ensure only 1 of the flags is set
 	
 
 	/*
@@ -624,7 +585,7 @@ static void move_castling_pieces(board_s* restrict board, const move_s* restrict
 			board->castling &= ~(BKCASTLE | BQCASTLE);
 	}
 	*/
-
+/*
 	BitBoard king_from = 0x0;
 	BitBoard king_to = 0x0;
 	BitBoard rook_from = 0x0;
@@ -692,7 +653,9 @@ static void move_castling_pieces(board_s* restrict board, const move_s* restrict
 	movepiece(board, KING, king_from, king_to);
 	movepiece(board, ROOK, rook_from, rook_to);
 }
+*/
 
+/*
 // Movehistory is not used in non-debug builds
 #ifndef NDEBUG
 
@@ -741,20 +704,30 @@ void restore_board(board_s* restrict to, board_s* restrict from) {
 	memcpy(to, from, sizeof (board_s)); // restore board
 	to->movehistory = movehistory; // restore old movehistory
 }
+*/
 
-
-void write_move_history(const board_s* board, FILE* f) {
-	for (unsigned int i = 0; i < board->history_n; i++) {
+void write_move_history(const move_s* restrict moves, const size_t n, FILE* restrict f) {
+	
+	for (unsigned int i = 0; i < n; i++) {
+		
 		char from[2];
-		bbtoalg(from, board->movehistory.moves[i].from);
+		BitBoard frombb = SQTOBB(moves[i].from);
+		if (i % 2 != 0)
+			frombb = FLIP_VERTICAL(frombb);
+
+		bbtoalg(from, frombb);
 
 		char to[2];
-		bbtoalg(to, board->movehistory.moves[i].to);
+		BitBoard tobb = SQTOBB(moves[i].to);
+		if (i % 2 != 0)
+			tobb = FLIP_VERTICAL(tobb);
+		bbtoalg(to, tobb);
 
-		char promote[2];
-		if (board->movehistory.moves[i].flags & FLAG_PROMOTE) {
-			promote[0] = piecetochar(board->movehistory.moves[i].promoteto);
+		char promote[3];
+		if (moves[i].flags & FLAG_PROMOTE) {
+			promote[0] = piecetochar(moves[i].promoteto);
 			promote[1] = ' ';
+			promote[2] = '\0';
 		}
 		else {
 			promote[0] = ' ';
@@ -766,8 +739,8 @@ void write_move_history(const board_s* board, FILE* f) {
 	fputs("\n", f);
 }
 
+/*
 #endif // NDEBUG
-
 
 
 // TODO: Test eligibility
@@ -800,7 +773,7 @@ uint64_t calculate_board_hash(const board_s* board) {
 
 	return hash;
 }
-
+*/
 
 
 #endif // BOARD_C

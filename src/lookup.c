@@ -13,7 +13,7 @@
 
 // The queen lookup will just be (rook | bishop)
 BitBoard rows[8];
-BitBoard columns[8];
+// BitBoard columns[8];
 BitBoard kinglookup[64];
 BitBoard rooklookup[64];
 BitBoard bishoplookup[64];
@@ -21,7 +21,7 @@ BitBoard knightlookup[64];
 BitBoard pawnlookup[2][64]; // black and white pawns [side][sq_n]
 
 // pointers to according lookups
-BitBoard* lookup[N_PIECES]; //[piece_e]
+BitBoard* lookup[PIECE_LAST]; //[piece_e]
 
 // see eval.c
 BitBoard kingguardlookup[64];
@@ -56,7 +56,7 @@ BitBoard passed_pawn_opponent_mask[64]; // [sq]
 
 // Private functions
 void compute_row_lookup();
-void compute_column_lookup();
+// void compute_column_lookup();
 
 void compute_king_lookup();
 void compute_rook_lookup();
@@ -97,9 +97,9 @@ BitBoard rowlookup(unsigned int pos) {
 }
 
 
-BitBoard columnlookup(unsigned int pos) {
-	return columns[pos % 8];
-}
+// BitBoard columnlookup(unsigned int pos) {
+// 	return columns[pos % 8];
+// }
 
 BitBoard king_guard_lookup(unsigned int pos) {
 	return kingguardlookup[pos];
@@ -148,7 +148,7 @@ BitBoard ray_attack_r(unsigned int from, unsigned int to) {
 
 void reset_lookups() {
 	memset(rows, 0, sizeof rows);
-	memset(columns, 0, sizeof columns);
+	// memset(columns, 0, sizeof columns);
 	memset(kinglookup, 0, sizeof kinglookup);
 	memset(rooklookup, 0, sizeof rooklookup);
 	memset(bishoplookup, 0, sizeof bishoplookup);
@@ -171,7 +171,7 @@ void reset_lookups() {
 
 void compute_lookups() {
 	compute_row_lookup();
-	compute_column_lookup();
+	// compute_column_lookup();
 	compute_king_lookup();
 	compute_rook_lookup();
 	compute_bishop_lookup();
@@ -208,16 +208,16 @@ void compute_row_lookup() {
 
 
 // TODO: Confirm validity
-void compute_column_lookup() {
-	for (unsigned int i = 0; i < 8; i++) {
-		const BitBoard pos = SQTOBB(i);
+// void compute_column_lookup() {
+// 	for (unsigned int i = 0; i < 8; i++) {
+// 		const BitBoard pos = SQTOBB(i);
 
-		// moves
-		for (int x = 0; x < 8; x++) {
-			columns[i] |= pos<<(x*8);
-		}
-	}
-}
+// 		// moves
+// 		for (int x = 0; x < 8; x++) {
+// 			columns[i] |= pos<<(x*8);
+// 		}
+// 	}
+// }
 
 
 void compute_king_lookup() {
