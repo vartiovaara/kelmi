@@ -481,13 +481,15 @@ typedef struct board_s {
 #define KINGS(b) ((b)->p1 & (b)->p2) /* a bitboard with the 2 kings */
 
 // Get all pieces of specified type
-#define PIECES(b, type) ((b->p2 & ((type)>>2)) | (b->p1 & (((type)>>1) & 0x1)) | (b->p0 & ((type) & 0x1)))
+#define PIECES(b, type) (((b)->p2 & ((type)>>2)) | ((b)->p1 & (((type)>>1) & 0x1)) | ((b)->p0 & ((type) & 0x1)))
 
 // get the piece type giving the square
-#define PIECE_SQ(b, sq) (((b->p2>>(sq))&1)<<2 | ((b->p1>>(sq))&1)<<1 | ((b->p0>>(sq))&1))
+#define PIECE_SQ(b, sq) ((((b)->p2>>(sq))&1)<<2 | (((b)->p1>>(sq))&1)<<1 | (((b)->p0>>(sq))&1))
 
 // get the piece type giving the square bitboard
 //#define PIECE_BB(b, sq) (((b->p2>>(sq))&1)<<2 | ((b->p1>>(sq))&1)<<1 | ((b->p0>>(sq))&1))
+
+#define OPP_SQ(sq) ((sq)^0x38)
 
 
 // b=board_s, posbb=positionbitboard, own={1=own, 0=opponent}, type=type code
@@ -508,7 +510,6 @@ typedef struct board_s {
 	{ \
 		CHECK_BOARD(b);                            \
 		assert(POPCOUNT(posbb) == 1);              \
-		assert((posbb) & OCCUPANCY(b));            \
 		(b)->p0 &= ~(posbb);                       \
 		(b)->p1 &= ~(posbb);             \
 		(b)->p2 &= ~(posbb);             \
@@ -603,6 +604,8 @@ typedef struct {
 	// defines the type of search ocurring
 	enum uci_searchtype_e searchtype;
 
+	enum side_e computer_side;
+
 	// Go command variables
 	// See "go" command from: http://wbec-ridderkerk.nl/html/UCIProtocol.html
 	long wtime; // msec white has left on clock
@@ -630,6 +633,14 @@ typedef struct {
 	//size_t n_entries; // n entries per bucket
 	unsigned int counter; // FIXME: counter to be used for just random replacement
 } tt_s;
+
+
+
+/*
+ * Global variables
+ */
+
+
 
 
 

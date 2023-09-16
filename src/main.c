@@ -100,7 +100,8 @@ int main(void) {
 				fprintf(stderr, "just give me a number wtf.\n");
 				continue;
 			}
-			board_s board = boardfromfen(DEFAULT_FEN);
+			enum side_e computer_side;
+			board_s board = boardfromfen(DEFAULT_FEN, &computer_side);
 			printboard(&board);
 			printbitboard(OCCUPANCY(&board));
 			printbitboard(PAWNS(&board));
@@ -118,7 +119,7 @@ int main(void) {
 			goto MAIN_NORMAL_EXIT;
 		}
 		else if (!strcmp(input, "uci")) {
-			/*
+			
 			const size_t filename_n = 30; // yyyy_mm_dd_hh_mm_ss_ + (pid len<=8 i guess) + '\0'
 			char filename[filename_n];
 			time_t curtime = time(NULL);
@@ -132,8 +133,9 @@ int main(void) {
 			setbuf(f, NULL);
 			uci(f);
 			fclose(f);
-			*/
-			continue;
+			
+			// uci(NULL);
+			//continue;
 
 			goto MAIN_NORMAL_EXIT;
 		}

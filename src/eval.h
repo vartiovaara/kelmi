@@ -25,7 +25,7 @@ void set_move_predict_scores(const board_s* restrict board, move_s* restrict mov
 // Only considers pieces that are also on select_mask
 // If multiple pieces of the same value is found, lowest by index is returned
 // If no pieces are found, empty bitboard is returned
-BitBoard get_cheapest_piece(const board_s* board, unsigned int side, BitBoard select_mask);
+BitBoard get_cheapest_piece(const board_s* board, BitBoard select_mask);
 
 // SCORE IS FOR move->side SIDE NOT FOR WHITE ONLY
 eval_t see(const board_s* restrict board, const move_s* restrict move);

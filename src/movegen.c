@@ -197,28 +197,36 @@ BitBoard get_attackers(const board_s* board, const BitBoard sq, const unsigned i
 	return attackers;
 }
 
+*/
+
 
 BitBoard get_seeing_pieces(const board_s* board, BitBoard sq, BitBoard ignoremask) {
-	assert(popcount(sq) == 1);
-	const unsigned int pos = lowest_bitindex(sq);
+	assert(POPCOUNT(sq) == 1);
+	const unsigned int pos = LOWEST_BITINDEX(sq);
 
 	BitBoard attackers = 0x0;
 
 	const BitBoard selectmask = ~ignoremask; // these squares are considered
 
 	// Check knights
-	attackers |= (board->pieces[WHITE][KNIGHT] | board->pieces[BLACK][KNIGHT]) & n_attacks(sq) & selectmask;
+	attackers |= KNIGHTS(board) & n_attacks(sq) & selectmask;
 	
 	// Check pawns
-	attackers |= board->pieces[WHITE][PAWN] & p_attacks(sq, BLACK) & selectmask;
-	attackers |= board->pieces[BLACK][PAWN] & p_attacks(sq, WHITE) & selectmask;
+	attackers |= (PAWNS(board) & board->pm) & p_attacks_s(sq) & selectmask;
+	attackers |= (PAWNS(board) & ~board->pm) & p_attacks_n(sq) & selectmask;
 	
 	// Kings
 	// NOTE: Does not check if attacked square is of a king 
-	attackers |= (board->pieces[WHITE][KING] | board->pieces[BLACK][KING]) & k_attacks(sq) & selectmask;
+	// attackers |= (board->pieces[WHITE][KING] | board->pieces[BLACK][KING]) & k_attacks(sq) & selectmask;
+	attackers |= (KINGS(board)) & k_attacks(sq) & selectmask;
 
 	// Check bishops and diagonal queen attacks
 	
+	attackers |= GenBishop(pos, OCCUPANCY(board) & selectmask) & (BISHOPS(board) | QUEENS(board)) & selectmask;
+	attackers |= GenRook(pos, OCCUPANCY(board) & selectmask) & (ROOKS(board) | QUEENS(board)) & selectmask;
+
+
+	/*
 	const BitBoard bishop_squares = b_attacks(sq, ~board->every_piece | ignoremask);
 	attackers |= bishop_squares & (board->pieces[WHITE][BISHOP] | board->pieces[WHITE][QUEEN]) & selectmask;
 	attackers |= bishop_squares & (board->pieces[BLACK][BISHOP] | board->pieces[BLACK][QUEEN]) & selectmask;
@@ -228,10 +236,10 @@ BitBoard get_seeing_pieces(const board_s* board, BitBoard sq, BitBoard ignoremas
 	const BitBoard rook_squares = r_attacks(sq, ~board->every_piece | ignoremask);
 	attackers |= rook_squares & (board->pieces[WHITE][ROOK] | board->pieces[WHITE][QUEEN]) & selectmask;
 	attackers |= rook_squares & (board->pieces[BLACK][ROOK] | board->pieces[BLACK][QUEEN]) & selectmask;
-	
+	*/
+
 	return attackers;
 }
-*/
 
 
 bool is_in_check(const board_s* board, const unsigned int side) {

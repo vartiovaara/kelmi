@@ -18,7 +18,7 @@ void printbitboard(const BitBoard bb);
 // returns the piece-code for a piece character
 unsigned int piece_from_char(const unsigned char c);
 
-board_s boardfromfen(const char* fen_str);
+board_s boardfromfen(const char* fen_str, enum side_e* computer_side);
 
 void resetboard(board_s* board);
 

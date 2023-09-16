@@ -2,7 +2,7 @@ CC = cc
 #CC=clang
 
 #SRC = src/main.c src/algebraic.c src/bitboard.c src/board.c src/init.c src/uci.c src/lookup.c src/search.c src/movegen.c src/movefactory.c src/perft.c src/eval.c src/transposition.c src/random.c
-SRC = src/main.c src/algebraic.c src/board.c src/init.c src/lookup.c src/movegen.c src/perft.c src/random.c
+SRC = src/main.c src/algebraic.c src/board.c src/init.c src/lookup.c src/movegen.c src/perft.c src/random.c src/eval.c src/search.c src/uci.c
 
 #DEBUG_CFLAGS = -Wall -Wextra -pedantic -Og -ggdb3 -no-pie -mtune=generic -std=c17
 #CFLAGS = -Wall -Wextra -pedantic -Og -ggdb3 -no-pie -fstack-check -fstack-protector-all -fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined -fsanitize=null -fsanitize=bounds-strict -std=c17

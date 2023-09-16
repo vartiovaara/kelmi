@@ -156,7 +156,9 @@ void perft_suite() {
 
 	for (unsigned int i = 0; i < LENGTH(positions); i++) {
 
-		boards[0] = boardfromfen(positions[i]);
+		enum side_e computer_side;
+
+		boards[0] = boardfromfen(positions[i], &computer_side);
 		position = &boards[0];
 
 		const unsigned int depth = depths[i];
@@ -286,7 +288,7 @@ void search(const unsigned int depth, const unsigned int ply, pertf_result_s* re
 		// if (piece & PAWNS(position))
 		// 	ignore_to_squares &= ~(WEST_ONE(piece << 8) | (EAST_ONE(piece << 8)));
 		// if (single_checking_piece_is_pawn && piece & PAWNS(position))
-		if (single_checking_piece_is_pawn && piece == PAWN)
+		if (single_checking_piece_is_pawn && piece_type == PAWN)
 			ignore_to_squares &= ~(check_blocking_moves<<8);
 
 		get_pseudo_legal_moves(position, &moves, piece, false, ignore_to_squares);

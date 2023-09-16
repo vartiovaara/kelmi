@@ -22,17 +22,20 @@
 
 #define CONTEMPT_FACTOR (20)
 
+BitBoard checking_pieces[MAX_DEPTH];
+board_s boards_data[MAX_DEPTH];
+//board_s* restrict position = &boards_data[0];
+
 
 BitBoard killer_moves[MAX_DEPTH][2][2]; // [ply][first / second][from / to]
 uint64_t hh_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts cutoffs
 uint64_t bf_score[2][64][64] = {0}; // [side][from_sq][to_sq] // Counts else
 
-
 bool abort_search = false;
 
 
 // Private functions
-uint16_t encode_compact_move(const move_s* move);
+uint16_t encode_compact_move(const move_s* move, bool flipped);
 static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmove, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t time1, const clock_t time_available, const int depth, const eval_t last_eval);
 static eval_t pv_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, pv_s* restrict pv, const clock_t start_time, const clock_t time_available, const bool is_leftmost_path, eval_t alpha, eval_t beta);
 static eval_t zw_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, const clock_t start_time, const clock_t time_available, const bool is_null_move, eval_t alpha, eval_t beta);
@@ -48,9 +51,14 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 	//if (uci->action == UCI_PONDER)
 	//	goto THINK_PONDER;
 
+	memset(checking_pieces, 0, sizeof (checking_pieces));
 	memset(killer_moves, 0, MAX_DEPTH*2*2 * sizeof (BitBoard));
 	memset(hh_score, 0, 2*64*64 * sizeof (uint64_t));
 	memset(bf_score, 0, 2*64*64 * sizeof (uint64_t));
+
+	// position = &boards[0];
+	// *position = *board;
+	boards_data[0] = *board;
 
 	move_s move = {0};
 	eval_t move_eval = 0;
@@ -72,6 +80,7 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 	}
 	pv.depth_allocated = MAX_DEPTH;
 
+	/*
 	// from: https://www.talkchess.com/forum3/viewtopic.php?t=51135
 	unsigned int predicted_moves_left = 18; // originally 15
 	if (board->fullmoves <= 25) // originally 25
@@ -80,6 +89,10 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 	const double time_left = (double)(board->sidetomove == WHITE ? uci->wtime : uci->btime);
 	const double increment = (double)(board->sidetomove == WHITE ? uci->winc : uci->binc);
 	const clock_t time_allotted = (((time_left/1000.0)*(double)CLOCKS_PER_SEC)/predicted_moves_left) + increment; // -20 reserved for exiting search
+	*/
+	//const clock_t time_allotted = 4 * CLOCKS_PER_SEC;
+	const clock_t time_allotted = (uci->wtime / 45) * CLOCKS_PER_SEC/1000;
+	// const clock_t time_allotted = uci->wtime;
 
 	const clock_t t = clock();
 	
@@ -100,7 +113,7 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 
 		// Normal search (alpha is maximizing and beta minimizing)
 		//eval_t current_eval = regular_search(board, &move, &stats, &pv, t, time_allotted, depth, depth, 0, false, EVAL_MIN, EVAL_MAX);
-		eval_t current_eval = search_root_node(board, &move, &stats, &pv, t, time_allotted, depth, 0);
+		eval_t current_eval = search_root_node(&boards_data[0], &move, &stats, &pv, t, time_allotted, depth, 0);
 
 		if (clock() - t >= time_allotted)
 			break;
@@ -170,7 +183,11 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 		// Add collected moves to pv string
 		for (size_t i = 0; i < n_pv_moves; i++) {
 			char move[6];
-			compact_move_to_uci_notation(pv_compact_moves[i], move);
+			bool black_move = uci->computer_side == BLACK;
+			if (i % 2)
+				black_move = !black_move;
+			
+			compact_move_to_uci_notation(pv_compact_moves[i], move, black_move);
 			strcpy(pv_str + current_str_index, move);
 			current_str_index += strlen(move);
 			pv_str[current_str_index++] = ' ';
@@ -225,11 +242,19 @@ eval_t uci_think(const uci_s* uci, board_s* restrict board, move_s* restrict bes
 
 
 
-uint16_t encode_compact_move(const move_s* move) {
+uint16_t encode_compact_move(const move_s* move, bool flipped) {
 	uint16_t res = 0x0;
 	
-	res |= lowest_bitindex(move->from) << 10;
-	res |= lowest_bitindex(move->to) << 4;
+	// res |= lowest_bitindex(move->from) << 10;
+	// res |= lowest_bitindex(move->to) << 4;
+	if (!flipped) {
+		res |= move->from << 10;
+		res |= move->to << 4;
+	}
+	else {
+		res |= (move->from^56) << 10;
+		res |= (move->to^56) << 4;
+	}
 	
 	if (move->flags & FLAG_PROMOTE) {
 		assert(!(res & COMPACT_MOVE_PROMOTE_FLAG)); // Make sure flag wasn't set already for some reason
@@ -241,13 +266,13 @@ uint16_t encode_compact_move(const move_s* move) {
 		assert(COMPACT_MOVE_PROMOTETO(res) == move->promoteto);
 	}
 
-	assert(SQTOBB(COMPACT_MOVE_FROM(res)) == move->from);
-	assert(SQTOBB(COMPACT_MOVE_TO(res)) == move->to);
+	// assert(COMPACT_MOVE_FROM(res) == move->from);
+	// assert(COMPACT_MOVE_TO(res) == move->to);
 
 	return res;
 }
 
-
+/*
 // TODO: Test this function. Have no idea if this actually works or not.
 // Get a pointer to the next best move.
 static move_s* get_next_best_move(const movelist_s* restrict all_moves, size_t n_of_movelists, const move_s* restrict last_move) {
@@ -288,6 +313,7 @@ static move_s* get_next_best_move(const movelist_s* restrict all_moves, size_t n
 
 	return currently_selected_move;
 }
+*/
 
 
 
@@ -297,9 +323,10 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 		stats->nodes++;
 
 
-	const bool initially_in_check = is_in_check(board, board->sidetomove);
+	//const bool initially_in_check = is_in_check(board, board->sidetomove);
+	checking_pieces[0] = in_check(board);
 
-
+	/*
 	uint16_t special_moves[2];
 	size_t n_special_moves = 0;
 
@@ -311,14 +338,16 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 		assert(!(SQTOBB(COMPACT_MOVE_TO(special_moves[0])) & board->all_pieces[board->sidetomove]));
 		n_special_moves++;
 	}
+	*/
 
 	// if  hash move found
 	//    make up something
 
-	movefactory_s movefactory;
+	//movefactory_s movefactory;
 	//init_movefactory(&movefactory, &killer_moves[0], special_moves, n_special_moves);
-	init_movefactory(&movefactory, NULL, special_moves, n_special_moves);
+	//init_movefactory(&movefactory, NULL, special_moves, n_special_moves);
 
+	BitBoard pieces_copy = board->pm;
 
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
@@ -326,102 +355,121 @@ static eval_t search_root_node(board_s* restrict board, move_s* restrict bestmov
 
 	eval_t alpha = -EVAL_INF, beta = EVAL_INF;
 
-	for (size_t i = 0; 1; i++) {
+	movelist_s moves;
+	move_s moves_array[32];
+	moves.moves = moves_array;
 
-		move = get_next_move(board, &movefactory, false);
-		
-		if (!move)
-			break;
-		
-		if (time_available) {
-			if (clock() - time1 >= time_available)
-				return 0; // every node henceforth will also return early
-		}
-		
-		// Check if castling is valid
-		if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
-			if (initially_in_check)
-				continue; // can not castle while in check
-			
-			BitBoard target_squares;
-			if (board->sidetomove == WHITE)
-				target_squares = (move->flags & FLAG_KCASTLE ? WK_CASTLE_ATTACK_MASK : WQ_CASTLE_ATTACK_MASK);
-			else
-				target_squares = (move->flags & FLAG_KCASTLE ? BK_CASTLE_ATTACK_MASK : BQ_CASTLE_ATTACK_MASK);
-			
-			//FIXME: This shit is slow as fuck. Make those attack maps pls.
-			while (target_squares) {
-				if (is_side_attacking_sq(board, pop_bitboard(&target_squares), OPPOSITE_SIDE(board->sidetomove)))
-					goto SEARCH_ROOT_NODE_SKIP_MOVE_PRE_MAKE;
-			}
-		}
-		
-		
-		makemove(board, move);
+	for (size_t i = 0; pieces_copy; i++) {
 
-		if (is_in_check(board, move->side)) {
-			unmakemove(board, move);
+		//move = get_next_move(board, &movefactory, false);
+		get_pseudo_legal_moves(board, &moves, pop_bitboard(&pieces_copy), false, 0x0);
+
+		
+		if (!moves.n)
 			continue;
-		}
 		
-		// Move was legal
-		n_legal_moves_done++;
+		// go trough every move
+		for (unsigned int j = 0; j < moves.n; j++) {
 
-		eval_t score;
-
-
-		bool full_search = false;
-
-		if (n_legal_moves_done == 1) full_search = true;
-
-		SEARCH_ROOT_NODE_RE_SEARCH:
-
-		if (full_search)
-			score = -pv_search(board, depth-1, 1, stats, pv, time1, time_available, i == 0, -beta, -alpha);
-		else
-			score = -zw_search(board, depth-1, 1, stats, time1, time_available, false, -alpha-1, -alpha);
-		
-		if (abort_search) {
-			unmakemove(board, move);
-			return 0;
-		}
-
-		if (!full_search) {
-			if (score > best_score) {
-				full_search = true;
-				goto SEARCH_ROOT_NODE_RE_SEARCH;
+			move = &moves.moves[j];
+			
+			if (time_available) {
+				if (clock() - time1 >= time_available)
+					return 0; // every node henceforth will also return early
 			}
-		}
+			
+			// Check if castling is valid
+			if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
+				if (checking_pieces[0])
+					continue; // can not castle while in check
+				
+				BitBoard target_squares;
+				target_squares = (move->flags & FLAG_KCASTLE ? K_CASTLE_ATTACK_MASK : Q_CASTLE_ATTACK_MASK);
+				
+				//FIXME: This shit is slow as fuck. Make those attack maps pls.
+				// while (target_squares) {
+				// 	if (is_side_attacking_sq(board, pop_bitboard(&target_squares), OPPOSITE_SIDE(board->sidetomove)))
+				// 		goto SEARCH_ROOT_NODE_SKIP_MOVE_PRE_MAKE;
+				// }
+				if (is_attacking_squares(board, target_squares, ~board->pm))
+						goto SEARCH_ROOT_NODE_SKIP_MOVE_PRE_MAKE;
+			}
+			else if (is_move_illegal(board, moves.moves[j])) {
+				continue;
+			}
+			
+			memcpy(board+1, board, sizeof (board_s));
+			board++;
+			
+			makemove(board, moves.moves[j]);
+
+			// if (is_in_check(board, move->side)) {
+			// 	unmakemove(board, move);
+			// 	continue;
+			// }
+
+			checking_pieces[1] = in_check(board);
+			
+			// Move was legal
+			n_legal_moves_done++;
+
+			eval_t score;
 
 
-		if (score > best_score) {
-			best_score = score;
-			memcpy(bestmove, move, sizeof (move_s));
+			bool full_search = true;
 
-			if (pv) {
-				// save this node to the pv
-				pv->n_moves[0] = 1;
-				pv->pv[0][0] = encode_compact_move(move);
+			if (n_legal_moves_done == 1) full_search = true;
 
-				// if the searched nodes saved something to pv, save it to this depth
-				if (pv->n_moves[1] > 0) {
-					memcpy(&pv->pv[0][1], &pv->pv[1][0], pv->n_moves[1] * sizeof (uint16_t));
-					pv->n_moves[0] = pv->n_moves[1] + 1;
+			SEARCH_ROOT_NODE_RE_SEARCH:
+
+			if (full_search)
+				score = -pv_search(board, depth-1, 1, stats, pv, time1, time_available, i == 0, -beta, -alpha);
+			else
+				score = -zw_search(board, depth-1, 1, stats, time1, time_available, false, -alpha-1, -alpha);
+			
+			if (abort_search) {
+				//unmakemove(board, move);
+				return 0;
+			}
+
+			if (!full_search) {
+				if (score > best_score) {
+					full_search = true;
+					goto SEARCH_ROOT_NODE_RE_SEARCH;
 				}
 			}
+
+
+			if (score > best_score) {
+				best_score = score;
+				memcpy(bestmove, move, sizeof (move_s));
+
+				if (pv) {
+					// save this node to the pv
+					pv->n_moves[0] = 1;
+					pv->pv[0][0] = encode_compact_move(move, 0);
+
+					// if the searched nodes saved something to pv, save it to this depth
+					if (pv->n_moves[1] > 0) {
+						memcpy(&pv->pv[0][1], &pv->pv[1][0], pv->n_moves[1] * sizeof (uint16_t));
+						pv->n_moves[0] = pv->n_moves[1] + 1;
+					}
+				}
+			}
+
+			alpha = MAX(score, alpha);
+
+			//unmakemove(board, move);
+			board--;
+
+			SEARCH_ROOT_NODE_SKIP_MOVE_PRE_MAKE:
+			continue;
 		}
-
-		alpha = MAX(score, alpha);
-
-		unmakemove(board, move);
-
-		SEARCH_ROOT_NODE_SKIP_MOVE_PRE_MAKE:
-		continue;
 	}
 
 
 	if (!n_legal_moves_done) {
-		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
+		if (checking_pieces[0]) { // is a checkmate (was in check and can't get out of it)
 			return -MATE;
 		}
 		else { // is a stalemate (wasn't in check and no legal moves)
@@ -444,7 +492,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 	if (abort_search) return 0;
 
-
+	/*
 	// Check for repetitions
 	// -2 so that current position would not trigger if statement and to start comparing from last move by this side
 	for (int i = board->rep_stack_n - 2; i >= 0; i--) {
@@ -454,8 +502,9 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 			return (ply % 2 == 0 ? CONTEMPT_FACTOR : -CONTEMPT_FACTOR);
 		}
 	}
+	*/
 
-
+	/*
 	bool tt_entry_found = false;
 	uint8_t tt_entry_flags = 0x0;
 	uint16_t tt_entry_bestmove = 0x0;
@@ -535,11 +584,11 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	}
 
 	const bool initially_in_check = is_in_check(board, board->sidetomove);
+	*/
 
 	// Do not enter qsearch in check, get longer pv's PROBABLY(????) for free
-	if (depth <= 0 && initially_in_check)
+	if (depth <= 0 && checking_pieces[ply])
 		depth++;
-
 
 
 
@@ -547,16 +596,18 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		if (pv)
 			pv->n_moves[ply] = 0;
 		return q_search(board, 0, ply, stats, alpha, beta);
+		// return eval(board);
 	}
-
-
-
-
 
 	if (stats)
 		stats->nodes++;
 
 
+
+
+
+
+	/*
 
 	// Internal Iterative Deepening
 
@@ -580,11 +631,12 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		}
 
 	}
+	*/
 
 
 
 
-
+	/*
 
 	uint16_t special_moves[2];
 	size_t n_special_moves = 0;
@@ -604,10 +656,11 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		if (!(n_special_moves == 1 && tt_entry_bestmove == special_moves[0]))
 			special_moves[n_special_moves++] = tt_entry_bestmove;
 	}
+	*/
 
 
-	movefactory_s movefactory;
-	init_movefactory(&movefactory, &killer_moves[ply], special_moves, n_special_moves);
+	// movefactory_s movefactory;
+	// init_movefactory(&movefactory, &killer_moves[ply], special_moves, n_special_moves);
 
 	unsigned int n_legal_moves_done = 0;
 	move_s* move = NULL;
@@ -615,176 +668,244 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	move_s* best_move = NULL;
 	bool best_move_is_fail_low = true;
 
-	for (size_t i = 0; 1; i++) {
+	// When not in check, skip the legality check of moves by these pieces
+	// BitBoard pinned = ~0x0;
+	// if (!checking_pieces[ply])
+	// 	pinned = pinned_pieces(board);
 
-		move = get_next_move(board, &movefactory, false);
-		
-		if (!move)
-			break;
+	BitBoard pieces_copy = board->pm;
+	// If multiple pieces are attacking the king, only do king moves
+	if (POPCOUNT(checking_pieces[ply]) > 1)
+		pieces_copy = KINGS(board) & board->pm;
+	
+	// When there is only one piece checking the king, calculate check-blocking moves
+	BitBoard check_blocking_moves = 0x0;
+	if (POPCOUNT(checking_pieces[ply]) == 1)
+		check_blocking_moves = check_blocks(board, checking_pieces[ply]);
+	bool single_checking_piece_is_pawn = (PAWNS(board) & check_blocking_moves);
 
+	movelist_s moves;
+	move_s moves_array[32];
+	moves.moves = moves_array;
+
+	int phase = 0;
+
+	for (size_t i = 0; pieces_copy; i++) {
+
+		// generate moves
+		const BitBoard piece = pop_bitboard(&pieces_copy);
+
+		const unsigned int piece_type = PIECE_SQ(board, LOWEST_BITINDEX(piece));
+
+
+		// move = get_next_move(board, &movefactory, false);
+		BitBoard ignore_to_squares = 0x0;
+
+
+		// Do not try to block the check with the king, bad idea
+		if (check_blocking_moves && piece_type != KING)
+			ignore_to_squares = ~check_blocking_moves;
+		// Allow pawn captures even if the king is in check.
+		if (single_checking_piece_is_pawn && piece_type == PAWN)
+			ignore_to_squares &= ~(check_blocking_moves<<8);
 		
-		// Check if castling is valid
-		if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
-			if (initially_in_check)
-				continue; // can not castle while in check
-			
-			BitBoard target_squares;
-			if (board->sidetomove == WHITE)
-				target_squares = (move->flags & FLAG_KCASTLE ? WK_CASTLE_ATTACK_MASK : WQ_CASTLE_ATTACK_MASK);
-			else
-				target_squares = (move->flags & FLAG_KCASTLE ? BK_CASTLE_ATTACK_MASK : BQ_CASTLE_ATTACK_MASK);
-			
-			if (is_side_attacking_sq(board, target_squares, OPPOSITE_SIDE(board->sidetomove)))
-				goto PV_SEARCH_SKIP_MOVE_PRE_MAKE;
+		ignore_to_squares = 0x0;
+
+		if (phase)
+			ignore_to_squares |= OPPONENT_PIECES(board);
+		else
+			ignore_to_squares |= ~OPPONENT_PIECES(board);
+
+		get_pseudo_legal_moves(board, &moves, piece, false, ignore_to_squares);
+
+		if (!pieces_copy && !phase) {
+			pieces_copy = board->pm;
+			phase++;
 		}
 
-		assert(move->from & board->all_pieces[board->sidetomove]);
-		assert(!(move->to & board->all_pieces[board->sidetomove]));
 		
-		makemove(board, move);
+		if (!moves.n)
+			continue;
 
-		if (is_in_check(board, move->side)) {
-			unmakemove(board, move);
+		// go trough every move
+		for (unsigned int j = 0; j < moves.n; j++) {
+
+			move = &moves.moves[j];
+
+			// Check if castling is valid
+			if (move->flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
+				if (checking_pieces[ply])
+					continue; // can not castle while in check
+				
+				BitBoard target_squares;
+				target_squares = (moves.moves[j].flags & FLAG_KCASTLE ? K_CASTLE_ATTACK_MASK : Q_CASTLE_ATTACK_MASK);
+				
+				if (is_attacking_squares(board, target_squares, ~board->pm))
+					goto PV_SEARCH_SKIP_MOVE_PRE_MAKE;
+			}
+			else if (is_move_illegal(board, moves.moves[j]))
+				continue;
+			// else if (piece & pinned
+			// 	|| piece_type == KING
+			// 	|| moves.moves[j].flags & FLAG_ENPASSANT
+			// 	|| checking_pieces[ply]
+			// 	|| false) {
+				
+			// 	if (is_move_illegal(board, moves.moves[j]))
+			// 		continue;
+			// }
+			
+			memcpy(board+1, board, sizeof (board_s));
+			board++;
+
+			makemove(board, moves.moves[j]);
+
+
+			checking_pieces[ply+1] = in_check(board);
+			
+			// Move was legal
+			n_legal_moves_done++;
+
+			// bool move_was_check = is_in_check(board, board->sidetomove);
+
+			int depth_modifier = 0;
+
+			if (checking_pieces[ply+1] && ply < 20)
+				depth_modifier++;
+			/*
+			else if (move_was_check
+			&& move->flags & FLAG_CAPTURE
+			&& move->move_see > 0) {
+				depth_modifier++;
+			}
+
+			// if (move_was_check
+			//   && !(move->flags & FLAG_CAPTURE
+			//    && move->move_see < 0)) {
+			// 	depth_modifier++;
+			// }
+
+			// Check for pawn moves that threaten pieces (may trap pieces?)
+			// if (move->fromtype == PAWN
+			//   && !(move->flags & FLAG_PROMOTE)
+			//   && depth_modifier == 0
+			//   && depth == 1) {
+			// 	if (piecelookup(lowest_bitindex(move->to), PAWN, move->side) & (board->all_pieces[board->sidetomove] & ~(board->pieces[board->sidetomove][PAWN])))
+			// 		depth_modifier++;
+			// }
+
+			if (move->flags & FLAG_CAPTURE
+			&& move->move_see >= 120 + (depth * 100)
+			&& depth < 4
+			&& depth_modifier == 0) {
+				depth_modifier++;
+			}
+			// if (move->flags & FLAG_CAPTURE
+			//   && move->move_see <= -40 - (depth * 60)
+			//   && n_legal_moves_done > 4
+			//   //&& depth <= 6
+			//   && depth_modifier == 0) {
+			// 	depth_modifier--;
+			// }
+
+			*/
+
+
+			eval_t score = -EVAL_INF;
+
+			bool full_search = true;
+
+			if (depth == 1) full_search = true;
+
+			if (n_legal_moves_done == 1) full_search = true;
+
+			PV_SEARCH_RE_SEARCH:
+
+			if (full_search)
+				score = -pv_search(board, depth-1+depth_modifier, ply+1, stats, pv, start_time, time_available, (i == 0 && is_leftmost_path), -beta, -alpha);
+			else
+				score = -zw_search(board, depth-1+depth_modifier+(depth <= 2 ? 0 : 0), ply+1, stats, start_time, time_available, false, -alpha-1, -alpha);
+			
+			if (abort_search) {
+				//unmakemove(board, move);
+				return 0;
+			}
+
+			if (!full_search) {
+				if (score > alpha) {
+					full_search = true;
+					goto PV_SEARCH_RE_SEARCH;
+				}
+			}
+
+			PV_SEARCH_SKIP_SEARCH:
+
+			//unmakemove(board, move);
+			board--;
+
+
+			if (score > best_score) {
+				best_score = score;
+				best_move = move;
+				best_move_is_fail_low = (score <= alpha);
+			}
+
+			if (score >= beta) {
+
+				if (pv)
+					pv->n_moves[ply] = 0;
+
+				/*
+				if (!(move->flags & FLAG_CAPTURE)) {
+					// If move is not already in killer, store it
+					if (killer_moves[ply][0][0] != move->from || killer_moves[ply][0][1] != move->to) {
+						killer_moves[ply][1][0] = killer_moves[ply][0][0];
+						killer_moves[ply][1][1] = killer_moves[ply][0][1];
+						killer_moves[ply][0][0] = move->from;
+						killer_moves[ply][0][1] = move->to;
+					}
+					// move has been undone already
+					if (depth > 1)
+						hh_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
+				}
+
+				store_move(&tt_normal, board->hash, score, depth, encode_compact_move(move),  TT_ENTRY_FLAG_FAIL_HIGH | TT_ENTRY_FLAG_PV_NODE, ply);
+				*/
+
+				return score;
+			}
+			// else if (depth > 1 && !(move->flags & FLAG_CAPTURE))
+			// 	bf_score[ply % 2][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
+
+			if (score > alpha && score < beta) {
+
+				assert(full_search);
+
+				if (pv) {
+					// save this node to the pv
+					pv->n_moves[ply] = 1;
+					// pv->pv[ply][0] = encode_compact_move(move, ply%2);
+					pv->pv[ply][0] = encode_compact_move(move, false);
+
+					// if the searched nodes saved something to pv, save it to this depth
+					if (pv->n_moves[ply + 1] > 0) {
+						memcpy(&pv->pv[ply][1], &pv->pv[ply+1][0], pv->n_moves[ply+1] * sizeof (uint16_t));
+						pv->n_moves[ply] = pv->n_moves[ply + 1] + 1;
+					}
+				}
+
+				alpha = score;
+			}
+
+			PV_SEARCH_SKIP_MOVE_PRE_MAKE:
 			continue;
 		}
-		
-		// Move was legal
-		n_legal_moves_done++;
-
-		bool move_was_check = is_in_check(board, board->sidetomove);
-
-
-		int depth_modifier = 0;
-
-		if (move_was_check && ply < 20)
-			depth_modifier++;
-		else if (move_was_check
-		  && move->flags & FLAG_CAPTURE
-		  && move->move_see > 0) {
-			depth_modifier++;
-		}
-
-		// if (move_was_check
-		//   && !(move->flags & FLAG_CAPTURE
-		//    && move->move_see < 0)) {
-		// 	depth_modifier++;
-		// }
-
-		// Check for pawn moves that threaten pieces (may trap pieces?)
-		// if (move->fromtype == PAWN
-		//   && !(move->flags & FLAG_PROMOTE)
-		//   && depth_modifier == 0
-		//   && depth == 1) {
-		// 	if (piecelookup(lowest_bitindex(move->to), PAWN, move->side) & (board->all_pieces[board->sidetomove] & ~(board->pieces[board->sidetomove][PAWN])))
-		// 		depth_modifier++;
-		// }
-
-		if (move->flags & FLAG_CAPTURE
-		  && move->move_see >= 120 + (depth * 100)
-		  && depth < 4
-		  && depth_modifier == 0) {
-			depth_modifier++;
-		}
-		// if (move->flags & FLAG_CAPTURE
-		//   && move->move_see <= -40 - (depth * 60)
-		//   && n_legal_moves_done > 4
-		//   //&& depth <= 6
-		//   && depth_modifier == 0) {
-		// 	depth_modifier--;
-		// }
-
-
-		eval_t score = -EVAL_INF;
-
-		bool full_search = false;
-
-		if (depth == 1) full_search = true;
-
-		if (n_legal_moves_done == 1) full_search = true;
-
-		PV_SEARCH_RE_SEARCH:
-
-		if (full_search)
-			score = -pv_search(board, depth-1+depth_modifier, ply+1, stats, pv, start_time, time_available, (i == 0 && is_leftmost_path), -beta, -alpha);
-		else
-			score = -zw_search(board, depth-1+depth_modifier+(depth <= 2 ? 0 : 0), ply+1, stats, start_time, time_available, false, -alpha-1, -alpha);
-		
-		if (abort_search) {
-			unmakemove(board, move);
-			return 0;
-		}
-
-
-		if (!full_search) {
-			if (score > alpha) {
-				full_search = true;
-				goto PV_SEARCH_RE_SEARCH;
-			}
-		}
-
-		PV_SEARCH_SKIP_SEARCH:
-
-		unmakemove(board, move);
-
-
-		if (score > best_score) {
-			best_score = score;
-			best_move = move;
-			best_move_is_fail_low = (score <= alpha);
-		}
-
-		if (score >= beta) {
-
-			if (pv)
-				pv->n_moves[ply] = 0;
-
-			if (!(move->flags & FLAG_CAPTURE)) {
-				// If move is not already in killer, store it
-				if (killer_moves[ply][0][0] != move->from || killer_moves[ply][0][1] != move->to) {
-					killer_moves[ply][1][0] = killer_moves[ply][0][0];
-					killer_moves[ply][1][1] = killer_moves[ply][0][1];
-					killer_moves[ply][0][0] = move->from;
-					killer_moves[ply][0][1] = move->to;
-				}
-				// move has been undone already
-				if (depth > 1)
-					hh_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
-			}
-
-			store_move(&tt_normal, board->hash, score, depth, encode_compact_move(move),  TT_ENTRY_FLAG_FAIL_HIGH | TT_ENTRY_FLAG_PV_NODE, ply);
-
-			return score;
-		}
-		else if (depth > 1 && !(move->flags & FLAG_CAPTURE))
-			bf_score[move->side][lowest_bitindex(move->from)][lowest_bitindex(move->to)] += 1;
-
-		if (score > alpha) {
-
-			assert(full_search);
-
-			if (pv) {
-				// save this node to the pv
-				pv->n_moves[ply] = 1;
-				pv->pv[ply][0] = encode_compact_move(move);
-
-				// if the searched nodes saved something to pv, save it to this depth
-				if (pv->n_moves[ply + 1] > 0) {
-					memcpy(&pv->pv[ply][1], &pv->pv[ply+1][0], pv->n_moves[ply+1] * sizeof (uint16_t));
-					pv->n_moves[ply] = pv->n_moves[ply + 1] + 1;
-				}
-			}
-
-			alpha = score;
-		}
-
-		PV_SEARCH_SKIP_MOVE_PRE_MAKE:
-		continue;
 	}
 
 	if (!n_legal_moves_done) {
 		if (pv)
 			pv->n_moves[ply] = 0;
-		if (initially_in_check) { // is a checkmate (was in check and can't get out of it)
+		if (checking_pieces[ply]) { // is a checkmate (was in check and can't get out of it)
 			return -MATE + ply;
 		}
 		else { // is a stalemate (wasn't in check and no legal moves)
@@ -792,7 +913,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 		}
 	}
 
-
+	/*
 	if (best_move_is_fail_low) {
 		if (pv)
 			pv->n_moves[ply] = 0;
@@ -800,6 +921,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 	}
 	else
 		store_move(&tt_normal, board->hash, best_score, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_EXACT | TT_ENTRY_FLAG_PV_NODE, ply);
+	*/
 
 	return best_score;
 }
@@ -807,6 +929,7 @@ static eval_t pv_search(board_s* restrict board, int depth, const int ply, searc
 
 static eval_t zw_search(board_s* restrict board, int depth, const int ply, search_stats_s* restrict stats, const clock_t start_time, const clock_t time_available, const bool is_null_move, eval_t alpha, eval_t beta) {
 
+	/*
 	if (time_available && depth >= 4) {
 		if (clock() - start_time >= time_available) {
 			abort_search = true;
@@ -947,7 +1070,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 			return q_stand_pat - margin;
 	}
 
-
+	*/
 	/*
 	if (depth <= 3
 	   && !initially_in_check
@@ -983,6 +1106,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		//	return stand_pat;
 	}
 	*/
+	/*
 
 
 	// Null move reduction
@@ -1220,6 +1344,7 @@ static eval_t zw_search(board_s* restrict board, int depth, const int ply, searc
 		store_move(&tt_normal, board->hash, alpha, depth, encode_compact_move(best_move), TT_ENTRY_FLAG_FAIL_LOW, ply);
 
 	return best_score;
+	*/
 }
 
 
@@ -1231,15 +1356,16 @@ static eval_t q_search(board_s* restrict board, const int qdepth, const int ply,
 	
 	if (abort_search) return 0;
 
-	const bool initially_in_check = is_in_check(board, board->sidetomove);
+	// const bool initially_in_check = is_in_check(board, board->sidetomove);
 
 
 	// Do not do evaluation of a position when in check
 	eval_t stand_pat = -EVAL_INF;
-	if (!initially_in_check) {
+	if (!checking_pieces[ply]) {
 
-		stand_pat = eval(board) * (board->sidetomove == WHITE ? 1 : -1);
-		
+		// stand_pat = eval(board) * (board->sidetomove == WHITE ? 1 : -1);
+		stand_pat = eval(board);
+	
 		if (stand_pat >= beta)
 			return stand_pat;
 		if (alpha < stand_pat)
@@ -1247,59 +1373,145 @@ static eval_t q_search(board_s* restrict board, const int qdepth, const int ply,
 	}
 
 
-	movefactory_s movefactory;
-	init_movefactory(&movefactory, NULL, 0x0, 0);
+	// movefactory_s movefactory;
+	// init_movefactory(&movefactory, NULL, 0x0, 0);
 
 	unsigned int n_legal_moves_done = 0;
-	move_s* move = NULL;
+	// move_s* move = NULL;
 	eval_t best_score = -EVAL_INF;
 
 	best_score = stand_pat;
 
-	for (size_t i = 0; 1; i++) {
+	BitBoard pieces_copy = board->pm;
+	// If multiple pieces are attacking the king, only do king moves
+	if (POPCOUNT(checking_pieces[ply]) > 1)
+		pieces_copy = KINGS(board) & board->pm;
+
+	// When there is only one piece checking the king, calculate check-blocking moves
+	BitBoard check_blocking_moves = 0x0;
+	if (POPCOUNT(checking_pieces[ply]) == 1)
+		check_blocking_moves = check_blocks(board, checking_pieces[ply]);
+	bool single_checking_piece_is_pawn = (PAWNS(board) & check_blocking_moves);
+
+	// When not in check, skip the legality check of moves by these pieces
+	// BitBoard pinned = ~0x0;
+	// size_t pinned_allowed_squares_index = 0;
+	// if (!checking_pieces[ply])
+	// 	pinned = pinned_pieces(board);
+
+
+	movelist_s moves;
+	move_s moves_array[32];
+	moves.moves = moves_array;
+
+	for (size_t i = 0; pieces_copy; i++) {
+
+		// generate moves
+		const BitBoard piece = pop_bitboard(&pieces_copy);
+
+		const unsigned int piece_type = PIECE_SQ(board, LOWEST_BITINDEX(piece));
 
 		// When not in check, use the qsearch movegen
-		move = get_next_move(board, &movefactory, !initially_in_check);
-		
-		if (!move)
-			break;
+		// move = get_next_move(board, &movefactory, !initially_in_check);
+		BitBoard ignore_to_squares = 0x0;
 
-		// HACK: Since qsearch movegen currently returns moves that are sse >= 0, filter
-		// sse == 0 out when that is used
-		// TODO: NEEDS TESTING
-		if (!initially_in_check && move->flags & FLAG_CAPTURE && move->move_see <= 0)
+
+		// Do not try to block the check with the king, bad idea
+		if (check_blocking_moves && piece_type != KING)
+			ignore_to_squares = ~check_blocking_moves;
+		// Allow pawn captures even if the king is in check.
+		if (single_checking_piece_is_pawn && piece_type == PAWN)
+			ignore_to_squares &= ~(check_blocking_moves<<8);
+
+		if (!checking_pieces[ply])
+			ignore_to_squares |= ~OPPONENT_PIECES(board);
+		
+		if (piece & W_PROMOTE_FROM_MASK && piece_type == PAWN)
+			ignore_to_squares &= ~TOP_MASK;
+
+
+		get_pseudo_legal_moves(board, &moves, piece, false, ignore_to_squares);
+
+		
+		if (!moves.n)
 			continue;
-
-
-		makemove(board, move);
-
-		if (is_in_check(board, move->side)) {
-			unmakemove(board, move);
-			continue;
-		}
 		
-		// Move was legal
-		n_legal_moves_done++;
-		
+		// go trough every move
+		for (unsigned int j = 0; j < moves.n; j++) {
 
-		eval_t score;
+			// HACK: Since qsearch movegen currently returns moves that are sse >= 0, filter
+			// sse == 0 out when that is used
+			// TODO: NEEDS TESTING
+			// if (!initially_in_check && move->flags & FLAG_CAPTURE && move->move_see <= 0)
+			// 	continue;
 
-		score = -q_search(board, qdepth + 1, ply + 1, stats, -beta, -alpha);
+			// Check if castling is valid
+			if (moves.moves[j].flags & (FLAG_KCASTLE | FLAG_QCASTLE)) {
+				if (checking_pieces[ply])
+					continue; // can not castle while in check
+				
+				BitBoard target_squares;
+				target_squares = (moves.moves[j].flags & FLAG_KCASTLE ? K_CASTLE_ATTACK_MASK : Q_CASTLE_ATTACK_MASK);
 
-		unmakemove(board, move);
+				if (is_attacking_squares(board, target_squares, ~board->pm))
+					continue;
+			}
+			else if (is_move_illegal(board, moves.moves[j]))
+				continue;
+			// else if (piece & pinned
+			// 	|| piece_type == KING
+			// 	|| moves.moves[j].flags & FLAG_ENPASSANT
+			// 	|| checking_pieces[ply]) {
+
+			// 	if (is_move_illegal(board, moves.moves[j]))
+			// 		continue;
+			// }
+
+			if (!checking_pieces[ply] && moves.moves[j].flags & FLAG_CAPTURE) {
+				if (see(board, &moves.moves[j]) <= 0)
+					continue;
+			}
+			
+			if (moves.moves[j].flags & FLAG_PROMOTE && moves.moves[j].promoteto != QUEEN)
+				continue;
 
 
-		if (score > best_score) {
-		 	if (score >= beta)
-		 		return score;
+			memcpy(board+1, board, sizeof (board_s));
+			board++;
 
-		 	best_score = score;
+			makemove(board, moves.moves[j]);
+
+			// if (is_in_check(board, move->side)) {
+			// 	unmakemove(board, move);
+			// 	continue;
+			// }
+
+			checking_pieces[ply+1] = in_check(board);
+			
+			// Move was legal
+			n_legal_moves_done++;
+			
+
+			eval_t score;
+
+			score = -q_search(board, qdepth + 1, ply + 1, stats, -beta, -alpha);
+
+			// unmakemove(board, move);
+			board--;
+
+
+			if (score > best_score) {
+				if (score >= beta)
+					return score;
+
+				best_score = score;
+			}
+			alpha = MAX(score, alpha);
 		}
-		alpha = MAX(score, alpha);
 	}
 
 	if (!n_legal_moves_done) {
-		if (initially_in_check) // is a checkmate (was in check and can't get out of it and all moves were generated)
+		if (checking_pieces[ply]) // is a checkmate (was in check and can't get out of it and all moves were generated)
 			return -MATE + ply;
 
 		// Could have been a stalemate, but since only winning captures was generated, can't know
@@ -1309,5 +1521,4 @@ static eval_t q_search(board_s* restrict board, const int qdepth, const int ply,
 
 
 	return best_score;
-
 }

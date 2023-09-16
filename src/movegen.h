@@ -24,7 +24,7 @@ BitBoard own_attacks_squares(const board_s* restrict board, const BitBoard sq);
 
 // Gets all pieces that see sq.
 // Pieces set in ignoremask are ignored.
-// BitBoard get_seeing_pieces(const board_s* board, BitBoard sq, BitBoard ignoremask);
+BitBoard get_seeing_pieces(const board_s* board, BitBoard sq, BitBoard ignoremask);
 
 // side: the side whose king to check(which side to check for)
 bool is_in_check(const board_s* board, const unsigned int side);

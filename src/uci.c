@@ -15,6 +15,7 @@
 #include "search.h"
 #include "algebraic.h"
 #include "eval.h"
+#include "bitboard.h"
 
 // Private functions
 
@@ -22,7 +23,7 @@
 int parse_go_command(uci_s* uci, board_s* board, char* input, FILE* f);
 
 // returns non-zero value on failure
-int parse_position_command(board_s* board, char* input, size_t n);
+int parse_position_command(uci_s* uci, board_s* board, char* input, size_t n);
 
 
 // may work, may not
@@ -170,12 +171,19 @@ int parse_go_command(uci_s* uci, board_s* board, char* input, FILE* f) {
 		|| bestmove_eval == (is_eval_better(INFINITY, -INFINITY, board->sidetomove) ? -INFINITY : INFINITY))
 		*/
 
+	if (uci->computer_side == BLACK) {
+		bestmove.from ^= 56;
+		bestmove.to ^= 56;
+	}
+
 	
 	char from[2];
-	bbtoalg(from, bestmove.from);
+	// bbtoalg(from, bestmove.from);
+	sqtoalg(from, bestmove.from);
 
 	char to[2];
-	bbtoalg(to, bestmove.to);
+	// bbtoalg(to, bestmove.to);
+	sqtoalg(to, bestmove.to);
 
 	char promote[2];
 	if (bestmove.flags & FLAG_PROMOTE) {
@@ -195,7 +203,7 @@ int parse_go_command(uci_s* uci, board_s* board, char* input, FILE* f) {
 
 
 // FIXME: oh god why oh no
-int parse_position_command(board_s* board, char* input, size_t n) {
+int parse_position_command(uci_s* uci, board_s* board, char* input, size_t n) {
 	resetboard(board);
 
 	char input_copy[n + 1]; // +1 as to include \0
@@ -218,10 +226,10 @@ int parse_position_command(board_s* board, char* input, size_t n) {
 			// set null after supposed fen string (" moves" comes after fen string)
 			input_copy[moves_index - 1] = '\0';
 		}
-		*board = boardfromfen(input_copy + fen_index);
+		*board = boardfromfen(input_copy + fen_index, &uci->computer_side);
 	}
 	else if (!strcmp(field, "startpos")) {
-		*board = boardfromfen(DEFAULT_FEN);
+		*board = boardfromfen(DEFAULT_FEN, &uci->computer_side);
 	}
 	else
 		return 1;
@@ -245,32 +253,16 @@ int parse_position_command(board_s* board, char* input, size_t n) {
 	while (uci_move) {
 		move_s move;
 
-		uci_notation_to_move(board, &move, uci_move);
+		uci_notation_to_move(board, &move, uci_move, uci->computer_side == BLACK);
 
-		/*
-		memset(&move, 0, sizeof(move_s));
+		makemove(board, move);
 
-		// is move promotion?
-		if (strlen(uci_move) > 4) {
-			move.flags |= FLAG_PROMOTE;
-			move.promoteto = piece_from_char(uci_move[4]);
-		}
-
-		move.from = SQTOBB(algsqtoint(uci_move));
-		move.to = SQTOBB(algsqtoint(uci_move + 2));
-		move.side = get_piece_side(board, move.from);
-		move.fromtype = get_piece_type(board, move.side, move.from);
-
-		set_move_flags(&move, board);
-
-		if (move.flags & FLAG_CAPTURE)
-			move.piece_captured = get_piece_type(board, OPPOSITE_SIDE(move.side), move.to);
-
-		move.old_castling_flags = board->castling;
-		move.old_en_passant = board->en_passant;
-		*/
-		makemove(board, &move);
-		//append_to_move_history(board, &move);
+		// Flip computer_side after move make
+		
+		if (uci->computer_side == WHITE)
+			uci->computer_side = BLACK;
+		else
+			uci->computer_side = WHITE;
 
 		uci_move = strtok(NULL, " ");
 	}
@@ -313,14 +305,17 @@ void uci(FILE* f) {
 
 		if (!strcmp(input, "ucinewgame")) {
 #ifndef NDEBUG
-			free_move_history(&board);
+			// free_move_history(&board);
 #endif // NDEBUG
 			resetboard(&board);
 		}
 		else if (!strncmp(input, "position", 8)) {
-			parse_position_command(&board, input, len);
-#ifndef NDEBUG
+			parse_position_command(&uci, &board, input, len);
 			printboard(&board);
+			// printbitboard(MOVING_PIECES(&board));
+			// printbitboard(OPPONENT_PIECES(&board));
+			// printbitboard(OCCUPANCY(&board));
+#ifndef NDEBUG
 #endif // NDEBUG
 		}
 		else if (!strncmp(input, "go", 2)){
@@ -394,9 +389,17 @@ void move_to_uci_notation(const move_s* restrict move, char* restrict str) {
 }
 
 
-void compact_move_to_uci_notation(const uint16_t move, char* str) {
-	bbtoalg(str, SQTOBB(COMPACT_MOVE_FROM(move)));
-	bbtoalg(str + 2, SQTOBB(COMPACT_MOVE_TO(move)));
+void compact_move_to_uci_notation(const uint16_t move, char* str, bool black_move) {
+
+	BitBoard frombb = SQTOBB(COMPACT_MOVE_FROM(move));
+	BitBoard tobb = SQTOBB(COMPACT_MOVE_TO(move));
+	if (black_move) {
+		frombb = FLIP_VERTICAL(frombb);
+		tobb = FLIP_VERTICAL(tobb);
+	}
+
+	bbtoalg(str, frombb);
+	bbtoalg(str + 2, tobb);
 
 	if (move & COMPACT_MOVE_PROMOTE_FLAG) {
 		str[4] = piecetochar(COMPACT_MOVE_PROMOTETO(move));
@@ -408,7 +411,7 @@ void compact_move_to_uci_notation(const uint16_t move, char* str) {
 }
 
 
-void uci_notation_to_move(const board_s* board, move_s* move, const char* ucimove) {
+void uci_notation_to_move(const board_s* board, move_s* move, const char* ucimove, bool black_move) {
 	memset(move, 0, sizeof(move_s));
 
 	// is move promotion?
@@ -417,18 +420,26 @@ void uci_notation_to_move(const board_s* board, move_s* move, const char* ucimov
 		move->promoteto = piece_from_char(ucimove[4]);
 	}
 
-	move->from = SQTOBB(algsqtoint(ucimove));
-	move->to = SQTOBB(algsqtoint(ucimove + 2));
-	move->side = get_piece_side(board, move->from);
-	move->fromtype = get_piece_type(board, move->side, move->from);
+	move->from = algsqtoint(ucimove);
+	move->to = algsqtoint(ucimove + 2);
+	// move->side = get_piece_side(board, move->from);
+	// move->fromtype = get_piece_type(board, move->side, move->from);
 
-	set_move_flags(move, board);
+	// if (!(SQTOBB(move->from) & board->pm)) {
+	if (black_move) {
+		// move.from ^= 56;
+		move->from = LOWEST_BITINDEX(FLIP_VERTICAL(SQTOBB(move->from)));
+		// move.to ^= 56;
+		move->to = LOWEST_BITINDEX(FLIP_VERTICAL(SQTOBB(move->to)));
+	}
 
-	if (move->flags & FLAG_CAPTURE)
-		move->piece_captured = get_piece_type(board, OPPOSITE_SIDE(move->side), move->to);
+	*move = set_move_flags(*move, board);
 
-	move->old_castling_flags = board->castling;
-	move->old_en_passant = board->en_passant;
+	// if (move->flags & FLAG_CAPTURE)
+	// 	move->piece_captured = get_piece_type(board, OPPOSITE_SIDE(move->side), move->to);
+
+	// move->old_castling_flags = board->castling;
+	// move->old_en_passant = board->en_passant;
 }
 
 

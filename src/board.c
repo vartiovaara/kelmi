@@ -114,7 +114,7 @@ unsigned int piece_from_char(const unsigned char c) {
 }
 
 
-board_s boardfromfen(const char* fen_str) {
+board_s boardfromfen(const char* fen_str, enum side_e* computer_side) {
 	// TODO: have a FEN validation function as the
 	// behaviour of this function is undefined with invalid FENs
 
@@ -199,13 +199,17 @@ board_s boardfromfen(const char* fen_str) {
 
 	// Parse castling ability
 	if (strchr(castling, 'K'))
-		board.castling |= (moving_side == WHITE ? (MKCASTLE) : (OKCASTLE));
+		board.castling |= MKCASTLE;
+	// board.castling |= (moving_side == WHITE ? (MKCASTLE) : (OKCASTLE));
 	if (strchr(castling, 'Q'))
-		board.castling |= (moving_side == WHITE ? (MQCASTLE) : (OQCASTLE));
+		board.castling |= MQCASTLE;
+	// board.castling |= (moving_side == WHITE ? (MQCASTLE) : (OQCASTLE));
 	if (strchr(castling, 'k'))
-		board.castling |= (moving_side == BLACK ? (MKCASTLE) : (OKCASTLE));
+		board.castling |= OKCASTLE;
+	// board.castling |= (moving_side == BLACK ? (MKCASTLE) : (OKCASTLE));
 	if (strchr(castling, 'q'))
-		board.castling |= (moving_side == BLACK ? (MQCASTLE) : (OQCASTLE));
+		board.castling |= OQCASTLE;
+	// board.castling |= (moving_side == BLACK ? (MQCASTLE) : (OQCASTLE));
 	
 	// Parse en passant
 	if (en_passant[0] != '-')
@@ -228,8 +232,14 @@ board_s boardfromfen(const char* fen_str) {
 	// else
 	// 	board.side_in_check = SIDE_NONE;
 
-	if (moving_side == 'b')
+	if (moving_side == BLACK)
 		FLIP_BOARD(&board);
+	
+	if (moving_side == WHITE)
+		*computer_side = WHITE;
+	else
+		*computer_side = BLACK;
+
 
 	/*
 #ifndef NDEBUG

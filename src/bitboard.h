@@ -75,7 +75,7 @@
 
 
 // Returns the lowest bit as a bitboard
-#define LOWEST_BITBOARD(bb) (bb ^ (bb & (bb - 1)))
+#define LOWEST_BITBOARD(bb) ((bb) ^ ((bb) & ((bb) - 1)))
 
 
 // Returns the index of the highest bit set
